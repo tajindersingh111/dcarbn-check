@@ -2,6 +2,7 @@ apiVersion: argoproj.io/v1alpha1
 kind: Rollout
 metadata:
   name: dcarbn-backend
+  namespace: dcarbn
 spec:
   replicas: 2
 ---
@@ -9,5 +10,6 @@ apiVersion: argoproj.io/v1alpha1
 kind: Rollout
 metadata:
   name: dcarbn-frontend
+  namespace: dcarbn
 spec:
   replicas: 2
