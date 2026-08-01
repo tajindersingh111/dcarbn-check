@@ -2,6 +2,7 @@ apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: dcarbn-backend
+  namespace: dcarbn
   annotations:
     nginx.ingress.kubernetes.io/server-snippet: |
       return 503;
@@ -16,6 +17,7 @@ apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: dcarbn-frontend
+  namespace: dcarbn
   annotations:
     nginx.ingress.kubernetes.io/server-snippet: |
       return 503;
