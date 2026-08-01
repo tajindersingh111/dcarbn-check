@@ -400,6 +400,7 @@ jobs:
       - name: Validate Compose models
         run: |
           mkdir -p artifacts/containers
+          cp .env.example .env
           docker compose -f docker-compose.yml config \
             > artifacts/containers/compose-development.yml
 
