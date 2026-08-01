@@ -12,7 +12,6 @@ from app.factors.uk_2026_importer import (
     classify_greenhouse_gas_component,
     parse_uk_2026_flat_workbook,
 )
-from app.models.emission_factor import GreenhouseGasComponent
 
 
 def build_workbook(headers: tuple[str, ...] = EXPECTED_HEADERS) -> bytes:
