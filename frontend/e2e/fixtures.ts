@@ -46,6 +46,18 @@ export async function installApiFixtures(page: Page): Promise<void> {
     const path = url.pathname.replace("/api/v1", "");
     const method = request.method();
 
+    if (path === "/auth/me") {
+      return route.fulfill({ json: {
+        id: "e2e-user",
+        email: "alex@example.com",
+        full_name: "Alex Morgan",
+        tenant_id: organisation.tenant_id,
+        tenant_name: organisation.name,
+        tenant_slug: "northstar-logistics",
+        roles: ["tenant_admin"],
+        is_platform_admin: false
+      }});
+    }
     if (path === "/dashboard") {
       return route.fulfill({ json: {
         total_kg_co2e: "12846280",
