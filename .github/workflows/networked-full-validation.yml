@@ -150,8 +150,8 @@ jobs:
           --health-retries 20
     env:
       APP_ENV: test
-      SECRET_KEY: ${{ env.TEST_SECRET_KEY }}
-      MFA_ENCRYPTION_KEY: ${{ env.TEST_MFA_KEY }}
+      SECRET_KEY: test-secret-key-that-is-at-least-thirty-two-characters
+      MFA_ENCRYPTION_KEY: test-mfa-key-that-is-at-least-thirty-two-characters
       DATABASE_URL: postgresql+asyncpg://dcarbn:dcarbn@localhost:5432/dcarbn_test
       REDIS_URL: redis://localhost:6379/15
       CORS_ORIGINS: http://localhost:3000
