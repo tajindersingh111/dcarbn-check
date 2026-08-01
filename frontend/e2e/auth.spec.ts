@@ -51,7 +51,7 @@ test("invited user creates an account", async ({ page }) => {
     await route.fulfill({ status: 204, body: "" });
   });
   await page.goto("/accept-invitation?token=" + "a".repeat(48));
-  await page.getByLabel("Password").fill("Correct-Horse-Battery-Staple-2026");
+  await page.getByLabel("Password", { exact: true }).fill("Correct-Horse-Battery-Staple-2026");
   await page.getByLabel("Confirm password").fill("Correct-Horse-Battery-Staple-2026");
   await page.getByRole("button", { name: "Activate account" }).click();
   await expect(page.getByText("Your account is active.")).toBeVisible();
