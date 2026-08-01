@@ -1,3 +1,5 @@
+export type StatusTone = "success" | "info" | "warning" | "neutral" | "danger";
+
 export interface ListResponse<T> {
   items: T[];
   total: number;
