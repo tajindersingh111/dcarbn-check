@@ -222,6 +222,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       NEXT_PUBLIC_API_BASE_URL: http://127.0.0.1:8000/api/v1
+      E2E_ACCESS_TOKEN: ${{ secrets.E2E_ACCESS_TOKEN }}
     steps:
       - uses: actions/checkout@v4
 
@@ -282,11 +283,10 @@ jobs:
         if: >-
           github.event_name == 'workflow_dispatch' &&
           inputs.run_live_api_test &&
-          secrets.E2E_ACCESS_TOKEN != ''
+          env.E2E_ACCESS_TOKEN != ''
         working-directory: frontend
         run: npm run test:e2e:live
         env:
-          E2E_ACCESS_TOKEN: ${{ secrets.E2E_ACCESS_TOKEN }}
           E2E_API_BASE_URL: ${{ vars.E2E_API_BASE_URL }}
 
       - name: Upload frontend evidence
