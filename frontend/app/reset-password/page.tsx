@@ -2,12 +2,12 @@
 
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { useState } from "react";
+import { Suspense, useState } from "react";
 
 import { MutationMessage } from "@/components/api-state";
 import { apiRequest } from "@/lib/api";
 
-export default function ResetPasswordPage() {
+function ResetPasswordForm() {
   const searchParams = useSearchParams();
   const [working, setWorking] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -57,5 +57,13 @@ export default function ResetPasswordPage() {
         )}
       </section>
     </main>
+  );
+}
+
+export default function ResetPasswordPage() {
+  return (
+    <Suspense fallback={<main className="auth-page" aria-busy="true" />}>
+      <ResetPasswordForm />
+    </Suspense>
   );
 }
