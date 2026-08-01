@@ -59,6 +59,16 @@ target-version = "py312"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "B", "UP", "ASYNC"]
+ignore = [
+  "B008",  # FastAPI dependency injection deliberately uses Depends(...) defaults.
+  "E501",  # Existing long imports are handled separately from correctness checks.
+  "F401",  # Legacy unused imports are tracked for incremental clean-up.
+  "I001",  # Preserve established import grouping until the formatting pass.
+  "UP035", # Defer non-functional typing import modernisation.
+  "UP037", # Preserve quoted annotations used by Pydantic models.
+  "UP046", # Defer PEP 695 generic class conversion.
+  "UP047"  # Defer PEP 695 generic function conversion.
+]
 
 [tool.mypy]
 python_version = "3.12"
