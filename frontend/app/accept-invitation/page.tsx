@@ -1,12 +1,12 @@
 "use client";
 
 import { useSearchParams } from "next/navigation";
-import { useState } from "react";
+import { Suspense, useState } from "react";
 
 import { MutationMessage } from "@/components/api-state";
 import { apiRequest } from "@/lib/api";
 
-export default function AcceptInvitationPage() {
+function AcceptInvitationForm() {
   const searchParams = useSearchParams();
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -51,5 +51,13 @@ export default function AcceptInvitationPage() {
         )}
       </section>
     </main>
+  );
+}
+
+export default function AcceptInvitationPage() {
+  return (
+    <Suspense fallback={<main className="auth-page" aria-busy="true" />}>
+      <AcceptInvitationForm />
+    </Suspense>
   );
 }
