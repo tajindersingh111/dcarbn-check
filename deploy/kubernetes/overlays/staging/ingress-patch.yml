@@ -2,6 +2,7 @@ apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: dcarbn-backend
+  namespace: dcarbn
 spec:
   tls:
     - hosts: ["staging.carbon.example.com"]
@@ -13,6 +14,7 @@ apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: dcarbn-frontend
+  namespace: dcarbn
 spec:
   tls:
     - hosts: ["staging.carbon.example.com"]
