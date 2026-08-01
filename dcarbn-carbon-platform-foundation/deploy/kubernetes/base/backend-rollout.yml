@@ -1,0 +1,169 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Rollout
+metadata:
+  name: dcarbn-backend
+  namespace: dcarbn
+  labels:
+    app.kubernetes.io/name: dcarbn-backend
+    app.kubernetes.io/component: api
+    app.kubernetes.io/part-of: dcarbn-carbon-platform
+spec:
+  replicas: 3
+  revisionHistoryLimit: 3
+  progressDeadlineSeconds: 900
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: dcarbn-backend
+  strategy:
+    canary:
+      stableService: dcarbn-backend-stable
+      canaryService: dcarbn-backend-canary
+      trafficRouting:
+        nginx:
+          stableIngress: dcarbn-backend
+      maxSurge: 1
+      maxUnavailable: 0
+      abortScaleDownDelaySeconds: 60
+      scaleDownDelaySeconds: 60
+      steps:
+        - setWeight: 5
+        - pause:
+            duration: 2m
+        - analysis:
+            templates:
+              - templateName: dcarbn-backend-canary
+            args:
+              - name: service-name
+                value: dcarbn-backend-canary
+        - setWeight: 25
+        - pause:
+            duration: 5m
+        - analysis:
+            templates:
+              - templateName: dcarbn-backend-canary
+        - setWeight: 50
+        - pause:
+            duration: 10m
+        - analysis:
+            templates:
+              - templateName: dcarbn-backend-canary
+        - setWeight: 100
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: dcarbn-backend
+        app.kubernetes.io/component: api
+        app.kubernetes.io/part-of: dcarbn-carbon-platform
+    spec:
+      serviceAccountName: dcarbn-backend
+      automountServiceAccountToken: false
+      terminationGracePeriodSeconds: 60
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: topology.kubernetes.io/zone
+          whenUnsatisfiable: DoNotSchedule
+          labelSelector:
+            matchLabels:
+              app.kubernetes.io/name: dcarbn-backend
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels:
+              app.kubernetes.io/name: dcarbn-backend
+      containers:
+        - name: backend
+          image: ghcr.io/example/dcarbn-backend@sha256:REPLACE_BACKEND_DIGEST
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8000
+          envFrom:
+            - configMapRef:
+                name: dcarbn-backend-config
+            - secretRef:
+                name: dcarbn-runtime-secrets
+          readinessProbe:
+            httpGet:
+              path: /api/v1/health/ready
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /api/v1/health/live
+              port: http
+            initialDelaySeconds: 20
+            periodSeconds: 15
+            timeoutSeconds: 3
+            failureThreshold: 3
+          startupProbe:
+            httpGet:
+              path: /api/v1/health/live
+              port: http
+            periodSeconds: 5
+            failureThreshold: 30
+          lifecycle:
+            preStop:
+              exec:
+                command: ["/bin/sh", "-c", "sleep 10"]
+          resources:
+            requests:
+              cpu: 250m
+              memory: 512Mi
+              ephemeral-storage: 256Mi
+            limits:
+              cpu: "2"
+              memory: 2Gi
+              ephemeral-storage: 1Gi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+            - name: evidence
+              mountPath: /var/run/dcarbn-evidence
+              readOnly: true
+            - name: supply-chain-evidence
+              mountPath: /var/run/dcarbn-supply-chain
+              readOnly: true
+            - name: gitops-evidence
+              mountPath: /var/run/dcarbn-gitops
+              readOnly: true
+            - name: recovery-status
+              mountPath: /var/run/dcarbn
+              readOnly: true
+            - name: slo-definitions
+              mountPath: /etc/dcarbn
+              readOnly: true
+      volumes:
+        - name: tmp
+          emptyDir:
+            sizeLimit: 256Mi
+        - name: evidence
+          persistentVolumeClaim:
+            claimName: dcarbn-release-evidence
+        - name: supply-chain-evidence
+          persistentVolumeClaim:
+            claimName: dcarbn-supply-chain-evidence
+        - name: gitops-evidence
+          persistentVolumeClaim:
+            claimName: dcarbn-gitops-evidence
+        - name: recovery-status
+          projected:
+            sources:
+              - configMap:
+                  name: dcarbn-recovery-status
+                  optional: true
+        - name: slo-definitions
+          configMap:
+            name: dcarbn-slo-definitions

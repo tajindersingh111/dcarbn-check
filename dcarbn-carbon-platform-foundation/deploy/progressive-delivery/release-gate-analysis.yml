@@ -1,0 +1,27 @@
+apiVersion: argoproj.io/v1alpha1
+kind: ClusterAnalysisTemplate
+metadata:
+  name: dcarbn-release-gate
+spec:
+  args:
+    - name: release-version
+    - name: commit-sha
+    - name: release-gate-token
+      valueFrom:
+        secretKeyRef:
+          name: dcarbn-rollout-analysis
+          key: release-gate-token
+  metrics:
+    - name: release-gate-approved
+      interval: 1m
+      count: 1
+      successCondition: result.decision == "approved"
+      failureLimit: 1
+      provider:
+        web:
+          url: https://operations.example.com/api/v1/operations/release-gate/latest
+          timeoutSeconds: 15
+          headers:
+            - key: Authorization
+              value: "Bearer {{ args.release-gate-token }}"
+          jsonPath: "{$}"

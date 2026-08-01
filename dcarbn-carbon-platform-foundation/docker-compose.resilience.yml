@@ -1,0 +1,155 @@
+services:
+  chaos-runner:
+    build:
+      context: ./deploy/chaos
+    profiles:
+    - chaos
+    environment:
+      CHAOS_SCENARIO: ${CHAOS_SCENARIO:-backend_pause}
+      CHAOS_DURATION_SECONDS: ${CHAOS_DURATION_SECONDS:-60}
+      CHAOS_CONFIRMATION: ${CHAOS_CONFIRMATION:-}
+      COMPOSE_PROJECT_NAME: ${COMPOSE_PROJECT_NAME:-dcarbn-carbon-platform-foundation}
+      CHAOS_EVIDENCE_DIR: /evidence
+      CHAOS_ALLOW_REGIONAL_ISOLATION: ${CHAOS_ALLOW_REGIONAL_ISOLATION:-false}
+      CHAOS_REGIONAL_ISOLATION_HOOK: ${CHAOS_REGIONAL_ISOLATION_HOOK:-}
+      CHAOS_NETWORK_DELAY_MS: ${CHAOS_NETWORK_DELAY_MS:-500}
+      CHAOS_NETWORK_JITTER_MS: ${CHAOS_NETWORK_JITTER_MS:-100}
+    volumes:
+    - /var/run/docker.sock:/var/run/docker.sock
+    - release_evidence:/evidence
+    - ${CHAOS_REGIONAL_ISOLATION_HOOK_PATH:-./deploy/failover/routing-hook.example.sh}:/hooks/regional-isolation.sh:ro
+    network_mode: host
+    cap_add:
+    - NET_ADMIN
+    security_opt:
+    - no-new-privileges:true
+  failover-exercise:
+    image: postgres:16-alpine
+    profiles:
+    - failover-exercise
+    entrypoint:
+    - /bin/bash
+    - -c
+    command:
+    - apk add --no-cache bash curl jq coreutils && /scripts/exercise.sh
+    environment:
+      FAILOVER_EXERCISE_MODE: ${FAILOVER_EXERCISE_MODE:-dry-run}
+      FAILOVER_EXERCISE_CONFIRMATION: ${FAILOVER_EXERCISE_CONFIRMATION:-}
+      FAILOVER_EVIDENCE_DIR: /evidence
+      PRIMARY_HEALTH_URL: ${PRIMARY_HEALTH_URL:?Set PRIMARY_HEALTH_URL}
+      STANDBY_HEALTH_URL: ${STANDBY_HEALTH_URL:?Set STANDBY_HEALTH_URL}
+      RECOVERY_READINESS_URL: ${RECOVERY_READINESS_URL:?Set RECOVERY_READINESS_URL}
+      STANDBY_DATABASE_URL: ${STANDBY_DATABASE_URL:?Set STANDBY_DATABASE_URL}
+      FAILOVER_COMMAND: ${FAILOVER_COMMAND:-}
+      FAILOVER_SIMULATION_HOOK: ${FAILOVER_SIMULATION_HOOK:-}
+      FAILOVER_SMOKE_TEST_COMMAND: ${FAILOVER_SMOKE_TEST_COMMAND:-true}
+    volumes:
+    - ./deploy/failover/exercise.sh:/scripts/exercise.sh:ro
+    - release_evidence:/evidence
+    networks:
+    - edge
+    - data
+    read_only: true
+    tmpfs:
+    - /tmp:size=64m,mode=1777
+    cap_drop:
+    - ALL
+    security_opt:
+    - no-new-privileges:true
+  evidence-signer:
+    image: python:3.12-slim
+    profiles:
+    - evidence
+    entrypoint:
+    - /bin/bash
+    - -c
+    command:
+    - pip install --no-cache-dir cryptography && python /scripts/sign-evidence.py
+      /evidence/${EVIDENCE_INPUT_FILE:?Set EVIDENCE_INPUT_FILE} --private-key /run/secrets/evidence_private_key
+      --output /evidence/${EVIDENCE_OUTPUT_FILE:-latest.signed.json}
+    secrets:
+    - evidence_private_key
+    volumes:
+    - ./deploy/evidence/sign-evidence.py:/scripts/sign-evidence.py:ro
+    - release_evidence:/evidence
+    read_only: true
+    tmpfs:
+    - /tmp:size=64m,mode=1777
+    cap_drop:
+    - ALL
+    security_opt:
+    - no-new-privileges:true
+  release-gate:
+    build:
+      context: ./deploy
+      dockerfile: release-gate/Dockerfile
+    profiles:
+    - release-gate
+    environment:
+      PROMETHEUS_URL: ${PROMETHEUS_URL:?Set PROMETHEUS_URL}
+      READINESS_URL: ${READINESS_URL:?Set READINESS_URL}
+      RECOVERY_READINESS_URL: ${RECOVERY_READINESS_URL:?Set RECOVERY_READINESS_URL}
+      RELEASE_VERSION: ${RELEASE_VERSION:?Set RELEASE_VERSION}
+      RELEASE_COMMIT_SHA: ${RELEASE_COMMIT_SHA:?Set RELEASE_COMMIT_SHA}
+      RELEASE_IMAGE_REFERENCES: ${RELEASE_IMAGE_REFERENCES:?Set RELEASE_IMAGE_REFERENCES}
+      MAX_FAILOVER_EVIDENCE_AGE_DAYS: ${MAX_FAILOVER_EVIDENCE_AGE_DAYS:-90}
+    secrets:
+    - evidence_public_key
+    volumes:
+    - ./deploy/slo/slo-definitions.yml:/config/slo-definitions.yml:ro
+    - release_evidence:/evidence:ro
+    - release_gate_output:/output
+    - supply_chain_evidence:/supply-chain:ro
+    networks:
+    - edge
+    - observability
+    read_only: true
+    tmpfs:
+    - /tmp:size=64m,mode=1777
+    cap_drop:
+    - ALL
+    security_opt:
+    - no-new-privileges:true
+  supply-chain-verifier:
+    build:
+      context: ./deploy/supply-chain
+    profiles:
+    - supply-chain
+    entrypoint:
+    - /bin/bash
+    - -c
+    command:
+    - /scripts/verify-image.sh "${SUPPLY_CHAIN_IMAGE}" /artifacts/verification &&
+      /scripts/generate-sbom.sh "${SUPPLY_CHAIN_IMAGE}" /artifacts/sbom && /scripts/scan-vulnerabilities.sh
+      "${SUPPLY_CHAIN_IMAGE}" /artifacts/scans
+    environment:
+      SUPPLY_CHAIN_IMAGE: ${SUPPLY_CHAIN_IMAGE:?Set SUPPLY_CHAIN_IMAGE}
+      SUPPLY_CHAIN_POLICY_FILE: /config/policy.yml
+      VULNERABILITY_EXCEPTIONS_FILE: /config/vulnerability-exceptions.yml
+    volumes:
+    - /var/run/docker.sock:/var/run/docker.sock:ro
+    - ./deploy/supply-chain/policy.yml:/config/policy.yml:ro
+    - ./deploy/supply-chain/vulnerability-exceptions.yml:/config/vulnerability-exceptions.yml:ro
+    - supply_chain_evidence:/artifacts
+    read_only: true
+    tmpfs:
+    - /tmp:size=512m,mode=1777
+    cap_drop:
+    - ALL
+    security_opt:
+    - no-new-privileges:true
+secrets:
+  evidence_private_key:
+    file: ./secrets/evidence_private_key
+  evidence_public_key:
+    file: ./secrets/evidence_public_key
+volumes:
+  release_evidence: null
+  release_gate_output: null
+  supply_chain_evidence: null
+networks:
+  edge: null
+  data:
+    internal: true
+  observability:
+    internal: true

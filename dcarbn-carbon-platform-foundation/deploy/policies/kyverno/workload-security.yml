@@ -1,0 +1,127 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: dcarbn-workload-security
+  annotations:
+    policies.kyverno.io/title: D-carbN workload security
+    policies.kyverno.io/category: Pod Security
+spec:
+  validationFailureAction: Enforce
+  background: true
+  rules:
+    - name: require-standard-labels
+      match:
+        any:
+          - resources:
+              kinds: ["Pod", "Deployment", "StatefulSet", "Rollout", "Job", "CronJob"]
+              namespaces: ["dcarbn-staging", "dcarbn-production", "dcarbn-standby"]
+      validate:
+        message: Workloads require name, part-of, and managed-by labels.
+        pattern:
+          metadata:
+            labels:
+              app.kubernetes.io/name: "?*"
+              app.kubernetes.io/part-of: dcarbn-carbon-platform
+              app.kubernetes.io/managed-by: "?*"
+
+    - name: require-non-root
+      match:
+        any:
+          - resources:
+              kinds: ["Pod"]
+              namespaces: ["dcarbn-staging", "dcarbn-production", "dcarbn-standby"]
+      validate:
+        message: Pods must run as non-root.
+        pattern:
+          spec:
+            securityContext:
+              runAsNonRoot: true
+
+    - name: require-seccomp
+      match:
+        any:
+          - resources:
+              kinds: ["Pod"]
+              namespaces: ["dcarbn-staging", "dcarbn-production", "dcarbn-standby"]
+      validate:
+        message: RuntimeDefault seccomp is required.
+        pattern:
+          spec:
+            securityContext:
+              seccompProfile:
+                type: RuntimeDefault
+
+    - name: restrict-containers
+      match:
+        any:
+          - resources:
+              kinds: ["Pod"]
+              namespaces: ["dcarbn-staging", "dcarbn-production", "dcarbn-standby"]
+      validate:
+        message: Containers must be read-only, drop all capabilities, and disallow privilege escalation.
+        foreach:
+          - list: request.object.spec.containers
+            pattern:
+              securityContext:
+                allowPrivilegeEscalation: false
+                readOnlyRootFilesystem: true
+                capabilities:
+                  drop:
+                    - ALL
+
+    - name: require-resources-and-probes
+      match:
+        any:
+          - resources:
+              kinds: ["Pod"]
+              namespaces: ["dcarbn-staging", "dcarbn-production", "dcarbn-standby"]
+      exclude:
+        any:
+          - resources:
+              selector:
+                matchLabels:
+                  app.kubernetes.io/name: dcarbn-database-migration
+      validate:
+        message: Containers require requests, limits, readiness, and liveness probes.
+        foreach:
+          - list: request.object.spec.containers
+            pattern:
+              resources:
+                requests:
+                  cpu: "?*"
+                  memory: "?*"
+                limits:
+                  cpu: "?*"
+                  memory: "?*"
+              readinessProbe: {}
+              livenessProbe: {}
+
+    - name: deny-latest-tag
+      match:
+        any:
+          - resources:
+              kinds: ["Pod"]
+              namespaces: ["dcarbn-staging", "dcarbn-production", "dcarbn-standby"]
+      validate:
+        message: The latest tag is prohibited.
+        foreach:
+          - list: request.object.spec.containers
+            deny:
+              conditions:
+                any:
+                  - key: "{{ element.image }}"
+                    operator: Equals
+                    value: "*:latest"
+
+    - name: require-digest
+      match:
+        any:
+          - resources:
+              kinds: ["Pod"]
+              namespaces: ["dcarbn-staging", "dcarbn-production", "dcarbn-standby"]
+      validate:
+        message: Images must be pinned by SHA-256 digest.
+        foreach:
+          - list: request.object.spec.containers
+            pattern:
+              image: "*@sha256:*"

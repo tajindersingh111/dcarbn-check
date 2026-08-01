@@ -1,0 +1,43 @@
+apiVersion: templates.gatekeeper.sh/v1
+kind: ConstraintTemplate
+metadata:
+  name: k8srequiredlabels
+spec:
+  crd:
+    spec:
+      names:
+        kind: K8sRequiredLabels
+      validation:
+        openAPIV3Schema:
+          type: object
+          properties:
+            labels:
+              type: array
+              items:
+                type: string
+  targets:
+    - target: admission.k8s.gatekeeper.sh
+      rego: |
+        package k8srequiredlabels
+
+        violation[{"msg": msg}] {
+          required := input.parameters.labels[_]
+          not input.review.object.metadata.labels[required]
+          msg := sprintf("required label %q is missing", [required])
+        }
+---
+apiVersion: constraints.gatekeeper.sh/v1beta1
+kind: K8sRequiredLabels
+metadata:
+  name: dcarbn-required-labels
+spec:
+  match:
+    namespaces: ["dcarbn-staging", "dcarbn-production", "dcarbn-standby"]
+    kinds:
+      - apiGroups: ["apps", "argoproj.io", "batch"]
+        kinds: ["Deployment", "StatefulSet", "Rollout", "Job", "CronJob"]
+  parameters:
+    labels:
+      - app.kubernetes.io/name
+      - app.kubernetes.io/part-of
+      - app.kubernetes.io/managed-by

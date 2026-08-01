@@ -1,0 +1,13 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Rollout
+metadata:
+  name: dcarbn-backend
+spec:
+  replicas: 0
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Rollout
+metadata:
+  name: dcarbn-frontend
+spec:
+  replicas: 0

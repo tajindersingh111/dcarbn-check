@@ -1,0 +1,53 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: dcarbn-verify-production-images
+spec:
+  validationFailureAction: Enforce
+  background: true
+  rules:
+    - name: require-digest-pinned-images
+      match:
+        any:
+          - resources:
+              kinds: ["Pod"]
+              namespaces: ["dcarbn-production"]
+      validate:
+        message: Production images must be pinned by SHA-256 digest.
+        pattern:
+          spec:
+            containers:
+              - image: "*@sha256:*"
+
+    - name: verify-keyless-signatures-and-attestations
+      match:
+        any:
+          - resources:
+              kinds: ["Pod"]
+              namespaces: ["dcarbn-production"]
+      verifyImages:
+        - imageReferences:
+            - "ghcr.io/*/dcarbn-*"
+          mutateDigest: false
+          required: true
+          verifyDigest: true
+          attestors:
+            - entries:
+                - keyless:
+                    issuer: https://token.actions.githubusercontent.com
+                    subjectRegExp: "^https://github.com/.+/.github/workflows/supply-chain.yml@refs/(heads|tags)/.+$"
+                    rekor:
+                      url: https://rekor.sigstore.dev
+          attestations:
+            - predicateType: https://spdx.dev/Document
+              attestors:
+                - entries:
+                    - keyless:
+                        issuer: https://token.actions.githubusercontent.com
+                        subjectRegExp: "^https://github.com/.+/.github/workflows/supply-chain.yml@refs/(heads|tags)/.+$"
+            - predicateType: https://slsa.dev/provenance/v1
+              attestors:
+                - entries:
+                    - keyless:
+                        issuer: https://token.actions.githubusercontent.com
+                        subjectRegExp: "^https://github.com/.+/.github/workflows/supply-chain.yml@refs/(heads|tags)/.+$"

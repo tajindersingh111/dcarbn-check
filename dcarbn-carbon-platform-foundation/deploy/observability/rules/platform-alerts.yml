@@ -1,0 +1,212 @@
+groups:
+- name: dcarbn-availability
+  rules:
+  - alert: DCarbnBackendDown
+    expr: up{job="dcarbn-backend"} == 0
+    for: 2m
+    labels:
+      severity: critical
+      service: backend
+    annotations:
+      summary: D-carbN backend is unavailable
+      runbook_url: /runbooks/api-unavailable.md
+  - alert: DCarbnHighErrorRate
+    expr: 'sum(rate(dcarbn_http_requests_total{status=~"5.."}[5m]))
+
+      /
+
+      clamp_min(sum(rate(dcarbn_http_requests_total[5m])), 0.001)
+
+      > 0.05
+
+      '
+    for: 10m
+    labels:
+      severity: warning
+      service: backend
+    annotations:
+      summary: API 5xx error rate exceeds 5%
+      runbook_url: /runbooks/api-error-rate.md
+  - alert: DCarbnCriticalErrorRate
+    expr: 'sum(rate(dcarbn_http_requests_total{status=~"5.."}[5m]))
+
+      /
+
+      clamp_min(sum(rate(dcarbn_http_requests_total[5m])), 0.001)
+
+      > 0.15
+
+      '
+    for: 5m
+    labels:
+      severity: critical
+      service: backend
+    annotations:
+      summary: API 5xx error rate exceeds 15%
+      runbook_url: /runbooks/api-error-rate.md
+  - alert: DCarbnHighLatency
+    expr: "histogram_quantile(\n  0.95,\n  sum by (le) (rate(dcarbn_http_request_duration_seconds_bucket[10m]))\n\
+      ) > 1\n"
+    for: 15m
+    labels:
+      severity: warning
+      service: backend
+    annotations:
+      summary: API p95 latency exceeds one second
+      runbook_url: /runbooks/api-latency.md
+  - alert: DCarbnPostgresUnavailable
+    expr: dcarbn_dependency_health{dependency="postgresql"} == 0
+    for: 1m
+    labels:
+      severity: critical
+      service: postgresql
+    annotations:
+      summary: PostgreSQL dependency check is failing
+      runbook_url: /runbooks/postgresql-unavailable.md
+  - alert: DCarbnRedisUnavailable
+    expr: dcarbn_dependency_health{dependency="redis"} == 0
+    for: 1m
+    labels:
+      severity: critical
+      service: redis
+    annotations:
+      summary: Redis dependency check is failing
+      runbook_url: /runbooks/redis-unavailable.md
+- name: dcarbn-security
+  rules:
+  - alert: DCarbnLoginFailureSpike
+    expr: "sum(rate(dcarbn_security_events_total{\n  event_type=\"login.failed\",\n\
+      \  success=\"false\"\n}[5m])) > 0.5\n"
+    for: 5m
+    labels:
+      severity: warning
+      service: identity
+    annotations:
+      summary: Login failures exceed 30 per minute
+      runbook_url: /runbooks/authentication-attack.md
+  - alert: DCarbnAccountLockoutSpike
+    expr: "increase(dcarbn_security_events_total{\n  event_type=\"account.locked\"\
+      \n}[15m]) >= 5\n"
+    labels:
+      severity: critical
+      service: identity
+    annotations:
+      summary: Multiple user accounts were locked
+      runbook_url: /runbooks/authentication-attack.md
+  - alert: DCarbnRefreshTokenReuse
+    expr: "increase(dcarbn_security_events_total{\n  event_type=\"session.reuse_detected\"\
+      \n}[5m]) > 0\n"
+    labels:
+      severity: critical
+      service: identity
+    annotations:
+      summary: Revoked refresh-token reuse was detected
+      runbook_url: /runbooks/session-compromise.md
+  - alert: DCarbnRateLimitSaturation
+    expr: 'sum(rate(dcarbn_http_requests_total{status="429"}[5m])) > 1
+
+      '
+    for: 10m
+    labels:
+      severity: warning
+      service: gateway
+    annotations:
+      summary: More than one request per second is being rate limited
+      runbook_url: /runbooks/rate-limit-saturation.md
+- name: dcarbn-backups
+  rules:
+  - alert: DCarbnBackupFailed
+    expr: dcarbn_backup_last_success == 0
+    for: 15m
+    labels:
+      severity: critical
+      service: backup
+    annotations:
+      summary: Latest database backup is unsuccessful or unverified
+      runbook_url: /runbooks/backup-failure.md
+  - alert: DCarbnBackupStale
+    expr: dcarbn_backup_age_seconds > 93600
+    for: 15m
+    labels:
+      severity: critical
+      service: backup
+    annotations:
+      summary: Latest verified backup is older than 26 hours
+      runbook_url: /runbooks/backup-failure.md
+- name: dcarbn-infrastructure
+  rules:
+  - alert: DCarbnDiskSpaceLow
+    expr: "(\n  node_filesystem_avail_bytes{fstype!~\"tmpfs|overlay\"}\n  /\n  node_filesystem_size_bytes{fstype!~\"\
+      tmpfs|overlay\"}\n) < 0.15\n"
+    for: 15m
+    labels:
+      severity: warning
+      service: host
+    annotations:
+      summary: Host filesystem has less than 15% free space
+      runbook_url: /runbooks/disk-pressure.md
+  - alert: DCarbnContainerRestarting
+    expr: "increase(container_start_time_seconds{\n  name=~\".*(backend|postgres|redis|frontend).*\"\
+      \n}[15m]) > 2\n"
+    labels:
+      severity: warning
+      service: containers
+    annotations:
+      summary: A core container is restarting repeatedly
+      runbook_url: /runbooks/container-restarts.md
+- name: dcarbn-recovery
+  rules:
+  - alert: DCarbnWalArchiveStale
+    expr: dcarbn_wal_archive_age_seconds > 300
+    for: 5m
+    labels:
+      severity: critical
+      service: postgresql
+    annotations:
+      summary: No current PostgreSQL WAL segment has been archived
+      runbook_url: /runbooks/wal-archive-failure.md
+  - alert: DCarbnWalArchiveUnhealthy
+    expr: dcarbn_wal_archive_health == 0
+    for: 5m
+    labels:
+      severity: critical
+      service: postgresql
+    annotations:
+      summary: WAL archive health is failing
+      runbook_url: /runbooks/wal-archive-failure.md
+  - alert: DCarbnPitrBaseBackupStale
+    expr: dcarbn_pitr_base_backup_age_seconds > 93600
+    for: 15m
+    labels:
+      severity: critical
+      service: recovery
+    annotations:
+      summary: Latest physical PITR base backup is older than 26 hours
+      runbook_url: /runbooks/backup-failure.md
+  - alert: DCarbnPitrNotReady
+    expr: dcarbn_pitr_readiness == 0
+    for: 15m
+    labels:
+      severity: critical
+      service: recovery
+    annotations:
+      summary: Point-in-time recovery prerequisites are not healthy
+      runbook_url: /runbooks/point-in-time-recovery.md
+  - alert: DCarbnRegionRoleUnknown
+    expr: dcarbn_failover_region_state < 0
+    for: 5m
+    labels:
+      severity: warning
+      service: failover
+    annotations:
+      summary: A region has an unknown PostgreSQL role
+      runbook_url: /runbooks/cross-region-failover.md
+  - alert: DCarbnMultipleWritableRegions
+    expr: sum(dcarbn_failover_region_state == 1) > 1
+    for: 1m
+    labels:
+      severity: critical
+      service: failover
+    annotations:
+      summary: More than one region reports a writable PostgreSQL primary
+      runbook_url: /runbooks/split-brain-prevention.md

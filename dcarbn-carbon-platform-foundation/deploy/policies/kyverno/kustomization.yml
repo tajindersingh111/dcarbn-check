@@ -1,0 +1,6 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - workload-security.yml
+  - network-and-storage.yml
+  - verify-images.yml

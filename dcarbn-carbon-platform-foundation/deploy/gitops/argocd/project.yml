@@ -1,0 +1,30 @@
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: dcarbn
+  namespace: argocd
+spec:
+  description: D-carbN Carbon Platform
+  sourceRepos:
+    - https://github.com/example/dcarbn-carbon-platform.git
+  destinations:
+    - namespace: dcarbn-staging
+      server: https://kubernetes.default.svc
+    - namespace: dcarbn-production
+      server: https://primary-cluster.example.com
+    - namespace: dcarbn-standby
+      server: https://standby-cluster.example.com
+  clusterResourceWhitelist:
+    - group: ""
+      kind: Namespace
+  namespaceResourceWhitelist:
+    - group: "*"
+      kind: "*"
+  orphanedResources:
+    warn: true
+  syncWindows:
+    - kind: allow
+      schedule: "0 7-18 * * 1-5"
+      duration: 11h
+      applications: ["dcarbn-production-primary"]
+      manualSync: true

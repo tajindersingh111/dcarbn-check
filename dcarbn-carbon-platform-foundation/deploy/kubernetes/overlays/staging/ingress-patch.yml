@@ -1,0 +1,21 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: dcarbn-backend
+spec:
+  tls:
+    - hosts: ["staging.carbon.example.com"]
+      secretName: dcarbn-staging-tls
+  rules:
+    - host: staging.carbon.example.com
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: dcarbn-frontend
+spec:
+  tls:
+    - hosts: ["staging.carbon.example.com"]
+      secretName: dcarbn-staging-tls
+  rules:
+    - host: staging.carbon.example.com

@@ -1,0 +1,63 @@
+{
+  "corrected_defects": [
+    {
+      "defect": "CSV environment settings were decoded as JSON before validation.",
+      "resolution": "Applied pydantic-settings NoDecode to CORS, trusted-host, and trusted-proxy lists."
+    },
+    {
+      "defect": "The primary CI workflow contained invalid YAML indentation and incomplete test configuration.",
+      "resolution": "Rebuilt the workflow with PostgreSQL, Redis, required security settings, lockfile enforcement, type checking, build, and E2E stages."
+    }
+  ],
+  "generated_at": "2026-08-01T13:30:24.834961+00:00",
+  "overall_status": "blocked",
+  "passed": [
+    {
+      "check": "python_syntax",
+      "detail": "140 Python files compiled successfully."
+    },
+    {
+      "check": "yaml_parsing",
+      "detail": "75 YAML files and 96 documents parsed successfully."
+    },
+    {
+      "check": "shell_syntax",
+      "detail": "22 shell scripts passed bash syntax validation."
+    },
+    {
+      "check": "deployment_contract_tests",
+      "detail": "17 deployment, recovery, GitOps, and supply-chain contract tests passed."
+    },
+    {
+      "check": "frontend_backend_route_coverage",
+      "detail": "28 frontend API references matched 90 backend routes."
+    },
+    {
+      "check": "required_frontend_workflows",
+      "detail": "All 10 required workflow screens exist."
+    },
+    {
+      "check": "alembic_migration_chain",
+      "detail": "11 revisions form one chain with head 0011."
+    },
+    {
+      "check": "embedded_secret_patterns",
+      "detail": "No high-confidence embedded secret patterns were found."
+    }
+  ],
+  "release_blockers": [
+    {
+      "blocker": "frontend/package-lock.json is missing.",
+      "impact": "npm ci, reproducible frontend builds, provenance, type checking, production build, and Playwright execution are blocked."
+    },
+    {
+      "blocker": "Backend development and database dependencies are unavailable in the artifact environment.",
+      "impact": "Complete pytest, Ruff, Mypy, migration, PostgreSQL, and Redis integration execution is blocked."
+    },
+    {
+      "blocker": "Docker, Kustomize, and kubectl are unavailable.",
+      "impact": "Container builds, Compose startup, manifest rendering, policy admission, and canary execution are blocked."
+    }
+  ],
+  "schema_version": 1
+}

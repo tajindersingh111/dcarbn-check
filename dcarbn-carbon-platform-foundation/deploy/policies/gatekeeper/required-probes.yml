@@ -1,0 +1,36 @@
+apiVersion: templates.gatekeeper.sh/v1
+kind: ConstraintTemplate
+metadata:
+  name: k8srequiredprobes
+spec:
+  crd:
+    spec:
+      names:
+        kind: K8sRequiredProbes
+  targets:
+    - target: admission.k8s.gatekeeper.sh
+      rego: |
+        package k8srequiredprobes
+
+        violation[{"msg": msg}] {
+          container := input.review.object.spec.template.spec.containers[_]
+          not container.readinessProbe
+          msg := sprintf("container %q requires a readiness probe", [container.name])
+        }
+
+        violation[{"msg": msg}] {
+          container := input.review.object.spec.template.spec.containers[_]
+          not container.livenessProbe
+          msg := sprintf("container %q requires a liveness probe", [container.name])
+        }
+---
+apiVersion: constraints.gatekeeper.sh/v1beta1
+kind: K8sRequiredProbes
+metadata:
+  name: dcarbn-required-probes
+spec:
+  match:
+    namespaces: ["dcarbn-staging", "dcarbn-production", "dcarbn-standby"]
+    kinds:
+      - apiGroups: ["apps", "argoproj.io"]
+        kinds: ["Deployment", "StatefulSet", "Rollout"]

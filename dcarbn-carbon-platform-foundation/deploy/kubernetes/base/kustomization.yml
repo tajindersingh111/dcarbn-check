@@ -1,0 +1,25 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - service-account.yml
+  - config-map.yml
+  - external-secrets.yml
+  - storage.yml
+  - services.yml
+  - ingress.yml
+  - backend-rollout.yml
+  - frontend-rollout.yml
+  - analysis-templates.yml
+  - hpa.yml
+  - pdb.yml
+  - network-policy.yml
+  - migration-job.yml
+configMapGenerator:
+  - name: dcarbn-slo-definitions
+    namespace: dcarbn
+    files:
+      - slo-definitions.yml=slo-definitions.yml
+generatorOptions:
+  disableNameSuffixHash: true
+commonLabels:
+  app.kubernetes.io/managed-by: argocd

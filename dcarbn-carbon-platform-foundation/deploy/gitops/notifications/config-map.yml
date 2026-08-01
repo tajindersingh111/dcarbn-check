@@ -1,0 +1,42 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: argocd-notifications-cm
+  namespace: argocd
+data:
+  service.webhook.operations: |
+    url: $operations-webhook-url
+    headers:
+      - name: Content-Type
+        value: application/json
+  template.app-sync-failed: |
+    webhook:
+      operations:
+        method: POST
+        body: |
+          {
+            "event": "gitops.sync_failed",
+            "application": "{{.app.metadata.name}}",
+            "revision": "{{.app.status.sync.revision}}",
+            "health": "{{.app.status.health.status}}",
+            "sync": "{{.app.status.sync.status}}"
+          }
+  template.app-health-degraded: |
+    webhook:
+      operations:
+        method: POST
+        body: |
+          {
+            "event": "gitops.health_degraded",
+            "application": "{{.app.metadata.name}}",
+            "revision": "{{.app.status.sync.revision}}",
+            "health": "{{.app.status.health.status}}"
+          }
+  trigger.on-sync-failed: |
+    - description: Application synchronization failed.
+      send: [app-sync-failed]
+      when: app.status.operationState.phase in ['Error', 'Failed']
+  trigger.on-health-degraded: |
+    - description: Application health is degraded.
+      send: [app-health-degraded]
+      when: app.status.health.status == 'Degraded'

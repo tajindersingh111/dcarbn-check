@@ -1,0 +1,41 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: dcarbn-verify-images
+spec:
+  validationFailureAction: Enforce
+  background: true
+  webhookTimeoutSeconds: 20
+  rules:
+    - name: verify-dcarbn-images
+      match:
+        any:
+          - resources:
+              kinds: ["Pod"]
+              namespaces: ["dcarbn-staging", "dcarbn-production", "dcarbn-standby"]
+      verifyImages:
+        - imageReferences:
+            - "ghcr.io/*/dcarbn-*"
+          mutateDigest: false
+          verifyDigest: true
+          required: true
+          attestors:
+            - entries:
+                - keyless:
+                    issuer: https://token.actions.githubusercontent.com
+                    subjectRegExp: "^https://github.com/.+/.github/workflows/supply-chain.yml@refs/(heads|tags)/.+$"
+                    rekor:
+                      url: https://rekor.sigstore.dev
+          attestations:
+            - predicateType: https://spdx.dev/Document
+              attestors:
+                - entries:
+                    - keyless:
+                        issuer: https://token.actions.githubusercontent.com
+                        subjectRegExp: "^https://github.com/.+/.github/workflows/supply-chain.yml@refs/(heads|tags)/.+$"
+            - predicateType: https://slsa.dev/provenance/v1
+              attestors:
+                - entries:
+                    - keyless:
+                        issuer: https://token.actions.githubusercontent.com
+                        subjectRegExp: "^https://github.com/.+/.github/workflows/supply-chain.yml@refs/(heads|tags)/.+$"

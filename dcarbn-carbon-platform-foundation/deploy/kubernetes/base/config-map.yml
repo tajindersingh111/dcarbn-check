@@ -1,0 +1,40 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: dcarbn-backend-config
+  namespace: dcarbn
+  labels:
+    app.kubernetes.io/name: dcarbn-backend
+    app.kubernetes.io/part-of: dcarbn-carbon-platform
+data:
+  APP_ENV: production
+  COOKIE_SECURE: "true"
+  COOKIE_SAMESITE: strict
+  DOCS_ENABLED: "false"
+  HSTS_ENABLED: "true"
+  REDIS_REQUIRED: "true"
+  RATE_LIMIT_FAIL_OPEN: "false"
+  EXPOSE_TOKENS_IN_API: "false"
+  EMAIL_PROVIDER: smtp
+  OTEL_ENABLED: "true"
+  OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector.observability.svc.cluster.local:4317
+  BACKUP_STATUS_FILE: /var/run/dcarbn/backup-status.json
+  WAL_ARCHIVE_STATUS_FILE: /var/run/dcarbn/wal-status.json
+  PITR_STATUS_FILE: /var/run/dcarbn/pitr-status.json
+  FAILOVER_STATE_FILE: /var/run/dcarbn/failover.json
+  SLO_DEFINITIONS_FILE: /etc/dcarbn/slo-definitions.yml
+  RELEASE_EVIDENCE_DIRECTORY: /var/run/dcarbn-evidence
+  SUPPLY_CHAIN_EVIDENCE_DIRECTORY: /var/run/dcarbn-supply-chain
+  GITOPS_EVIDENCE_DIRECTORY: /var/run/dcarbn-gitops
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: dcarbn-frontend-config
+  namespace: dcarbn
+  labels:
+    app.kubernetes.io/name: dcarbn-frontend
+    app.kubernetes.io/part-of: dcarbn-carbon-platform
+data:
+  NODE_ENV: production
+  NEXT_TELEMETRY_DISABLED: "1"

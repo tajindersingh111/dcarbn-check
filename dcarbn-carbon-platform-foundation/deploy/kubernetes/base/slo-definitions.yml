@@ -1,0 +1,73 @@
+version: 1
+service: dcarbn-carbon-platform
+window_days: 30
+objectives:
+  - id: api_availability
+    name: API availability
+    sli: successful_requests_ratio
+    target: 0.999
+    query: |
+      1 - (
+        sum(rate(dcarbn_http_requests_total{status=~"5.."}[30d]))
+        /
+        clamp_min(sum(rate(dcarbn_http_requests_total[30d])), 0.001)
+      )
+    release_gate: true
+
+  - id: api_latency_p95
+    name: API p95 latency
+    sli: latency_seconds
+    target_max: 1.0
+    query: |
+      histogram_quantile(
+        0.95,
+        sum by (le) (
+          rate(dcarbn_http_request_duration_seconds_bucket[30d])
+        )
+      )
+    release_gate: true
+
+  - id: api_error_rate
+    name: API server error rate
+    sli: error_ratio
+    target_max: 0.001
+    query: |
+      sum(rate(dcarbn_http_requests_total{status=~"5.."}[30d]))
+      /
+      clamp_min(sum(rate(dcarbn_http_requests_total[30d])), 0.001)
+    release_gate: true
+
+  - id: backup_freshness
+    name: Verified logical backup freshness
+    sli: age_seconds
+    target_max: 93600
+    query: dcarbn_backup_age_seconds
+    release_gate: true
+
+  - id: wal_archive_freshness
+    name: WAL archive freshness
+    sli: age_seconds
+    target_max: 300
+    query: dcarbn_wal_archive_age_seconds
+    release_gate: true
+
+  - id: pitr_readiness
+    name: PITR readiness
+    sli: binary
+    target: 1
+    query: dcarbn_pitr_readiness
+    release_gate: true
+
+  - id: regional_failover_rto
+    name: Regional failover RTO
+    sli: duration_seconds
+    target_max: 900
+    evidence_field: measurements.rto_seconds
+    release_gate: true
+
+  - id: regional_failover_rpo
+    name: Regional failover RPO
+    sli: duration_seconds
+    target_max: 300
+    evidence_field: measurements.rpo_seconds
+    release_gate: true

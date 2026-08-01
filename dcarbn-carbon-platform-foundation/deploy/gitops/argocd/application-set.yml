@@ -1,0 +1,44 @@
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: dcarbn-environments
+  namespace: argocd
+spec:
+  generators:
+    - list:
+        elements:
+          - name: staging
+            cluster: https://kubernetes.default.svc
+            namespace: dcarbn-staging
+            revision: main
+            overlay: staging
+          - name: production-primary
+            cluster: https://primary-cluster.example.com
+            namespace: dcarbn-production
+            revision: production
+            overlay: production-primary
+          - name: production-standby
+            cluster: https://standby-cluster.example.com
+            namespace: dcarbn-standby
+            revision: production
+            overlay: production-standby
+  template:
+    metadata:
+      name: dcarbn-{{name}}
+      namespace: argocd
+    spec:
+      project: dcarbn
+      source:
+        repoURL: https://github.com/example/dcarbn-carbon-platform.git
+        targetRevision: "{{revision}}"
+        path: deploy/kubernetes/overlays/{{overlay}}
+      destination:
+        server: "{{cluster}}"
+        namespace: "{{namespace}}"
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        syncOptions:
+          - CreateNamespace=true
+          - ServerSideApply=true

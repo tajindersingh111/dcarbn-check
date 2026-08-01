@@ -1,0 +1,81 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: dcarbn_test
+          POSTGRES_USER: dcarbn
+          POSTGRES_PASSWORD: dcarbn
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U dcarbn -d dcarbn_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    defaults:
+      run:
+        working-directory: backend
+    env:
+      APP_ENV: test
+      SECRET_KEY: test-secret-key-that-is-at-least-32-characters
+      MFA_ENCRYPTION_KEY: test-mfa-key-that-is-at-least-32-characters
+      DATABASE_URL: postgresql+asyncpg://dcarbn:dcarbn@localhost:5432/dcarbn_test
+      REDIS_URL: redis://localhost:6379/15
+      CORS_ORIGINS: http://localhost:3000
+      TRUSTED_HOSTS: localhost,127.0.0.1,testserver
+      FRONTEND_BASE_URL: http://localhost:3000
+      EMAIL_PROVIDER: console
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: backend/pyproject.toml
+      - run: python -m pip install --upgrade pip
+      - run: pip install -e ".[dev]"
+      - run: alembic upgrade head
+      - run: ruff check app tests
+      - run: mypy app
+      - run: pytest --junitxml=../artifacts/backend-tests.xml
+
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - name: Require committed dependency lockfile
+        run: test -f package-lock.json
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm run build
+      - run: npm run test:e2e:all

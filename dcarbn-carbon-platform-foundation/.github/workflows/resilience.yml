@@ -1,0 +1,132 @@
+name: Resilience and release evidence
+
+on:
+  workflow_dispatch:
+    inputs:
+      run_chaos:
+        type: boolean
+        default: true
+      failover_mode:
+        type: choice
+        options: [dry-run, simulation]
+        default: dry-run
+  schedule:
+    - cron: "17 2 * * 1"
+
+permissions:
+  contents: read
+
+jobs:
+  static-validation:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install PyYAML
+      - run: |
+          python -m py_compile \
+            deploy/evidence/sign-evidence.py \
+            deploy/evidence/verify-evidence.py \
+            deploy/release-gate/release-gate.py
+          bash -n deploy/chaos/chaos.sh
+          bash -n deploy/failover/exercise.sh
+          python - <<'PY'
+          import yaml
+          from pathlib import Path
+          for name in [
+              "docker-compose.production.yml",
+              "docker-compose.region-standby.yml",
+              "docker-compose.resilience.yml",
+              "deploy/slo/slo-definitions.yml",
+              "deploy/observability/rules/slo-recording-rules.yml",
+              "deploy/observability/rules/slo-alerts.yml",
+          ]:
+              yaml.safe_load(Path(name).read_text())
+          PY
+
+  backend-tests:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: dcarbn_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres -d dcarbn_test"
+          --health-interval 10s --health-timeout 5s --health-retries 10
+      redis:
+        image: redis:7
+        ports: ["6379:6379"]
+    defaults:
+      run:
+        working-directory: backend
+    env:
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/dcarbn_test
+      REDIS_URL: redis://localhost:6379/0
+      SECRET_KEY: ci-secret-key-that-is-at-least-thirty-two-characters
+      MFA_ENCRYPTION_KEY: ci-mfa-key-that-is-at-least-thirty-two-characters
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -e ".[dev]"
+      - run: alembic upgrade head
+      - run: pytest --junitxml=../evidence/backend-tests.xml
+      - uses: actions/upload-artifact@v4
+        with:
+          name: backend-test-evidence
+          path: evidence/backend-tests.xml
+
+  frontend-tests:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run build
+
+  release-gate-contract:
+    needs: [static-validation, backend-tests, frontend-tests]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          mkdir -p evidence
+          python - <<'PY'
+          import json
+          from datetime import datetime, UTC
+          payload = {
+              "schema_version": 1,
+              "evidence_type": "release_contract",
+              "generated_at": datetime.now(UTC).isoformat(),
+              "commit_sha": "${{ github.sha }}",
+              "decision": "approved",
+              "checks": {
+                  "static_validation": True,
+                  "backend_tests": True,
+                  "frontend_tests": True,
+              },
+          }
+          open("evidence/release-contract.json", "w").write(
+              json.dumps(payload, indent=2, sort_keys=True) + "\n"
+          )
+          PY
+          sha256sum evidence/release-contract.json > evidence/release-contract.sha256
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-gate-contract
+          path: evidence/
+          retention-days: 90

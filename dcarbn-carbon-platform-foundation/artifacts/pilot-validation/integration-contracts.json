@@ -1,0 +1,31 @@
+{
+  "checks": [
+    {
+      "check": "frontend_backend_route_coverage",
+      "detail": "28 frontend endpoint references matched 90 backend routes.",
+      "passed": true
+    },
+    {
+      "check": "required_frontend_workflows",
+      "detail": "All 10 required workflows exist.",
+      "passed": true
+    },
+    {
+      "check": "alembic_migration_chain",
+      "detail": "11 revisions; head=0011.",
+      "passed": true
+    },
+    {
+      "check": "embedded_secret_patterns",
+      "detail": "No high-confidence embedded secret patterns found.",
+      "passed": true
+    },
+    {
+      "check": "frontend_dependency_lockfile",
+      "detail": "frontend/package-lock.json is missing. npm ci, reproducible builds, and dependency provenance remain blocked.",
+      "passed": false
+    }
+  ],
+  "result": "failed",
+  "schema_version": 1
+}

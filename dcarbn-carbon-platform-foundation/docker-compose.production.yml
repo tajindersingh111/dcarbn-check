@@ -1,0 +1,484 @@
+services:
+  postgres:
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: dcarbn
+      POSTGRES_USER: dcarbn
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
+      BACKUP_AGE_RECIPIENT_FILE: /run/secrets/backup_age_recipient
+      WAL_ARCHIVE_LOCAL_DIR: /wal-archive
+      WAL_ARCHIVE_STATUS_DIR: /wal-status
+      WAL_ARCHIVE_REMOTE: ${WAL_ARCHIVE_REMOTE:-}
+      WAL_ARCHIVE_SECONDARY_REMOTE: ${WAL_ARCHIVE_SECONDARY_REMOTE:-}
+      DCARBN_REGION: ${DCARBN_REGION:-primary}
+    secrets:
+    - postgres_password
+    - backup_age_recipient
+    volumes:
+    - postgres_data:/var/lib/postgresql/data
+    - wal_archive:/wal-archive
+    - wal_status:/wal-status
+    - ${RCLONE_CONFIG_PATH:-./deploy/backup/rclone.conf.example}:/var/lib/postgresql/.config/rclone/rclone.conf:ro
+    healthcheck:
+      test:
+      - CMD-SHELL
+      - pg_isready -U dcarbn -d dcarbn
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+    - data
+    security_opt:
+    - no-new-privileges:true
+    build:
+      context: ./deploy/postgres
+    command:
+    - postgres
+    - -c
+    - wal_level=replica
+    - -c
+    - archive_mode=on
+    - -c
+    - archive_timeout=60s
+    - -c
+    - max_wal_senders=10
+    - -c
+    - max_replication_slots=10
+    - -c
+    - wal_keep_size=1024MB
+    - -c
+    - hot_standby=on
+    - -c
+    - archive_command=/usr/local/bin/archive-wal.sh %p %f
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command:
+    - redis-server
+    - --appendonly
+    - 'yes'
+    - --requirepass
+    - ${REDIS_PASSWORD:?Set REDIS_PASSWORD}
+    - --maxmemory-policy
+    - noeviction
+    volumes:
+    - redis_data:/data
+    healthcheck:
+      test:
+      - CMD-SHELL
+      - redis-cli -a "$${REDIS_PASSWORD}" ping | grep PONG
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?Set REDIS_PASSWORD}
+    networks:
+    - data
+    security_opt:
+    - no-new-privileges:true
+  backend:
+    build:
+      context: ./backend
+      target: runtime
+    restart: unless-stopped
+    environment:
+      APP_ENV: production
+      SECRET_KEY_FILE: /run/secrets/secret_key
+      MFA_ENCRYPTION_KEY_FILE: /run/secrets/mfa_encryption_key
+      DATABASE_URL_FILE: /run/secrets/database_url
+      REDIS_URL_FILE: /run/secrets/redis_url
+      SMTP_PASSWORD_FILE: /run/secrets/smtp_password
+      COOKIE_SECURE: 'true'
+      COOKIE_SAMESITE: strict
+      DOCS_ENABLED: 'false'
+      HSTS_ENABLED: 'true'
+      REDIS_REQUIRED: 'true'
+      RATE_LIMIT_FAIL_OPEN: 'false'
+      EXPOSE_TOKENS_IN_API: 'false'
+      EMAIL_PROVIDER: smtp
+      EMAIL_FROM_ADDRESS: ${EMAIL_FROM_ADDRESS:?Set EMAIL_FROM_ADDRESS}
+      SMTP_HOST: ${SMTP_HOST:?Set SMTP_HOST}
+      SMTP_PORT: ${SMTP_PORT:-465}
+      SMTP_USERNAME: ${SMTP_USERNAME:?Set SMTP_USERNAME}
+      SMTP_USE_TLS: 'true'
+      FRONTEND_BASE_URL: ${FRONTEND_BASE_URL:?Set FRONTEND_BASE_URL}
+      CORS_ORIGINS: ${CORS_ORIGINS:?Set CORS_ORIGINS}
+      TRUSTED_HOSTS: ${TRUSTED_HOSTS:?Set TRUSTED_HOSTS}
+      TRUSTED_PROXY_IPS: ${TRUSTED_PROXY_IPS:-172.16.0.0/12}
+      OTEL_ENABLED: ${OTEL_ENABLED:-true}
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-http://otel-collector:4317}
+      BACKUP_STATUS_FILE: /var/run/dcarbn/backup-status.json
+      BACKUP_MAX_AGE_SECONDS: ${BACKUP_MAX_AGE_SECONDS:-93600}
+      WAL_ARCHIVE_STATUS_FILE: /var/run/dcarbn-wal/wal-status.json
+      PITR_STATUS_FILE: /var/run/dcarbn-pitr/pitr-status.json
+      FAILOVER_STATE_FILE: /var/run/dcarbn-failover/failover.json
+      WAL_ARCHIVE_MAX_AGE_SECONDS: ${WAL_ARCHIVE_MAX_AGE_SECONDS:-300}
+      SLO_DEFINITIONS_FILE: /etc/dcarbn/slo-definitions.yml
+      RELEASE_EVIDENCE_DIRECTORY: /var/run/dcarbn-evidence
+      SUPPLY_CHAIN_EVIDENCE_DIRECTORY: /var/run/dcarbn-supply-chain
+    secrets:
+    - secret_key
+    - mfa_encryption_key
+    - database_url
+    - redis_url
+    - smtp_password
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command:
+    - sh
+    - -ec
+    - 'alembic upgrade head
+
+      exec uvicorn app.main:app --host 0.0.0.0 --port 8000 --proxy-headers --forwarded-allow-ips="*"
+
+      '
+    read_only: true
+    volumes:
+    - backup_status:/var/run/dcarbn:ro
+    - wal_status:/var/run/dcarbn-wal:ro
+    - pitr_status:/var/run/dcarbn-pitr:ro
+    - failover_state:/var/run/dcarbn-failover:ro
+    - ./deploy/slo/slo-definitions.yml:/etc/dcarbn/slo-definitions.yml:ro
+    - release_evidence:/var/run/dcarbn-evidence:ro
+    - supply_chain_evidence:/var/run/dcarbn-supply-chain:ro
+    tmpfs:
+    - /tmp:size=64m,mode=1777
+    cap_drop:
+    - ALL
+    security_opt:
+    - no-new-privileges:true
+    pids_limit: 200
+    mem_limit: 1g
+    cpus: 1.0
+    networks:
+    - edge
+    - data
+  frontend:
+    build:
+      context: ./frontend
+      target: runtime
+      args:
+        NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:?Set NEXT_PUBLIC_API_BASE_URL}
+    restart: unless-stopped
+    environment:
+      NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:?Set NEXT_PUBLIC_API_BASE_URL}
+    depends_on:
+      backend:
+        condition: service_healthy
+    read_only: true
+    tmpfs:
+    - /tmp:size=64m,mode=1777
+    cap_drop:
+    - ALL
+    security_opt:
+    - no-new-privileges:true
+    pids_limit: 200
+    mem_limit: 512m
+    cpus: 0.5
+    networks:
+    - edge
+  gateway:
+    image: nginx:1.27-alpine
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy
+      frontend:
+        condition: service_healthy
+    ports:
+    - 8080:8080
+    volumes:
+    - ./deploy/nginx.conf:/etc/nginx/nginx.conf:ro
+    read_only: true
+    tmpfs:
+    - /tmp:size=64m,mode=1777
+    - /var/cache/nginx:size=64m,mode=1777
+    cap_drop:
+    - ALL
+    cap_add:
+    - NET_BIND_SERVICE
+    security_opt:
+    - no-new-privileges:true
+    pids_limit: 100
+    mem_limit: 256m
+    cpus: 0.25
+    networks:
+    - edge
+  backup:
+    build:
+      context: ./deploy/backup
+    restart: unless-stopped
+    environment:
+      DATABASE_URL_FILE: /run/secrets/database_url
+      BACKUP_AGE_RECIPIENT_FILE: /run/secrets/backup_age_recipient
+      BACKUP_ROOT: /backups
+      BACKUP_STATUS_FILE: /status/backup-status.json
+      BACKUP_RETENTION_DAYS: ${BACKUP_RETENTION_DAYS:-35}
+      BACKUP_SCHEDULE_SECONDS: ${BACKUP_SCHEDULE_SECONDS:-86400}
+      BACKUP_REMOTE: ${BACKUP_REMOTE:-}
+    secrets:
+    - database_url
+    - backup_age_recipient
+    volumes:
+    - backup_data:/backups
+    - backup_status:/status
+    - ${RCLONE_CONFIG_PATH:-./deploy/backup/rclone.conf.example}:/home/postgres/.config/rclone/rclone.conf:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+    read_only: true
+    tmpfs:
+    - /tmp:size=1g,mode=1777
+    cap_drop:
+    - ALL
+    security_opt:
+    - no-new-privileges:true
+    pids_limit: 100
+    mem_limit: 1g
+    cpus: 0.5
+    networks:
+    - data
+  restore-drill:
+    build:
+      context: ./deploy/backup
+    profiles:
+    - restore-drill
+    entrypoint:
+    - /usr/local/bin/restore-drill.sh
+    environment:
+      DATABASE_URL_FILE: /run/secrets/restore_database_url
+      BACKUP_AGE_IDENTITY_FILE: /run/secrets/backup_age_identity
+      BACKUP_ROOT: /backups
+    secrets:
+    - restore_database_url
+    - backup_age_identity
+    volumes:
+    - backup_data:/backups:ro
+    depends_on:
+      restore-postgres:
+        condition: service_healthy
+    read_only: true
+    tmpfs:
+    - /tmp:size=1g,mode=1777
+    cap_drop:
+    - ALL
+    security_opt:
+    - no-new-privileges:true
+    networks:
+    - recovery
+  restore-postgres:
+    image: postgres:16-alpine
+    profiles:
+    - restore-drill
+    - automated-restore-drill
+    environment:
+      POSTGRES_DB: dcarbn_restore
+      POSTGRES_USER: dcarbn_restore
+      POSTGRES_PASSWORD_FILE: /run/secrets/restore_postgres_password
+    secrets:
+    - restore_postgres_password
+    tmpfs:
+    - /var/lib/postgresql/data:size=4g
+    healthcheck:
+      test:
+      - CMD-SHELL
+      - pg_isready -U dcarbn_restore -d dcarbn_restore
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    networks:
+    - recovery
+    security_opt:
+    - no-new-privileges:true
+  restore-drill-scheduler:
+    build:
+      context: ./deploy/backup
+    profiles:
+    - automated-restore-drill
+    entrypoint:
+    - /bin/bash
+    - -c
+    command:
+    - "while true; do\n  /usr/local/bin/restore-drill.sh\n  sleep \"$${RESTORE_DRILL_SCHEDULE_SECONDS}\"\
+      \ndone\n"
+    environment:
+      DATABASE_URL_FILE: /run/secrets/restore_database_url
+      BACKUP_AGE_IDENTITY_FILE: /run/secrets/backup_age_identity
+      BACKUP_ROOT: /backups
+      RESTORE_DRILL_SCHEDULE_SECONDS: ${RESTORE_DRILL_SCHEDULE_SECONDS:-2592000}
+    secrets:
+    - restore_database_url
+    - backup_age_identity
+    volumes:
+    - backup_data:/backups:ro
+    depends_on:
+      restore-postgres:
+        condition: service_healthy
+    read_only: true
+    tmpfs:
+    - /tmp:size=1g,mode=1777
+    cap_drop:
+    - ALL
+    security_opt:
+    - no-new-privileges:true
+    networks:
+    - recovery
+  pitr-base-backup:
+    build:
+      context: ./deploy/pitr
+    restart: unless-stopped
+    entrypoint:
+    - /bin/bash
+    - -c
+    command:
+    - "while true; do\n  /usr/local/bin/create-base-backup.sh\n  sleep \"$${PITR_BASE_BACKUP_SCHEDULE_SECONDS}\"\
+      \ndone\n"
+    environment:
+      DATABASE_URL_FILE: /run/secrets/replication_database_url
+      BACKUP_AGE_RECIPIENT_FILE: /run/secrets/backup_age_recipient
+      PITR_BASE_BACKUP_ROOT: /base-backups
+      PITR_STATUS_DIR: /pitr-status
+      PITR_REMOTE: ${PITR_REMOTE:-}
+      PITR_SECONDARY_REMOTE: ${PITR_SECONDARY_REMOTE:-}
+      PITR_BASE_BACKUP_RETENTION_DAYS: ${PITR_BASE_BACKUP_RETENTION_DAYS:-14}
+      PITR_BASE_BACKUP_SCHEDULE_SECONDS: ${PITR_BASE_BACKUP_SCHEDULE_SECONDS:-86400}
+      DCARBN_REGION: ${DCARBN_REGION:-primary}
+    secrets:
+    - replication_database_url
+    - backup_age_recipient
+    volumes:
+    - pitr_base_backups:/base-backups
+    - pitr_status:/pitr-status
+    - ${RCLONE_CONFIG_PATH:-./deploy/backup/rclone.conf.example}:/home/postgres/.config/rclone/rclone.conf:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+    read_only: true
+    tmpfs:
+    - /tmp:size=2g,mode=1777
+    cap_drop:
+    - ALL
+    security_opt:
+    - no-new-privileges:true
+    pids_limit: 100
+    mem_limit: 2g
+    cpus: 0.75
+    networks:
+    - data
+  pitr-restore:
+    build:
+      context: ./deploy/pitr
+    profiles:
+    - pitr
+    entrypoint:
+    - /usr/local/bin/restore-pitr.sh
+    environment:
+      PITR_CONFIRMATION: ${PITR_CONFIRMATION:-}
+      PITR_TARGET_DIR: /recovery-data
+      PITR_BASE_BACKUP_ROOT: /base-backups
+      PITR_REMOTE: ${PITR_REMOTE:-}
+      PITR_SECONDARY_REMOTE: ${PITR_SECONDARY_REMOTE:-}
+      PITR_BASE_BACKUP_ID: ${PITR_BASE_BACKUP_ID:-}
+      PITR_TARGET_TIME: ${PITR_TARGET_TIME:-}
+      PITR_TARGET_LSN: ${PITR_TARGET_LSN:-}
+      PITR_TARGET_XID: ${PITR_TARGET_XID:-}
+      PITR_TARGET_NAME: ${PITR_TARGET_NAME:-}
+      PITR_TARGET_TIMELINE: ${PITR_TARGET_TIMELINE:-latest}
+      PITR_TARGET_ACTION: ${PITR_TARGET_ACTION:-pause}
+      BACKUP_AGE_IDENTITY_FILE: /run/secrets/backup_age_identity
+      WAL_ARCHIVE_LOCAL_DIR: /wal-archive
+      WAL_ARCHIVE_REMOTE: ${WAL_ARCHIVE_REMOTE:-}
+      WAL_ARCHIVE_SECONDARY_REMOTE: ${WAL_ARCHIVE_SECONDARY_REMOTE:-}
+    secrets:
+    - backup_age_identity
+    volumes:
+    - pitr_base_backups:/base-backups:ro
+    - wal_archive:/wal-archive:ro
+    - pitr_recovery_data:/recovery-data
+    - ${RCLONE_CONFIG_PATH:-./deploy/backup/rclone.conf.example}:/home/postgres/.config/rclone/rclone.conf:ro
+    - ./deploy/postgres/restore-wal.sh:/usr/local/bin/restore-wal.sh:ro
+    read_only: true
+    tmpfs:
+    - /tmp:size=2g,mode=1777
+    cap_drop:
+    - ALL
+    security_opt:
+    - no-new-privileges:true
+    networks:
+    - recovery
+  primary-region-status:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    entrypoint:
+    - /bin/bash
+    - -c
+    command:
+    - "while true; do\n  /scripts/status.sh\n  sleep \"$${FAILOVER_STATUS_INTERVAL_SECONDS}\"\
+      \ndone\n"
+    environment:
+      DATABASE_URL_FILE: /run/secrets/database_url
+      DCARBN_REGION: ${DCARBN_REGION:-primary}
+      FAILOVER_STATE_FILE: /failover-state/failover.json
+      FAILOVER_STATUS_INTERVAL_SECONDS: ${FAILOVER_STATUS_INTERVAL_SECONDS:-30}
+    secrets:
+    - database_url
+    volumes:
+    - ./deploy/failover/status.sh:/scripts/status.sh:ro
+    - failover_state:/failover-state
+    depends_on:
+      postgres:
+        condition: service_healthy
+    read_only: true
+    tmpfs:
+    - /tmp:size=32m,mode=1777
+    cap_drop:
+    - ALL
+    security_opt:
+    - no-new-privileges:true
+    networks:
+    - data
+secrets:
+  secret_key:
+    file: ./secrets/secret_key
+  mfa_encryption_key:
+    file: ./secrets/mfa_encryption_key
+  database_url:
+    file: ./secrets/database_url
+  redis_url:
+    file: ./secrets/redis_url
+  smtp_password:
+    file: ./secrets/smtp_password
+  postgres_password:
+    file: ./secrets/postgres_password
+  backup_age_recipient:
+    file: ./secrets/backup_age_recipient
+  backup_age_identity:
+    file: ./secrets/backup_age_identity
+  restore_database_url:
+    file: ./secrets/restore_database_url
+  restore_postgres_password:
+    file: ./secrets/restore_postgres_password
+  replication_database_url:
+    file: ./secrets/replication_database_url
+volumes:
+  postgres_data: null
+  redis_data: null
+  backup_data: null
+  backup_status: null
+  wal_archive: null
+  wal_status: null
+  pitr_base_backups: null
+  pitr_status: null
+  pitr_recovery_data: null
+  failover_state: null
+  release_evidence: null
+  supply_chain_evidence: null
+networks:
+  edge: null
+  data:
+    internal: true
+  recovery:
+    internal: true

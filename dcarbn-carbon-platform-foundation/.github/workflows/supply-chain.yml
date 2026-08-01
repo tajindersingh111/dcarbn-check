@@ -1,0 +1,359 @@
+name: Supply-chain security
+
+on:
+  push:
+    branches: ["main"]
+    tags: ["v*"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+  id-token: write
+  attestations: write
+  security-events: write
+
+env:
+  REGISTRY: ghcr.io
+  BACKEND_IMAGE: ghcr.io/${{ github.repository_owner }}/dcarbn-backend
+  FRONTEND_IMAGE: ghcr.io/${{ github.repository_owner }}/dcarbn-frontend
+
+jobs:
+  source-security:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Secret scan
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Python dependency audit
+        working-directory: backend
+        run: |
+          python -m pip install --upgrade pip pip-audit
+          pip-audit \
+            --requirement <(python -m pip freeze) \
+            --format json \
+            --output ../artifacts/pip-audit.json || true
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Node dependency audit
+        id: npm_audit
+        working-directory: frontend
+        shell: bash
+        run: |
+          mkdir -p ../artifacts
+          npm ci
+          set +e
+          npm audit --audit-level=high --json > ../artifacts/npm-audit.json
+          status=$?
+          set -e
+          echo "status=${status}" >> "$GITHUB_OUTPUT"
+
+      - name: Write source-security evidence
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json
+          from datetime import UTC, datetime
+          from pathlib import Path
+
+          pip_status = int("${{ steps.pip_audit.outputs.status }}")
+          npm_status = int("${{ steps.npm_audit.outputs.status }}")
+          payload = {
+              "schema_version": 1,
+              "evidence_type": "source_security",
+              "generated_at": datetime.now(UTC).isoformat(),
+              "commit_sha": "${{ github.sha }}",
+              "secret_scan": "passed",
+              "python_dependency_audit": (
+                  "passed" if pip_status == 0 else "failed"
+              ),
+              "node_dependency_audit": (
+                  "passed" if npm_status == 0 else "failed"
+              ),
+              "result": (
+                  "passed"
+                  if pip_status == 0 and npm_status == 0
+                  else "failed"
+              ),
+          }
+          Path("artifacts/source-security.json").write_text(
+              json.dumps(payload, indent=2, sort_keys=True) + "\n"
+          )
+          PY
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: source-supply-chain-evidence
+          path: artifacts/
+          retention-days: 90
+
+      - name: Enforce dependency-audit result
+        if: steps.pip_audit.outputs.status != '0' || steps.npm_audit.outputs.status != '0'
+        run: exit 1
+
+  build-scan-sign:
+    needs: source-security
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - name: backend
+            context: backend
+            image_env: BACKEND_IMAGE
+          - name: frontend
+            context: frontend
+            image_env: FRONTEND_IMAGE
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        if: github.event_name != 'pull_request'
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Resolve image reference
+        id: image
+        shell: bash
+        run: |
+          if [[ "${{ matrix.name }}" == "backend" ]]; then
+            echo "name=${BACKEND_IMAGE}" >> "$GITHUB_OUTPUT"
+          else
+            echo "name=${FRONTEND_IMAGE}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Build and push image
+        id: build
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ matrix.context }}
+          push: ${{ github.event_name != 'pull_request' }}
+          load: ${{ github.event_name == 'pull_request' }}
+          tags: |
+            ${{ steps.image.outputs.name }}:${{ github.sha }}
+          provenance: false
+          sbom: false
+
+      - name: Install Syft
+        uses: anchore/sbom-action/download-syft@v0.17.2
+
+      - name: Generate SPDX SBOM
+        run: |
+          mkdir -p artifacts
+          syft "${{ steps.image.outputs.name }}:${{ github.sha }}" \
+            -o spdx-json="artifacts/${{ matrix.name }}.spdx.json"
+
+      - name: Generate CycloneDX SBOM
+        run: |
+          syft "${{ steps.image.outputs.name }}:${{ github.sha }}" \
+            -o cyclonedx-json="artifacts/${{ matrix.name }}.cyclonedx.json"
+
+      - name: Scan image with Grype
+        uses: anchore/scan-action@v6
+        with:
+          image: ${{ steps.image.outputs.name }}:${{ github.sha }}
+          severity-cutoff: high
+          fail-build: false
+          output-format: json
+          output-file: artifacts/${{ matrix.name }}.grype.json
+
+      - name: Scan image with Trivy
+        uses: aquasecurity/trivy-action@0.29.0
+        with:
+          image-ref: ${{ steps.image.outputs.name }}:${{ github.sha }}
+          format: json
+          output: artifacts/${{ matrix.name }}.trivy.json
+          severity: HIGH,CRITICAL
+          ignore-unfixed: false
+          exit-code: "0"
+
+      - name: Evaluate vulnerability policy
+        run: |
+          python deploy/supply-chain/evaluate-vulnerability-policy.py \
+            --grype "artifacts/${{ matrix.name }}.grype.json" \
+            --trivy "artifacts/${{ matrix.name }}.trivy.json" \
+            --policy deploy/supply-chain/policy.yml \
+            --exceptions deploy/supply-chain/vulnerability-exceptions.yml \
+            --output "artifacts/${{ matrix.name }}.vulnerability-policy.json"
+
+      - name: Evaluate license policy
+        run: |
+          python deploy/supply-chain/check-licenses.py \
+            --sbom "artifacts/${{ matrix.name }}.spdx.json" \
+            --policy deploy/supply-chain/policy.yml \
+            --output "artifacts/${{ matrix.name }}.license-policy.json"
+
+      - name: Generate checksums
+        run: |
+          sha256sum artifacts/* > "artifacts/${{ matrix.name }}.sha256"
+
+      - uses: sigstore/cosign-installer@v3.7.0
+        if: github.event_name != 'pull_request'
+
+      - name: Sign image by digest
+        if: github.event_name != 'pull_request'
+        env:
+          DIGEST: ${{ steps.build.outputs.digest }}
+          IMAGE: ${{ steps.image.outputs.name }}
+        run: cosign sign --yes "${IMAGE}@${DIGEST}"
+
+      - name: Attach SPDX SBOM attestation
+        if: github.event_name != 'pull_request'
+        env:
+          DIGEST: ${{ steps.build.outputs.digest }}
+          IMAGE: ${{ steps.image.outputs.name }}
+        run: |
+          cosign attest --yes \
+            --type spdxjson \
+            --predicate "artifacts/${{ matrix.name }}.spdx.json" \
+            "${IMAGE}@${DIGEST}"
+
+      - name: Generate SLSA provenance
+        if: github.event_name != 'pull_request'
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-name: ${{ steps.image.outputs.name }}
+          subject-digest: ${{ steps.build.outputs.digest }}
+          push-to-registry: true
+
+      - name: Verify signature and attestations
+        if: github.event_name != 'pull_request'
+        env:
+          DIGEST: ${{ steps.build.outputs.digest }}
+          IMAGE: ${{ steps.image.outputs.name }}
+        run: |
+          cosign verify \
+            --certificate-identity-regexp "^https://github.com/${{ github.repository }}/.github/workflows/supply-chain.yml@refs/(heads|tags)/.+$" \
+            --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+            "${IMAGE}@${DIGEST}" \
+            > "artifacts/${{ matrix.name }}.signature-verification.json"
+
+          cosign verify-attestation \
+            --type spdxjson \
+            --certificate-identity-regexp "^https://github.com/${{ github.repository }}/.github/workflows/supply-chain.yml@refs/(heads|tags)/.+$" \
+            --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+            "${IMAGE}@${DIGEST}" \
+            > "artifacts/${{ matrix.name }}.sbom-attestation-verification.json"
+
+      - name: Write image evidence
+        shell: bash
+        env:
+          DIGEST: ${{ steps.build.outputs.digest }}
+          IMAGE: ${{ steps.image.outputs.name }}
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          from datetime import UTC, datetime
+          from pathlib import Path
+
+          name = "${{ matrix.name }}"
+          policy = json.loads(
+              Path(f"artifacts/{name}.vulnerability-policy.json").read_text()
+          )
+          license_policy = json.loads(
+              Path(f"artifacts/{name}.license-policy.json").read_text()
+          )
+          payload = {
+              "schema_version": 1,
+              "evidence_type": "supply_chain_image",
+              "generated_at": datetime.now(UTC).isoformat(),
+              "component": name,
+              "image": os.environ["IMAGE"],
+              "digest": os.environ.get("DIGEST") or None,
+              "commit_sha": "${{ github.sha }}",
+              "sbom": {
+                  "spdx": f"{name}.spdx.json",
+                  "cyclonedx": f"{name}.cyclonedx.json",
+              },
+              "vulnerability_policy": policy["result"],
+              "license_policy": license_policy["result"],
+              "signature": "${{ github.event_name }}" != "pull_request",
+              "provenance": "${{ github.event_name }}" != "pull_request",
+              "result": (
+                  "passed"
+                  if policy["result"] == "passed"
+                  and license_policy["result"] == "passed"
+                  else "failed"
+              ),
+          }
+          Path(f"artifacts/{name}.supply-chain.json").write_text(
+              json.dumps(payload, indent=2, sort_keys=True) + "\n"
+          )
+          PY
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.name }}-supply-chain-evidence
+          path: artifacts/
+          retention-days: 365
+
+  aggregate-evidence:
+    needs: build-scan-sign
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: "*-supply-chain-evidence"
+          path: evidence
+          merge-multiple: true
+
+      - name: Aggregate release evidence
+        run: |
+          python - <<'PY'
+          import json
+          from datetime import UTC, datetime
+          from pathlib import Path
+
+          components = [
+              json.loads(path.read_text())
+              for path in sorted(Path("evidence").glob("*.supply-chain.json"))
+          ]
+          source_path = Path("evidence/source-security.json")
+          source_security = (
+              json.loads(source_path.read_text())
+              if source_path.is_file()
+              else {"result": "failed"}
+          )
+          passed = (
+              bool(components)
+              and all(item.get("result") == "passed" for item in components)
+              and source_security.get("result") == "passed"
+          )
+          payload = {
+              "schema_version": 1,
+              "evidence_type": "supply_chain_assurance",
+              "generated_at": datetime.now(UTC).isoformat(),
+              "commit_sha": "${{ github.sha }}",
+              "result": "passed" if passed else "failed",
+              "source_security": source_security,
+              "components": components,
+          }
+          Path("evidence/supply-chain-release.json").write_text(
+              json.dumps(payload, indent=2, sort_keys=True) + "\n"
+          )
+          PY
+          sha256sum evidence/* > evidence/supply-chain-release.sha256
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: supply-chain-release-evidence
+          path: evidence/
+          retention-days: 365

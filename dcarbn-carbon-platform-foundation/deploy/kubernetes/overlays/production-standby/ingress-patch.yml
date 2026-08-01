@@ -1,0 +1,27 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: dcarbn-backend
+  annotations:
+    nginx.ingress.kubernetes.io/server-snippet: |
+      return 503;
+spec:
+  tls:
+    - hosts: ["standby.carbon.example.com"]
+      secretName: dcarbn-standby-tls
+  rules:
+    - host: standby.carbon.example.com
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: dcarbn-frontend
+  annotations:
+    nginx.ingress.kubernetes.io/server-snippet: |
+      return 503;
+spec:
+  tls:
+    - hosts: ["standby.carbon.example.com"]
+      secretName: dcarbn-standby-tls
+  rules:
+    - host: standby.carbon.example.com

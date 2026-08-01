@@ -1,0 +1,68 @@
+apiVersion: argoproj.io/v1alpha1
+kind: AnalysisTemplate
+metadata:
+  name: dcarbn-backend-canary
+  namespace: dcarbn
+spec:
+  args:
+    - name: service-name
+      value: dcarbn-backend-canary
+  metrics:
+    - name: success-rate
+      interval: 1m
+      count: 5
+      successCondition: result[0] >= 0.995
+      failureLimit: 2
+      provider:
+        prometheus:
+          address: http://prometheus-operated.observability.svc.cluster.local:9090
+          query: |
+            1 - (
+              sum(rate(dcarbn_http_requests_total{
+                status=~"5.."
+              }[5m]))
+              /
+              clamp_min(sum(rate(dcarbn_http_requests_total[5m])), 0.001)
+            )
+    - name: p95-latency
+      interval: 1m
+      count: 5
+      successCondition: result[0] <= 1
+      failureLimit: 2
+      provider:
+        prometheus:
+          address: http://prometheus-operated.observability.svc.cluster.local:9090
+          query: |
+            histogram_quantile(
+              0.95,
+              sum by (le) (
+                rate(dcarbn_http_request_duration_seconds_bucket[5m])
+              )
+            )
+    - name: recovery-readiness
+      interval: 1m
+      count: 3
+      successCondition: result[0] == 1
+      failureLimit: 1
+      provider:
+        prometheus:
+          address: http://prometheus-operated.observability.svc.cluster.local:9090
+          query: dcarbn_pitr_readiness
+---
+apiVersion: argoproj.io/v1alpha1
+kind: AnalysisTemplate
+metadata:
+  name: dcarbn-frontend-canary
+  namespace: dcarbn
+spec:
+  metrics:
+    - name: frontend-availability
+      interval: 1m
+      count: 5
+      successCondition: result[0] >= 0.999
+      failureLimit: 2
+      provider:
+        prometheus:
+          address: http://prometheus-operated.observability.svc.cluster.local:9090
+          query: |
+            min(up{job="dcarbn-frontend"})

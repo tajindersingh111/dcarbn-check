@@ -1,0 +1,58 @@
+groups:
+  - name: dcarbn-slo-burn-rate
+    rules:
+      - alert: DCarbnAvailabilityFastBurn
+        expr: |
+          (
+            dcarbn:sli_error:ratio_rate5m > (14.4 * 0.001)
+          )
+          and
+          (
+            dcarbn:sli_error:ratio_rate1h > (14.4 * 0.001)
+          )
+        for: 2m
+        labels:
+          severity: critical
+          service: backend
+          slo: api_availability
+        annotations:
+          summary: API availability error budget is burning rapidly
+          runbook_url: /runbooks/slo-breach.md
+
+      - alert: DCarbnAvailabilitySlowBurn
+        expr: |
+          (
+            sum(rate(dcarbn_http_requests_total{status=~"5.."}[6h]))
+            /
+            clamp_min(sum(rate(dcarbn_http_requests_total[6h])), 0.001)
+          ) > (6 * 0.001)
+        for: 30m
+        labels:
+          severity: warning
+          service: backend
+          slo: api_availability
+        annotations:
+          summary: API availability error budget is burning above policy
+          runbook_url: /runbooks/slo-breach.md
+
+      - alert: DCarbnLatencySloBreach
+        expr: dcarbn:sli_latency_p95:seconds_rate1h > 1
+        for: 15m
+        labels:
+          severity: warning
+          service: backend
+          slo: api_latency_p95
+        annotations:
+          summary: API p95 latency exceeds the one-second SLO
+          runbook_url: /runbooks/slo-breach.md
+
+      - alert: DCarbnErrorBudgetExhausted
+        expr: dcarbn:slo_availability:error_budget_remaining <= 0
+        for: 5m
+        labels:
+          severity: critical
+          service: release
+          slo: api_availability
+        annotations:
+          summary: API availability error budget is exhausted
+          runbook_url: /runbooks/release-gate-blocked.md

@@ -1,0 +1,22 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: dcarbn-standby
+resources:
+  - ../../base
+  - namespace-patch.yml
+patches:
+  - path: rollout-patch.yml
+  - path: ingress-patch.yml
+  - path: config-patch.yml
+  - path: external-secret-patch.yml
+images:
+  - name: ghcr.io/example/dcarbn-backend
+    newName: ghcr.io/example/dcarbn-backend
+    digest: sha256:REPLACE_STANDBY_BACKEND_DIGEST
+  - name: ghcr.io/example/dcarbn-frontend
+    newName: ghcr.io/example/dcarbn-frontend
+    digest: sha256:REPLACE_STANDBY_FRONTEND_DIGEST
+commonLabels:
+  app.kubernetes.io/instance: dcarbn-production-standby
+  environment: production
+  region-role: standby

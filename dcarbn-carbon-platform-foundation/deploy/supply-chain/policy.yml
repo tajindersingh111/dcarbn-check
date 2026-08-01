@@ -1,0 +1,46 @@
+version: 1
+policy_name: dcarbn-production-supply-chain
+approved_registries:
+  - ghcr.io
+required_artifacts:
+  sbom_formats:
+    - spdx-json
+    - cyclonedx-json
+  provenance:
+    predicate_type: https://slsa.dev/provenance/v1
+  signatures:
+    require_cosign: true
+    require_digest_reference: true
+vulnerabilities:
+  fail_severities:
+    - critical
+    - high
+  require_fix_available_for_failure: true
+  maximum_unfixed_critical: 0
+  maximum_unfixed_high: 0
+  ignore_not_fixed: false
+licenses:
+  denied:
+    - AGPL-1.0
+    - AGPL-3.0
+    - SSPL-1.0
+    - BUSL-1.1
+exceptions:
+  file: /config/vulnerability-exceptions.yml
+  maximum_age_days: 90
+  require_owner: true
+  require_expiry: true
+signing:
+  mode: keyless
+  certificate_identity_regexp: "^https://github.com/.+/.github/workflows/supply-chain.yml@refs/(heads|tags)/.+$"
+  certificate_oidc_issuer: https://token.actions.githubusercontent.com
+provenance:
+  require_builder_id_prefix: https://github.com/actions/runner
+  require_source_repository: true
+release_gate:
+  require_sbom: true
+  require_signature: true
+  require_provenance: true
+  require_vulnerability_policy: true
+  require_secret_scan: true
+  require_license_policy: true

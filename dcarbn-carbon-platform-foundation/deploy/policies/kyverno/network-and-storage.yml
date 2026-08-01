@@ -1,0 +1,51 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: dcarbn-network-and-storage
+spec:
+  validationFailureAction: Enforce
+  background: true
+  rules:
+    - name: require-default-deny
+      match:
+        any:
+          - resources:
+              kinds: ["Namespace"]
+              selector:
+                matchLabels:
+                  app.kubernetes.io/part-of: dcarbn-carbon-platform
+      generate:
+        apiVersion: networking.k8s.io/v1
+        kind: NetworkPolicy
+        name: default-deny
+        namespace: "{{ request.object.metadata.name }}"
+        synchronize: true
+        data:
+          spec:
+            podSelector: {}
+            policyTypes: ["Ingress", "Egress"]
+
+    - name: restrict-hostpath
+      match:
+        any:
+          - resources:
+              kinds: ["Pod"]
+              namespaces: ["dcarbn-staging", "dcarbn-production", "dcarbn-standby"]
+      validate:
+        message: hostPath volumes are prohibited.
+        pattern:
+          spec:
+            =(volumes):
+              - X(hostPath): "null"
+
+    - name: require-pvc-storage-class
+      match:
+        any:
+          - resources:
+              kinds: ["PersistentVolumeClaim"]
+              namespaces: ["dcarbn-staging", "dcarbn-production", "dcarbn-standby"]
+      validate:
+        message: PVCs require an explicit storage class.
+        pattern:
+          spec:
+            storageClassName: "?*"

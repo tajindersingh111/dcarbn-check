@@ -1,0 +1,9 @@
+# Configure an encrypted or private object-storage remote.
+# Example:
+#
+# [backups]
+# type = s3
+# provider = AWS
+# env_auth = true
+# region = eu-west-2
+# storage_class = STANDARD_IA
