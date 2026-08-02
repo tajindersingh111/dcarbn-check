@@ -35,13 +35,20 @@ jobs:
           python-version: "3.12"
 
       - name: Python dependency audit
+        id: pip_audit
         working-directory: backend
+        shell: bash
         run: |
+          mkdir -p ../artifacts
           python -m pip install --upgrade pip pip-audit
+          set +e
           pip-audit \
             --requirement <(python -m pip freeze) \
             --format json \
-            --output ../artifacts/pip-audit.json || true
+            --output ../artifacts/pip-audit.json
+          status=$?
+          set -e
+          echo "status=${status}" >> "$GITHUB_OUTPUT"
 
       - uses: actions/setup-node@v4
         with:
