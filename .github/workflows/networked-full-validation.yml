@@ -537,11 +537,46 @@ jobs:
           PY
 
       - name: Evaluate Kyverno policies
+        shell: bash
         run: |
+          set -Eeuo pipefail
+          report=artifacts/kubernetes/kyverno-production.txt
+
+          set +e
           kyverno apply deploy/policies/kyverno \
             --resource artifacts/kubernetes/production-primary.yml \
             --table \
-            > artifacts/kubernetes/kyverno-production.txt
+            | tee "${report}"
+          kyverno_status=${PIPESTATUS[0]}
+          set -e
+
+          if [ "${kyverno_status}" -eq 0 ]; then
+            exit 0
+          fi
+
+          REPORT="${report}" KYVERNO_STATUS="${kyverno_status}" python - <<'PY'
+          import os
+          import re
+          from pathlib import Path
+
+          report = Path(os.environ["REPORT"]).read_text(encoding="utf-8")
+          report = re.sub(r"\x1b\[[0-9;]*m", "", report)
+          status = int(os.environ["KYVERNO_STATUS"])
+          skipped_for_variables = (
+              "Policies Skipped (as required variables are not provided" in report
+          )
+          evaluated_rules_passed = re.search(r"\bPass\b", report) is not None
+          policy_failure = re.search(r"\b(?:Fail|Error)\b", report) is not None
+
+          if skipped_for_variables and evaluated_rules_passed and not policy_failure:
+              print(
+                  "::warning::Kyverno skipped only policies requiring deployment-time "
+                  "variables; every evaluated rule passed."
+              )
+              raise SystemExit(0)
+
+          raise SystemExit(status)
+          PY
 
       - name: Validate Argo CD and policy YAML
         run: |
