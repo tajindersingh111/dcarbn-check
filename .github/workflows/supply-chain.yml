@@ -236,7 +236,7 @@ jobs:
             "${IMAGE}@${DIGEST}"
 
       - name: Generate SLSA provenance
-        if: github.event_name != 'pull_request'
+        if: github.event_name != 'pull_request' && github.event.repository.private == false
         uses: actions/attest-build-provenance@v2
         with:
           subject-name: ${{ steps.image.outputs.name }}
@@ -296,7 +296,10 @@ jobs:
               "vulnerability_policy": policy["result"],
               "license_policy": license_policy["result"],
               "signature": "${{ github.event_name }}" != "pull_request",
-              "provenance": "${{ github.event_name }}" != "pull_request",
+              "provenance": (
+                  "${{ github.event_name }}" != "pull_request"
+                  and "${{ github.event.repository.private }}" == "false"
+              ),
               "result": (
                   "passed"
                   if policy["result"] == "passed"
