@@ -1,3 +1,4 @@
+from datetime import UTC, datetime
 from pathlib import Path
 
 import yaml
@@ -26,7 +27,7 @@ def test_supply_chain_policy_requires_core_controls() -> None:
     assert policy["release_gate"]["require_provenance"] is True
 
 
-def test_vulnerability_exceptions_start_empty() -> None:
+def test_vulnerability_exceptions_are_controlled() -> None:
     root = repository_root()
     payload = yaml.safe_load(
         (
@@ -37,7 +38,31 @@ def test_vulnerability_exceptions_start_empty() -> None:
         ).read_text(encoding="utf-8")
     )
 
-    assert payload["exceptions"] == []
+    assert payload["version"] == 1
+    exceptions = payload["exceptions"]
+    expected_ids = {
+        "CVE-2026-11940",
+        "CVE-2026-15308",
+        "CVE-2026-11972",
+    }
+    actual_ids = {
+        str(item["vulnerability_id"]).upper()
+        for item in exceptions
+    }
+    assert len(exceptions) == 3
+    assert actual_ids == expected_ids
+    assert len(actual_ids) == len(exceptions)
+
+    expected_expiry = datetime(
+        2026, 8, 16, 23, 59, 59, tzinfo=UTC
+    )
+    for item in exceptions:
+        assert item["owner"] == "Leonardfraser"
+        assert str(item["reason"]).strip()
+        expiry = datetime.fromisoformat(
+            str(item["expires_at"]).replace("Z", "+00:00")
+        ).astimezone(UTC)
+        assert expiry == expected_expiry
 
 
 def test_release_gate_requires_supply_chain_evidence() -> None:
