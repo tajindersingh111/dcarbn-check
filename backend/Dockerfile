@@ -1,4 +1,4 @@
-FROM python:3.12-slim AS builder
+FROM python:3.13.14-slim AS builder
 
 ENV PIP_DISABLE_PIP_VERSION_CHECK=1 \
     PIP_NO_CACHE_DIR=1 \
@@ -9,10 +9,10 @@ WORKDIR /build
 COPY pyproject.toml README.md ./
 COPY app ./app
 RUN python -m venv /opt/venv && \
-    /opt/venv/bin/pip install --upgrade pip && \
+    /opt/venv/bin/pip install --upgrade pip "setuptools>=83,<84" wheel && \
     /opt/venv/bin/pip install .
 
-FROM python:3.12-slim AS runtime
+FROM python:3.13.14-slim AS runtime
 
 ENV PATH="/opt/venv/bin:$PATH" \
     PYTHONDONTWRITEBYTECODE=1 \
