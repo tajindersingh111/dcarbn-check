@@ -66,6 +66,7 @@ class User(UUIDPrimaryKeyMixin, TimestampMixin, Base):
 
     memberships = relationship(
         "TenantMembership",
+        foreign_keys="TenantMembership.user_id",
         back_populates="user",
         cascade="all, delete-orphan",
     )
