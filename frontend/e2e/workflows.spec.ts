@@ -16,7 +16,7 @@ test("dashboard loads live workflow data", async ({ page }) => {
 test("organisation creation posts to the API", async ({ page }) => {
   await page.goto("/organisations");
   await page.getByRole("button", { name: "Add organisation" }).click();
-  await page.getByLabel("Name").fill("Northstar Logistics Ltd");
+  await page.getByLabel("Name", { exact: true }).fill("Northstar Logistics Ltd");
   await page.getByLabel("Country code").fill("GB");
   const requestPromise = page.waitForRequest((request) =>
     request.url().endsWith("/api/v1/organisations") && request.method() === "POST"
@@ -53,7 +53,7 @@ test("activity entry submits the backend contract", async ({ page }) => {
 
 test("DATa review decision calls the review API", async ({ page }) => {
   await page.goto("/data-reviews");
-  await expect(page.getByText("DATa-CALC-2026-0184")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "DATa-CALC-2026-0184" })).toBeVisible();
   const requestPromise = page.waitForRequest((request) =>
     request.url().includes("/decision") && request.method() === "POST"
   );
