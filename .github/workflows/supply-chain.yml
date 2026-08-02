@@ -363,7 +363,9 @@ jobs:
               json.dumps(payload, indent=2, sort_keys=True) + "\n"
           )
           PY
-          sha256sum evidence/* > evidence/supply-chain-release.sha256
+          find evidence -type f ! -name 'supply-chain-release.sha256' -print0 \
+            | sort -z \
+            | xargs -0 sha256sum > evidence/supply-chain-release.sha256
 
       - uses: actions/upload-artifact@v4
         with:
