@@ -208,8 +208,11 @@ jobs:
             --output "artifacts/${{ matrix.name }}.license-policy.json"
 
       - name: Generate checksums
+        shell: bash
         run: |
-          sha256sum artifacts/* > "artifacts/${{ matrix.name }}.sha256"
+          checksum_file="$(mktemp)"
+          find artifacts -maxdepth 1 -type f -print0 | sort -z | xargs -0 sha256sum > "$checksum_file"
+          mv "$checksum_file" "artifacts/${{ matrix.name }}.sha256"
 
       - uses: sigstore/cosign-installer@v3.7.0
         if: github.event_name != 'pull_request'
