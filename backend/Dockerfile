@@ -1,4 +1,4 @@
-FROM python:3.13.14-slim AS builder
+FROM python:3.14.6-slim AS builder
 
 ENV PIP_DISABLE_PIP_VERSION_CHECK=1 \
     PIP_NO_CACHE_DIR=1 \
@@ -10,16 +10,18 @@ COPY pyproject.toml README.md ./
 COPY app ./app
 RUN python -m venv /opt/venv && \
     /opt/venv/bin/pip install --upgrade pip "setuptools>=83,<84" wheel && \
-    /opt/venv/bin/pip install .
+    /opt/venv/bin/pip install . && \
+    /opt/venv/bin/pip install --upgrade "setuptools>=83,<84" "msgpack>=1.2.1,<2"
 
-FROM python:3.13.14-slim AS runtime
+FROM python:3.14.6-slim AS runtime
 
 ENV PATH="/opt/venv/bin:$PATH" \
     PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     HOME=/home/appuser
 
-RUN groupadd --gid 10001 appuser && \
+RUN python -m pip install --no-cache-dir --upgrade "setuptools>=83,<84" "msgpack>=1.2.1,<2" && \
+    groupadd --gid 10001 appuser && \
     useradd --uid 10001 --gid 10001 --create-home appuser
 
 WORKDIR /app
