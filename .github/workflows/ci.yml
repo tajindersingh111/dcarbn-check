@@ -38,8 +38,8 @@ jobs:
         working-directory: backend
     env:
       APP_ENV: test
-      SECRET_KEY: test-secret-key-that-is-at-least-32-characters
-      MFA_ENCRYPTION_KEY: test-mfa-key-that-is-at-least-32-characters
+      SECRET_KEY: 00000000000000000000000000000000
+      MFA_ENCRYPTION_KEY: 11111111111111111111111111111111
       DATABASE_URL: postgresql+asyncpg://dcarbn:dcarbn@localhost:5432/dcarbn_test
       REDIS_URL: redis://localhost:6379/15
       CORS_ORIGINS: http://localhost:3000
