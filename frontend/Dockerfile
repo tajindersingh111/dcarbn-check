@@ -1,10 +1,10 @@
-FROM node:20-alpine AS dependencies
+FROM node:22-alpine3.23 AS dependencies
 
 WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci --no-audit --no-fund
 
-FROM node:20-alpine AS builder
+FROM node:22-alpine3.23 AS builder
 
 WORKDIR /app
 ARG NEXT_PUBLIC_API_BASE_URL
@@ -13,15 +13,17 @@ ENV NEXT_TELEMETRY_DISABLED=1 \
 
 COPY --from=dependencies /app/node_modules ./node_modules
 COPY . .
-RUN npm run build
+RUN npm run build && \
+    npm prune --omit=dev --no-audit --no-fund
 
-FROM node:20-alpine AS runtime
+FROM node:22-alpine3.23 AS runtime
 
 ENV NODE_ENV=production \
     NEXT_TELEMETRY_DISABLED=1 \
     PORT=3000
 
-RUN addgroup -g 10001 appuser && \
+RUN apk upgrade --no-cache && \
+    addgroup -g 10001 appuser && \
     adduser -D -u 10001 -G appuser appuser
 
 WORKDIR /app
