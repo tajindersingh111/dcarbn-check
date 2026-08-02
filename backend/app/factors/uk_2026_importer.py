@@ -243,7 +243,7 @@ def parse_uk_2026_flat_workbook(content: bytes) -> ParsedWorkbook:
                     )
                 )
 
-        if not factors and not errors:
+        if not factors and not errors and skipped_unavailable_rows == 0:
             raise FactorWorkbookValidationError(
                 "No factor rows were found in the workbook."
             )
