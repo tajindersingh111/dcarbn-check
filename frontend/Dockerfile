@@ -23,6 +23,8 @@ ENV NODE_ENV=production \
     PORT=3000
 
 RUN apk upgrade --no-cache && \
+    rm -rf /usr/local/lib/node_modules/npm && \
+    rm -f /usr/local/bin/npm /usr/local/bin/npx && \
     addgroup -g 10001 appuser && \
     adduser -D -u 10001 -G appuser appuser
 
@@ -39,4 +41,4 @@ EXPOSE 3000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
     CMD wget -q -O - http://127.0.0.1:3000/ >/dev/null 2>&1 || exit 1
 
-CMD ["npm", "run", "start"]
+CMD ["node", "node_modules/next/dist/bin/next", "start"]
