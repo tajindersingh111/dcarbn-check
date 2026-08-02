@@ -14,7 +14,8 @@ RUN python -m pip install --upgrade pip "setuptools>=83,<84" wheel && \
 
 FROM python:3.14.6-slim AS runtime
 
-ENV PYTHONPATH="/opt/site" \
+ENV PATH="/opt/site/bin:${PATH}" \
+    PYTHONPATH="/opt/site" \
     PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     HOME=/home/appuser
