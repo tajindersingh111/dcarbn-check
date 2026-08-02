@@ -7,8 +7,8 @@ from app.auth.security import (
 
 
 def test_password_hash_and_verify() -> None:
-    password_hash = hash_password("Correct-Horse-Battery-Staple-2026")
-    assert verify_password(password_hash, "Correct-Horse-Battery-Staple-2026")
+    password_hash = hash_password("test-password")
+    assert verify_password(password_hash, "test-password")
     assert not verify_password(password_hash, "wrong-password")
 
 
