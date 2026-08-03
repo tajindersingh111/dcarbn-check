@@ -1,0 +1,83 @@
+name: Deploy IONOS staging
+
+on:
+  pull_request:
+    paths:
+      - docker-compose.staging.yml
+      - deploy/ionos/**
+      - .github/workflows/deploy-staging-ionos.yml
+  workflow_dispatch:
+    inputs:
+      deploy:
+        description: Deploy the validated commit to IONOS staging
+        required: true
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ionos-staging
+  cancel-in-progress: false
+
+jobs:
+  validate:
+    name: Validate staging pack
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate shell scripts
+        run: bash -n deploy/ionos/*.sh
+      - name: Validate Compose configuration
+        run: |
+          cp deploy/ionos/staging.env.example deploy/ionos/staging.env
+          mkdir -p secrets
+          for name in secret_key mfa_encryption_key database_url redis_url smtp_password postgres_password redis_password; do
+            printf 'validation-only\n' > "secrets/$name"
+          done
+          docker compose --env-file deploy/ionos/staging.env -f docker-compose.staging.yml config --quiet
+
+  deploy:
+    name: Deploy to IONOS
+    if: github.event_name == 'workflow_dispatch' && inputs.deploy
+    needs: validate
+    runs-on: ubuntu-latest
+    environment: staging
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate deployment secrets
+        env:
+          SSH_HOST: ${{ secrets.IONOS_SSH_HOST }}
+          SSH_USER: ${{ secrets.IONOS_SSH_USER }}
+          SSH_KEY: ${{ secrets.IONOS_SSH_PRIVATE_KEY }}
+          SSH_KNOWN_HOSTS: ${{ secrets.IONOS_SSH_KNOWN_HOSTS }}
+        run: |
+          test -n "$SSH_HOST"
+          test -n "$SSH_USER"
+          test -n "$SSH_KEY"
+          test -n "$SSH_KNOWN_HOSTS"
+      - name: Configure SSH
+        env:
+          SSH_KEY: ${{ secrets.IONOS_SSH_PRIVATE_KEY }}
+          SSH_KNOWN_HOSTS: ${{ secrets.IONOS_SSH_KNOWN_HOSTS }}
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/ionos_staging
+          printf '%s\n' "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/ionos_staging ~/.ssh/known_hosts
+      - name: Package release
+        run: |
+          tar --exclude=.git --exclude=secrets --exclude=node_modules --exclude=.next \
+              --exclude=deploy/ionos/staging.env -czf /tmp/dcarbn-staging.tgz .
+      - name: Upload and deploy
+        env:
+          SSH_HOST: ${{ secrets.IONOS_SSH_HOST }}
+          SSH_USER: ${{ secrets.IONOS_SSH_USER }}
+          STAGING_PATH: ${{ vars.IONOS_STAGING_PATH }}
+        run: |
+          STAGING_PATH="${STAGING_PATH:-/opt/dcarbn-staging}"
+          ssh -i ~/.ssh/ionos_staging "$SSH_USER@$SSH_HOST" "mkdir -p '$STAGING_PATH'"
+          scp -i ~/.ssh/ionos_staging /tmp/dcarbn-staging.tgz "$SSH_USER@$SSH_HOST:/tmp/dcarbn-staging.tgz"
+          ssh -i ~/.ssh/ionos_staging "$SSH_USER@$SSH_HOST" \
+            "tar -xzf /tmp/dcarbn-staging.tgz -C '$STAGING_PATH' && cd '$STAGING_PATH' && bash deploy/ionos/deploy.sh"
