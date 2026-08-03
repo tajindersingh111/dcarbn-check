@@ -43,3 +43,12 @@ def test_production_rejects_fail_open_rate_limiting() -> None:
 def test_production_rejects_wildcard_cors() -> None:
     with pytest.raises(ValidationError, match="CORS_ORIGINS"):
         production_settings(cors_origins=["*"])
+
+
+def test_staging_rejects_unsafe_runtime_settings() -> None:
+    with pytest.raises(ValidationError, match="Unsafe staging settings"):
+        production_settings(
+            app_env="staging",
+            cookie_secure=False,
+            rate_limit_fail_open=True,
+        )

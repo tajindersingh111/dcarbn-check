@@ -110,29 +110,28 @@ Frontend:
 docker compose exec backend alembic upgrade head
 ```
 
-## Development token
+## Initial administrator bootstrap
 
-The backend validates signed JWTs containing:
-
-```json
-{
-  "sub": "user-id",
-  "tenant_id": "tenant-uuid",
-  "roles": ["tenant_admin"],
-  "aud": "dcarbn-carbon-platform"
-}
-```
-
-Generate a local token:
+After applying database migrations to an empty environment, create the first tenant
+and platform administrator once:
 
 ```bash
-docker compose exec backend python -m app.scripts.create_dev_token \
-  --subject local-user \
-  --tenant-id 11111111-1111-1111-1111-111111111111 \
-  --roles tenant_admin sustainability_manager
+docker compose exec backend python -m app.scripts.bootstrap_platform_admin \
+  --tenant-name "D-carbN Administration" \
+  --tenant-slug dcarbn-admin \
+  --email admin@example.com \
+  --full-name "Initial Administrator"
 ```
 
-The token generator is development tooling. Production deployments should use a managed identity provider and asymmetric token validation.
+The command prompts for the password without echoing it, refuses to run once a
+platform administrator exists, and creates the initial tenant membership. Use a
+protected `--password-file` only for controlled automation and remove it immediately
+afterwards.
+
+The local JWT generator is development tooling for existing database identities;
+it is not an account-bootstrap mechanism. Production adoption still requires an
+approved managed identity-provider decision or a formally accepted self-hosted
+identity risk.
 
 ## Test
 
@@ -151,7 +150,9 @@ infrastructure/ Deployment notes and future IaC
 
 ## Next implementation slice
 
-1. Authentication provider integration
+1. Select and integrate the managed production identity provider.
+2. Run live staging user-acceptance, accessibility and recovery tests.
+3. Complete an independent penetration test before production launch.
 
 
 ## Hardened production deployment

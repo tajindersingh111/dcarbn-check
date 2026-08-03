@@ -19,6 +19,7 @@ from app.auth.mfa import (
     verify_totp,
 )
 from app.auth.security import generate_opaque_token, hash_opaque_token, hash_password, verify_password
+from app.core.client_ip import get_client_ip
 from app.core.config import get_settings
 from app.db.session import get_db
 from app.models.identity import User
@@ -164,7 +165,7 @@ async def request_password_reset(
                 status=PasswordResetStatus.PENDING,
                 expires_at=datetime.now(UTC)
                 + timedelta(minutes=get_settings().password_reset_minutes),
-                requested_ip=request.client.host if request.client else None,
+                requested_ip=get_client_ip(request),
             )
             db.add(reset)
             await record_security_event(
@@ -174,7 +175,7 @@ async def request_password_reset(
                 success=True,
                 tenant_id=tenant.id,
                 user_id=user.id,
-                ip_address=request.client.host if request.client else None,
+                ip_address=get_client_ip(request),
                 user_agent=request.headers.get("user-agent"),
             )
             await db.commit()
@@ -223,7 +224,7 @@ async def confirm_password_reset(
         severity=SecurityEventSeverity.WARNING,
         tenant_id=reset.tenant_id,
         user_id=user.id,
-        ip_address=request.client.host if request.client else None,
+        ip_address=get_client_ip(request),
         user_agent=request.headers.get("user-agent"),
     )
     await db.commit()

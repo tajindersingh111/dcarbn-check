@@ -44,6 +44,9 @@ test("user signs in and enters the tenant workspace", async ({ page }) => {
   await page.getByRole("button", { name: "Sign in" }).click();
   await expect(page).toHaveURL("/");
   await expect(page.getByText("Alex Morgan")).toBeVisible();
+  await expect(page.getByRole("link", { name: "Users and roles" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Tenant onboarding" })).toHaveCount(0);
+  await expect(page.getByText("Development workspace")).toBeVisible();
 });
 
 test("invited user creates an account", async ({ page }) => {

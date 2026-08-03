@@ -3,9 +3,10 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
-import type { ReactNode } from "react";
+import type { ComponentType, ReactNode } from "react";
 
 import { useAuth } from "@/lib/auth";
+import type { CurrentUser } from "@/lib/auth";
 
 import {
   ActivityIcon,
@@ -19,25 +20,42 @@ import {
   ReviewIcon
 } from "@/components/icons";
 
-const navigation = [
-  { href: "/", label: "Dashboard", icon: DashboardIcon },
-  { href: "/organisations", label: "Organisations", icon: OrganisationIcon },
-  { href: "/inventories", label: "Inventories", icon: InventoryIcon },
-  { href: "/activities/new", label: "Activity entry", icon: ActivityIcon },
-  { href: "/data-reviews", label: "DATa review", icon: ReviewIcon },
-  { href: "/approvals", label: "Approvals", icon: ApprovalIcon },
-  { href: "/audit-reports", label: "Audit reports", icon: ReportIcon },
-  { href: "/admin/users", label: "Users and roles", icon: OrganisationIcon },
-  { href: "/admin/tenants", label: "Tenant onboarding", icon: InventoryIcon },
-  { href: "/admin/security-events", label: "Security events", icon: ReviewIcon },
-  { href: "/admin/operations", label: "Operations", icon: DashboardIcon },
-  { href: "/settings/security", label: "Security settings", icon: ApprovalIcon }
+interface NavigationItem {
+  href: string;
+  label: string;
+  icon: ComponentType;
+  isVisible: (user: CurrentUser) => boolean;
+}
+
+const everyUser = () => true;
+const tenantAdmin = (user: CurrentUser) =>
+  user.is_platform_admin || user.roles.includes("tenant_admin");
+const tenantAdminOrAuditor = (user: CurrentUser) =>
+  user.is_platform_admin ||
+  user.roles.some((role) => ["tenant_admin", "auditor"].includes(role));
+const platformAdmin = (user: CurrentUser) => user.is_platform_admin;
+
+const navigation: NavigationItem[] = [
+  { href: "/", label: "Dashboard", icon: DashboardIcon, isVisible: everyUser },
+  { href: "/organisations", label: "Organisations", icon: OrganisationIcon, isVisible: everyUser },
+  { href: "/inventories", label: "Inventories", icon: InventoryIcon, isVisible: everyUser },
+  { href: "/activities/new", label: "Activity entry", icon: ActivityIcon, isVisible: everyUser },
+  { href: "/data-reviews", label: "DATa review", icon: ReviewIcon, isVisible: everyUser },
+  { href: "/approvals", label: "Approvals", icon: ApprovalIcon, isVisible: everyUser },
+  { href: "/audit-reports", label: "Audit reports", icon: ReportIcon, isVisible: everyUser },
+  { href: "/admin/users", label: "Users and roles", icon: OrganisationIcon, isVisible: tenantAdmin },
+  { href: "/admin/tenants", label: "Tenant onboarding", icon: InventoryIcon, isVisible: platformAdmin },
+  { href: "/admin/security-events", label: "Security events", icon: ReviewIcon, isVisible: tenantAdminOrAuditor },
+  { href: "/admin/operations", label: "Operations", icon: DashboardIcon, isVisible: tenantAdminOrAuditor },
+  { href: "/settings/security", label: "Security settings", icon: ApprovalIcon, isVisible: everyUser }
 ];
 
 export function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
   const { user, loading, logout } = useAuth();
+  const environment = process.env.NEXT_PUBLIC_APP_ENV ?? "development";
+  const environmentLabel = `${environment.charAt(0).toUpperCase()}${environment.slice(1)} workspace`;
   const isPublic = ['/login', '/accept-invitation', '/forgot-password', '/reset-password'].some((path) => pathname.startsWith(path));
   if (isPublic) return <>{children}</>;
   if (loading || !user) return <div className="api-state"><span className="spinner" /><p>Loading secure workspace…</p></div>;
@@ -73,7 +91,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         </div>
 
         <nav aria-label="Primary navigation">
-          {navigation.map(({ href, label, icon: Icon }) => {
+          {navigation.filter((item) => item.isVisible(user)).map(({ href, label, icon: Icon }) => {
             const active =
               href === "/" ? pathname === "/" : pathname.startsWith(href);
 
@@ -111,7 +129,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         <header className="topbar">
           <div>
             <span className="environment-dot" />
-            Production workspace
+            {environmentLabel}
           </div>
           <div className="user-menu">
             <span className="avatar">{user.full_name.split(" ").map((part) => part[0]).slice(0, 2).join("")}</span>

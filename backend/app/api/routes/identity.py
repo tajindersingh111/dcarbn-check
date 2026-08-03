@@ -7,6 +7,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.dependencies import CurrentPrincipal, get_current_principal, require_roles
+from app.core.client_ip import get_client_ip
 from app.core.config import get_settings
 from app.db.session import get_db
 from app.models.identity import Role
@@ -50,13 +51,6 @@ from app.services.session_auth import (
 
 router = APIRouter()
 tenant_admin = Depends(require_roles("tenant_admin"))
-
-
-def _client_ip(request: Request) -> str | None:
-    forwarded = request.headers.get("x-forwarded-for")
-    if forwarded:
-        return forwarded.split(",", 1)[0].strip()
-    return request.client.host if request.client else None
 
 
 def _set_session_cookies(response: Response, session: object) -> None:
@@ -121,7 +115,7 @@ async def login(
         db,
         payload,
         user_agent=request.headers.get("user-agent"),
-        ip_address=_client_ip(request),
+        ip_address=get_client_ip(request),
         correlation_id=request.headers.get("x-correlation-id"),
     )
     if outcome.requires_mfa:
@@ -150,7 +144,7 @@ async def verify_login_mfa(
         db,
         challenge_token=payload.challenge_token,
         code=payload.code,
-        ip_address=_client_ip(request),
+        ip_address=get_client_ip(request),
         user_agent=request.headers.get("user-agent"),
         correlation_id=request.headers.get("x-correlation-id"),
     )
@@ -176,7 +170,7 @@ async def refresh(
         db,
         refresh_token=refresh_token,
         user_agent=request.headers.get("user-agent"),
-        ip_address=_client_ip(request),
+        ip_address=get_client_ip(request),
         correlation_id=request.headers.get("x-correlation-id"),
     )
     _set_session_cookies(response, session)

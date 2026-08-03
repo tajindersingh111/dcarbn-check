@@ -152,7 +152,7 @@ class Settings(BaseSettings):
         if not self.database_url:
             raise ValueError("DATABASE_URL is required.")
 
-        if self.app_env == "production":
+        if self.app_env in {"staging", "production"}:
             errors: list[str] = []
             if not self.cookie_secure:
                 errors.append("COOKIE_SECURE must be true")
@@ -182,7 +182,7 @@ class Settings(BaseSettings):
                 )
             if errors:
                 raise ValueError(
-                    "Unsafe production settings: " + "; ".join(errors)
+                    f"Unsafe {self.app_env} settings: " + "; ".join(errors)
                 )
 
         return self
