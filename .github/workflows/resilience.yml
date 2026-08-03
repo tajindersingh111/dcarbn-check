@@ -65,10 +65,12 @@ jobs:
       run:
         working-directory: backend
     env:
+      APP_ENV: test
       DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/dcarbn_test
       REDIS_URL: redis://localhost:6379/0
       SECRET_KEY: ci-secret-key-that-is-at-least-thirty-two-characters
       MFA_ENCRYPTION_KEY: ci-mfa-key-that-is-at-least-thirty-two-characters
+      TRUSTED_HOSTS: localhost,127.0.0.1,testserver
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
