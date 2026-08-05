@@ -7,16 +7,16 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
 
-
-class Scope2HeadlineBasis(StrEnum):
-    LOCATION_BASED = "location_based"
-    MARKET_BASED = "market_based"
-
 from app.models.activity import EmissionScope, Scope2Method
 from app.models.calculation import (
     CalculationMethod,
     CalculationRunStatus,
 )
+
+
+class Scope2HeadlineBasis(StrEnum):
+    LOCATION_BASED = "location_based"
+    MARKET_BASED = "market_based"
 
 
 class CalculationRunCreate(BaseModel):
