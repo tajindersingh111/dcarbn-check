@@ -148,6 +148,16 @@ infrastructure/ Deployment notes and future IaC
 .github/         Continuous integration
 ```
 
+## Pre-staging acceptance
+
+Before the first staging deployment, use:
+
+- `docs/uat/staging-uat-plan.md` for role-based acceptance and evidence.
+- `docs/uat/test-data-plan.md` and `docs/uat/fixtures/` for fictional test data.
+- `docs/operations/staging-handover-checklist.md` for infrastructure and operational handover.
+
+The fixture files are contract-tested in CI and contain no customer or production data.
+
 ## Next implementation slice
 
 1. Select and integrate the managed production identity provider.

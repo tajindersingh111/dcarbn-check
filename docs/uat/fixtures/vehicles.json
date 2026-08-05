@@ -1,0 +1,28 @@
+{
+  "schema_version": "1.0",
+  "idempotency_key": "UAT-VEHICLES-001",
+  "records": [
+    {
+      "external_customer_id": "UAT-CUSTOMER-001",
+      "external_vehicle_id": "UAT-VEH-001",
+      "registration_number": "UAT-DIESEL-01",
+      "vehicle_type": "light_commercial_vehicle",
+      "fuel_type": "diesel",
+      "gross_vehicle_weight_kg": "3500",
+      "model_year": 2024,
+      "source_updated_at": "2026-08-01T08:00:00Z",
+      "metadata": {"fixture": true}
+    },
+    {
+      "external_customer_id": "UAT-CUSTOMER-001",
+      "external_vehicle_id": "UAT-VEH-002",
+      "registration_number": "UAT-ELECTRIC-01",
+      "vehicle_type": "light_commercial_vehicle",
+      "fuel_type": "battery_electric",
+      "gross_vehicle_weight_kg": "3500",
+      "model_year": 2025,
+      "source_updated_at": "2026-08-01T08:00:00Z",
+      "metadata": {"fixture": true}
+    }
+  ]
+}

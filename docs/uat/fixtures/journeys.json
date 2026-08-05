@@ -1,0 +1,32 @@
+{
+  "schema_version": "1.0",
+  "idempotency_key": "uat-journeys",
+  "records": [
+    {
+      "external_customer_id": "UAT-CUSTOMER-001",
+      "external_journey_id": "UAT-JOURNEY-001",
+      "external_vehicle_id": "UAT-VEH-001",
+      "journey_started_at": "2026-08-01T08:00:00Z",
+      "journey_completed_at": "2026-08-01T10:15:00Z",
+      "distance_value": "84.7",
+      "distance_unit": "km",
+      "distance_source": "synthetic_uat",
+      "route_reference": "UAT-ROUTE-001",
+      "source_updated_at": "2026-08-01T10:20:00Z",
+      "metadata": {"stops": 18, "fixture": true}
+    },
+    {
+      "external_customer_id": "UAT-CUSTOMER-001",
+      "external_journey_id": "UAT-JOURNEY-002",
+      "external_vehicle_id": "UAT-VEH-002",
+      "journey_started_at": "2026-08-01T09:00:00Z",
+      "journey_completed_at": "2026-08-01T11:30:00Z",
+      "distance_value": "61.2",
+      "distance_unit": "km",
+      "distance_source": "synthetic_uat",
+      "route_reference": "UAT-ROUTE-002",
+      "source_updated_at": "2026-08-01T11:35:00Z",
+      "metadata": {"stops": 14, "fixture": true}
+    }
+  ]
+}

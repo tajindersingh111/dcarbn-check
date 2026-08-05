@@ -1,0 +1,17 @@
+{
+  "schema_version": "1.0",
+  "idempotency_key": "uat-invalid",
+  "records": [
+    {
+      "external_customer_id": "UAT-CUSTOMER-001",
+      "external_journey_id": "UAT-JOURNEY-INVALID-001",
+      "external_vehicle_id": "UAT-VEH-001",
+      "journey_started_at": "2026-08-02T08:00:00Z",
+      "journey_completed_at": "2026-08-02T09:00:00Z",
+      "distance_value": "25.0",
+      "distance_unit": null,
+      "distance_source": "synthetic_uat",
+      "metadata": {"expected_result": "rejected"}
+    }
+  ]
+}
