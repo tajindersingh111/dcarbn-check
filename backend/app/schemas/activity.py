@@ -6,6 +6,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from app.calculations.governed_methods import validate_governed_method
 from app.models.activity import (
     ActivityStatus,
     ActivityType,
@@ -60,6 +61,18 @@ class ActivityCreate(BaseModel):
             raise ValueError("scope_2_method is only valid for Scope 2 activities")
         if not self.factor_level_1:
             raise ValueError("factor_level_1 is required for factor resolution")
+        validate_governed_method(
+            activity_type=self.activity_type,
+            scope=self.scope,
+            scope_3_category=self.scope_3_category,
+            activity_unit=self.activity_unit,
+            factor_level_1=self.factor_level_1,
+            factor_level_2=self.factor_level_2,
+            factor_level_3=self.factor_level_3,
+            factor_level_4=self.factor_level_4,
+            factor_column_text=self.factor_column_text,
+            metadata_json=self.metadata_json,
+        )
         return self
 
 

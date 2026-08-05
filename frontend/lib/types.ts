@@ -153,6 +153,7 @@ export interface AuditReport {
 export interface ActivityFormValues {
   organisationId: string;
   inventoryId: string;
+  calculationMethodId: string;
   activityType: string;
   scope: string;
   scope2Method: string;
@@ -165,6 +166,8 @@ export interface ActivityFormValues {
   factorLevel1: string;
   factorLevel2: string;
   factorLevel3: string;
+  factorLevel4: string;
+  factorColumnText: string;
   lifecycleBoundary: string;
   evidenceReference: string;
   sourceRecordId: string;

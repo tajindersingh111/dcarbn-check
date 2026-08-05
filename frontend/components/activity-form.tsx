@@ -12,9 +12,70 @@ import type {
   Organisation
 } from "@/lib/types";
 
+interface GovernedMethodOption {
+  id: string;
+  label: string;
+  activityType: string;
+  scope: string;
+  scope3Category: string;
+  activityUnit: string;
+  factorLevel1: string;
+  factorLevel2: string;
+  factorLevel3: string;
+  factorLevel4: string;
+  factorColumnText: string;
+  lifecycleBoundary: string;
+}
+
+const governedMethods: GovernedMethodOption[] = [
+  {
+    id: "scope1.stationary_diesel.litres.uk_2026.v1",
+    label: "Scope 1 · Stationary diesel · litres",
+    activityType: "stationary_combustion",
+    scope: "scope_1",
+    scope3Category: "",
+    activityUnit: "litres",
+    factorLevel1: "Fuels",
+    factorLevel2: "Liquid fuels",
+    factorLevel3: "Diesel (average biofuel blend)",
+    factorLevel4: "",
+    factorColumnText: "",
+    lifecycleBoundary: "",
+  },
+  {
+    id: "scope3.category4.diesel_van.tonne_km.uk_2026.v1",
+    label: "Scope 3 category 4 · Class I diesel van · tonne-km",
+    activityType: "freight_transport",
+    scope: "scope_3",
+    scope3Category: "4",
+    activityUnit: "tonne.km",
+    factorLevel1: "Freighting goods",
+    factorLevel2: "Vans",
+    factorLevel3: "Class I (up to 1.305 tonnes)",
+    factorLevel4: "",
+    factorColumnText: "Diesel",
+    lifecycleBoundary: "",
+  },
+  {
+    id: "scope3.category6.domestic_air.with_rf.passenger_km.uk_2026.v1",
+    label: "Scope 3 category 6 · Domestic air with RF · passenger-km",
+    activityType: "business_travel",
+    scope: "scope_3",
+    scope3Category: "6",
+    activityUnit: "passenger.km",
+    factorLevel1: "Business travel- air",
+    factorLevel2: "Flights",
+    factorLevel3: "Domestic, to/from UK",
+    factorLevel4: "Average passenger",
+    factorColumnText: "With RF",
+    lifecycleBoundary: "",
+  },
+];
+
 const blankValues: ActivityFormValues = {
   organisationId: "",
   inventoryId: "",
+  calculationMethodId: "",
   activityType: "mobile_combustion",
   scope: "scope_1",
   scope2Method: "not_applicable",
@@ -27,6 +88,8 @@ const blankValues: ActivityFormValues = {
   factorLevel1: "Fuels",
   factorLevel2: "Liquid fuels",
   factorLevel3: "Diesel",
+  factorLevel4: "",
+  factorColumnText: "",
   lifecycleBoundary: "direct",
   evidenceReference: "",
   sourceRecordId: ""
@@ -81,6 +144,29 @@ export function ActivityForm() {
     setValues((current) => ({ ...current, [field]: value }));
   }
 
+  function selectGovernedMethod(methodId: string) {
+    const method = governedMethods.find((item) => item.id === methodId);
+    if (!method) {
+      update("calculationMethodId", "");
+      return;
+    }
+    setValues((current) => ({
+      ...current,
+      calculationMethodId: method.id,
+      activityType: method.activityType,
+      scope: method.scope,
+      scope2Method: "not_applicable",
+      scope3Category: method.scope3Category,
+      activityUnit: method.activityUnit,
+      factorLevel1: method.factorLevel1,
+      factorLevel2: method.factorLevel2,
+      factorLevel3: method.factorLevel3,
+      factorLevel4: method.factorLevel4,
+      factorColumnText: method.factorColumnText,
+      lifecycleBoundary: method.lifecycleBoundary,
+    }));
+  }
+
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setSubmitting(true);
@@ -109,13 +195,18 @@ export function ActivityForm() {
             factor_level_1: values.factorLevel1,
             factor_level_2: values.factorLevel2 || null,
             factor_level_3: values.factorLevel3 || null,
+            factor_level_4: values.factorLevel4 || null,
+            factor_column_text: values.factorColumnText || null,
             lifecycle_boundary: values.lifecycleBoundary || null,
             allocation_percentage: "100.00",
             data_quality_level: "primary",
             data_quality_score: 90,
             source_system: "carbon-platform",
             source_record_id: values.sourceRecordId,
-            evidence_reference: values.evidenceReference || null
+            evidence_reference: values.evidenceReference || null,
+            metadata_json: values.calculationMethodId
+              ? { calculation_method_id: values.calculationMethodId }
+              : {}
           })
         }
       );
@@ -211,9 +302,29 @@ export function ActivityForm() {
           </div>
         </div>
         <div className="form-grid">
+          <label className="field-span-2">
+            Governed calculation method
+            <select
+              aria-label="Governed calculation method"
+              onChange={(event) => selectGovernedMethod(event.target.value)}
+              value={values.calculationMethodId}
+            >
+              <option value="">Manual / method not yet governed</option>
+              {governedMethods.map((method) => (
+                <option key={method.id} value={method.id}>{method.label}</option>
+              ))}
+            </select>
+          </label>
+          <div className="lineage-card">
+            <strong>{values.calculationMethodId ? "Governed method selected" : "Draft method"}</strong>
+            <p>{values.calculationMethodId
+              ? "Scope, category, unit and factor selectors are locked to the approved method contract."
+              : "Manual methods remain draft and may not be eligible for customer reporting."}</p>
+          </div>
           <label>
             Activity type
             <select
+              disabled={Boolean(values.calculationMethodId)}
               onChange={(event) => update("activityType", event.target.value)}
               value={values.activityType}
             >
@@ -230,6 +341,7 @@ export function ActivityForm() {
           <label>
             Scope
             <select
+              disabled={Boolean(values.calculationMethodId)}
               onChange={(event) => {
                 const scope = event.target.value;
                 update("scope", scope);
@@ -261,6 +373,7 @@ export function ActivityForm() {
             <label>
               Scope 3 category
               <select
+                disabled={Boolean(values.calculationMethodId)}
                 onChange={(event) => update("scope3Category", event.target.value)}
                 required
                 value={values.scope3Category}
@@ -310,12 +423,14 @@ export function ActivityForm() {
           <label>
             Unit
             <select
+              disabled={Boolean(values.calculationMethodId)}
               onChange={(event) => update("activityUnit", event.target.value)}
               value={values.activityUnit}
             >
               <option value="litres">Litres</option>
               <option value="kWh">kWh</option>
-              <option value="tonne-km">Tonne-km</option>
+              <option value="tonne.km">Tonne-km</option>
+              <option value="passenger.km">Passenger-km</option>
               <option value="vehicle-km">Vehicle-km</option>
               <option value="kg">kg</option>
             </select>
@@ -361,6 +476,7 @@ export function ActivityForm() {
           <label>
             Level 1
             <input
+              disabled={Boolean(values.calculationMethodId)}
               onChange={(event) => update("factorLevel1", event.target.value)}
               required
               value={values.factorLevel1}
@@ -369,6 +485,7 @@ export function ActivityForm() {
           <label>
             Level 2
             <input
+              disabled={Boolean(values.calculationMethodId)}
               onChange={(event) => update("factorLevel2", event.target.value)}
               value={values.factorLevel2}
             />
@@ -376,8 +493,25 @@ export function ActivityForm() {
           <label>
             Level 3
             <input
+              disabled={Boolean(values.calculationMethodId)}
               onChange={(event) => update("factorLevel3", event.target.value)}
               value={values.factorLevel3}
+            />
+          </label>
+          <label>
+            Level 4
+            <input
+              disabled={Boolean(values.calculationMethodId)}
+              onChange={(event) => update("factorLevel4", event.target.value)}
+              value={values.factorLevel4}
+            />
+          </label>
+          <label>
+            Column text
+            <input
+              disabled={Boolean(values.calculationMethodId)}
+              onChange={(event) => update("factorColumnText", event.target.value)}
+              value={values.factorColumnText}
             />
           </label>
           <label>

@@ -101,3 +101,50 @@ test("Scope 3 screening saves all category decisions and shows validation bounda
   expect(payload.items.map((item) => item.category)).toEqual(Array.from({ length: 15 }, (_, index) => index + 1));
   await expect(page.getByText("Independent approval is still required.")).toBeVisible();
 });
+
+
+test("governed freight method locks and submits exact calculation selectors", async ({ page }) => {
+  await page.goto("/activities/new");
+  await page.getByLabel("Governed calculation method").selectOption(
+    "scope3.category4.diesel_van.tonne_km.uk_2026.v1"
+  );
+  await expect(page.getByText("Governed method selected")).toBeVisible();
+  await expect(page.getByLabel("Scope 3 category")).toHaveValue("4");
+  await expect(page.getByLabel("Unit")).toHaveValue("tonne.km");
+  await page.getByLabel("Description").fill("Upstream freight by Class I diesel van");
+  await page.getByLabel("Activity value").fill("1000");
+  await page.getByLabel("Evidence reference").fill("freight-ledger-2026-01");
+  await page.getByLabel("Source record ID").fill("freight-2026-01");
+
+  const requestPromise = page.waitForRequest((request) =>
+    request.url().includes("/activities") && request.method() === "POST"
+  );
+  await page.getByRole("button", { name: "Save and validate" }).click();
+  const request = await requestPromise;
+  const payload = request.postDataJSON() as {
+    activity_type: string;
+    scope: string;
+    scope_3_category: number;
+    activity_unit: string;
+    factor_level_1: string;
+    factor_level_2: string;
+    factor_level_3: string;
+    factor_column_text: string;
+    metadata_json: { calculation_method_id: string };
+  };
+
+  expect(payload).toMatchObject({
+    activity_type: "freight_transport",
+    scope: "scope_3",
+    scope_3_category: 4,
+    activity_unit: "tonne.km",
+    factor_level_1: "Freighting goods",
+    factor_level_2: "Vans",
+    factor_level_3: "Class I (up to 1.305 tonnes)",
+    factor_column_text: "Diesel",
+    metadata_json: {
+      calculation_method_id:
+        "scope3.category4.diesel_van.tonne_km.uk_2026.v1"
+    }
+  });
+});
