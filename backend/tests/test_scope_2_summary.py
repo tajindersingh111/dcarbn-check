@@ -65,9 +65,10 @@ def test_market_based_headline_does_not_add_location_based_scope_2() -> None:
 
 
 def test_summary_api_requires_explicit_scope_2_headline_basis() -> None:
+    openapi = app.openapi()
     summary_operation = next(
         operation["get"]
-        for path, operation in app.openapi()["paths"].items()
+        for path, operation in openapi["paths"].items()
         if path.endswith("/calculation-runs/{run_id}/summary")
     )
     parameter = next(
@@ -77,7 +78,11 @@ def test_summary_api_requires_explicit_scope_2_headline_basis() -> None:
     )
 
     assert parameter["required"] is True
-    assert set(parameter["schema"]["enum"]) == {"location_based", "market_based"}
+    schema = parameter["schema"]
+    if "$ref" in schema:
+        schema_name = schema["$ref"].rsplit("/", 1)[-1]
+        schema = openapi["components"]["schemas"][schema_name]
+    assert set(schema["enum"]) == {"location_based", "market_based"}
 
 
 def test_report_summary_discloses_both_methods_but_one_headline_total() -> None:
