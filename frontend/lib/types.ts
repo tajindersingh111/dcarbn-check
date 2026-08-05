@@ -161,6 +161,10 @@ export interface ActivityFormValues {
   activityDate: string;
   description: string;
   activityValue: string;
+  openingStockKg: string;
+  purchasesKg: string;
+  closingStockKg: string;
+  recoveredKg: string;
   activityUnit: string;
   geographyCode: string;
   factorLevel1: string;

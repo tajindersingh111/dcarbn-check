@@ -7,7 +7,7 @@ from app.calculations.governed_methods import (
     GovernedCalculationMethod,
     validate_governed_method,
 )
-from app.models.activity import ActivityType, EmissionScope
+from app.models.activity import ActivityType, EmissionScope, Scope2Method
 
 
 def test_scope1_stationary_diesel_contract_and_golden_result() -> None:
@@ -153,4 +153,108 @@ def test_governed_method_rejects_non_matching_unit() -> None:
                 "calculation_method_id":
                     "scope3.category6.domestic_air.with_rf.passenger_km.uk_2026.v1"
             },
+        )
+
+
+def test_scope2_location_electricity_contract_and_2026_golden_result() -> None:
+    method = validate_governed_method(
+        activity_type=ActivityType.PURCHASED_ELECTRICITY,
+        scope=EmissionScope.SCOPE_2,
+        scope_3_category=None,
+        activity_unit="kWh",
+        factor_level_1="UK electricity",
+        factor_level_2="Electricity generated",
+        factor_level_3="Electricity: UK",
+        factor_level_4=None,
+        factor_column_text=None,
+        metadata_json={
+            "calculation_method_id":
+                "scope2.location_electricity.kwh.uk_2026.v1"
+        },
+        activity_value=Decimal("1000"),
+        scope_2_method=Scope2Method.LOCATION_BASED,
+    )
+    result = calculate_activity_factor_emissions(
+        factor_activity_value=Decimal("1000"),
+        factor_value=Decimal("0.13096"),
+        allocation_percentage=Decimal("100"),
+    )
+
+    assert method == GovernedCalculationMethod.SCOPE2_LOCATION_ELECTRICITY_KWH_2026
+    assert result.allocated_kg_co2e == Decimal("130.96000")
+
+
+def test_scope2_location_method_rejects_market_based_classification() -> None:
+    with pytest.raises(ValueError, match="scope_2_method must be location_based"):
+        validate_governed_method(
+            activity_type=ActivityType.PURCHASED_ELECTRICITY,
+            scope=EmissionScope.SCOPE_2,
+            scope_3_category=None,
+            activity_unit="kWh",
+            factor_level_1="UK electricity",
+            factor_level_2="Electricity generated",
+            factor_level_3="Electricity: UK",
+            factor_level_4=None,
+            factor_column_text=None,
+            metadata_json={
+                "calculation_method_id":
+                    "scope2.location_electricity.kwh.uk_2026.v1"
+            },
+            activity_value=Decimal("1000"),
+            scope_2_method=Scope2Method.MARKET_BASED,
+        )
+
+
+def test_scope1_hfc134a_mass_balance_contract_and_2026_golden_result() -> None:
+    method = validate_governed_method(
+        activity_type=ActivityType.REFRIGERANT,
+        scope=EmissionScope.SCOPE_1,
+        scope_3_category=None,
+        activity_unit="kg",
+        factor_level_1="Refrigerant & other",
+        factor_level_2="Kyoto protocol products",
+        factor_level_3="HFC-134a",
+        factor_level_4=None,
+        factor_column_text="Emissions including only Kyoto products",
+        metadata_json={
+            "calculation_method_id":
+                "scope1.refrigerant.hfc134a.mass_balance.kg.uk_2026.v1",
+            "opening_stock_kg": "100",
+            "purchases_kg": "25",
+            "closing_stock_kg": "110",
+            "recovered_kg": "5",
+        },
+        activity_value=Decimal("10"),
+    )
+    result = calculate_activity_factor_emissions(
+        factor_activity_value=Decimal("10"),
+        factor_value=Decimal("1300"),
+        allocation_percentage=Decimal("100"),
+    )
+
+    assert method == GovernedCalculationMethod.SCOPE1_HFC134A_MASS_BALANCE_KG_2026
+    assert result.allocated_kg_co2e == Decimal("13000")
+
+
+def test_refrigerant_mass_balance_rejects_activity_value_mismatch() -> None:
+    with pytest.raises(ValueError, match="activity_value must equal"):
+        validate_governed_method(
+            activity_type=ActivityType.REFRIGERANT,
+            scope=EmissionScope.SCOPE_1,
+            scope_3_category=None,
+            activity_unit="kg",
+            factor_level_1="Refrigerant & other",
+            factor_level_2="Kyoto protocol products",
+            factor_level_3="HFC-134a",
+            factor_level_4=None,
+            factor_column_text="Emissions including only Kyoto products",
+            metadata_json={
+                "calculation_method_id":
+                    "scope1.refrigerant.hfc134a.mass_balance.kg.uk_2026.v1",
+                "opening_stock_kg": "100",
+                "purchases_kg": "25",
+                "closing_stock_kg": "110",
+                "recovered_kg": "5",
+            },
+            activity_value=Decimal("11"),
         )

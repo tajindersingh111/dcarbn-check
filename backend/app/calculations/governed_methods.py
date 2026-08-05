@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from decimal import Decimal, InvalidOperation
 from enum import StrEnum
 
 from app.models.activity import ActivityType, EmissionScope
@@ -8,6 +9,8 @@ from app.models.activity import ActivityType, EmissionScope
 
 class GovernedCalculationMethod(StrEnum):
     SCOPE1_STATIONARY_DIESEL_LITRES_2026 = "scope1.stationary_diesel.litres.uk_2026.v1"
+    SCOPE2_LOCATION_ELECTRICITY_KWH_2026 = "scope2.location_electricity.kwh.uk_2026.v1"
+    SCOPE1_HFC134A_MASS_BALANCE_KG_2026 = "scope1.refrigerant.hfc134a.mass_balance.kg.uk_2026.v1"
     SCOPE3_CATEGORY4_DIESEL_VAN_TONNE_KM_2026 = (
         "scope3.category4.diesel_van.tonne_km.uk_2026.v1"
     )
@@ -40,6 +43,27 @@ METHODS: dict[GovernedCalculationMethod, GovernedMethodSpecification] = {
             factor_level_2="Liquid fuels",
             factor_level_3="Diesel (average biofuel blend)",
         ),
+    GovernedCalculationMethod.SCOPE2_LOCATION_ELECTRICITY_KWH_2026:
+        GovernedMethodSpecification(
+            activity_type=ActivityType.PURCHASED_ELECTRICITY,
+            scope=EmissionScope.SCOPE_2,
+            scope_3_category=None,
+            activity_unit="kWh",
+            factor_level_1="UK electricity",
+            factor_level_2="Electricity generated",
+            factor_level_3="Electricity: UK",
+        ),
+    GovernedCalculationMethod.SCOPE1_HFC134A_MASS_BALANCE_KG_2026:
+        GovernedMethodSpecification(
+            activity_type=ActivityType.REFRIGERANT,
+            scope=EmissionScope.SCOPE_1,
+            scope_3_category=None,
+            activity_unit="kg",
+            factor_level_1="Refrigerant & other",
+            factor_level_2="Kyoto protocol products",
+            factor_level_3="HFC-134a",
+            factor_column_text="Emissions including only Kyoto products",
+        ),
     GovernedCalculationMethod.SCOPE3_CATEGORY4_DIESEL_VAN_TONNE_KM_2026:
         GovernedMethodSpecification(
             activity_type=ActivityType.FREIGHT_TRANSPORT,
@@ -67,6 +91,8 @@ METHODS: dict[GovernedCalculationMethod, GovernedMethodSpecification] = {
 
 GOVERNED_ACTIVITY_TYPES = {
     ActivityType.STATIONARY_COMBUSTION,
+    ActivityType.PURCHASED_ELECTRICITY,
+    ActivityType.REFRIGERANT,
     ActivityType.FREIGHT_TRANSPORT,
     ActivityType.BUSINESS_TRAVEL,
 }
@@ -84,6 +110,8 @@ def validate_governed_method(
     factor_level_4: str | None,
     factor_column_text: str | None,
     metadata_json: dict[str, object],
+    activity_value: Decimal | None = None,
+    scope_2_method: object | None = None,
 ) -> GovernedCalculationMethod | None:
     """Fail closed for activity types covered by the governed-method rollout."""
     if activity_type not in GOVERNED_ACTIVITY_TYPES:
@@ -125,5 +153,42 @@ def validate_governed_method(
         if actual[field] != required:
             raise ValueError(
                 f"{field} must be {required!s} for calculation method {method.value}"
+            )
+    if method == GovernedCalculationMethod.SCOPE2_LOCATION_ELECTRICITY_KWH_2026:
+        method_value = getattr(scope_2_method, "value", scope_2_method)
+        if method_value != "location_based":
+            raise ValueError("scope_2_method must be location_based for this calculation method")
+    if method == GovernedCalculationMethod.SCOPE1_HFC134A_MASS_BALANCE_KG_2026:
+        if activity_value is None:
+            raise ValueError("activity_value is required for refrigerant mass balance")
+        required_fields = (
+            "opening_stock_kg",
+            "purchases_kg",
+            "closing_stock_kg",
+            "recovered_kg",
+        )
+        try:
+            values = {
+                field: Decimal(str(metadata_json[field]))
+                for field in required_fields
+            }
+        except (KeyError, InvalidOperation, ValueError) as exc:
+            raise ValueError(
+                "Refrigerant mass balance requires valid opening_stock_kg, "
+                "purchases_kg, closing_stock_kg and recovered_kg"
+            ) from exc
+        if any(value < 0 for value in values.values()):
+            raise ValueError("Refrigerant mass-balance inputs cannot be negative")
+        emitted = (
+            values["opening_stock_kg"]
+            + values["purchases_kg"]
+            - values["closing_stock_kg"]
+            - values["recovered_kg"]
+        )
+        if emitted < 0:
+            raise ValueError("Refrigerant mass balance cannot produce negative emissions")
+        if emitted != activity_value:
+            raise ValueError(
+                f"activity_value must equal refrigerant mass-balance emissions ({emitted})"
             )
     return method

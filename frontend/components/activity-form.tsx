@@ -43,6 +43,34 @@ const governedMethods: GovernedMethodOption[] = [
     lifecycleBoundary: "",
   },
   {
+    id: "scope2.location_electricity.kwh.uk_2026.v1",
+    label: "Scope 2 · UK electricity · location-based · kWh",
+    activityType: "purchased_electricity",
+    scope: "scope_2",
+    scope3Category: "",
+    activityUnit: "kWh",
+    factorLevel1: "UK electricity",
+    factorLevel2: "Electricity generated",
+    factorLevel3: "Electricity: UK",
+    factorLevel4: "",
+    factorColumnText: "",
+    lifecycleBoundary: "purchased_energy",
+  },
+  {
+    id: "scope1.refrigerant.hfc134a.mass_balance.kg.uk_2026.v1",
+    label: "Scope 1 · HFC-134a · mass balance · kg",
+    activityType: "refrigerant",
+    scope: "scope_1",
+    scope3Category: "",
+    activityUnit: "kg",
+    factorLevel1: "Refrigerant & other",
+    factorLevel2: "Kyoto protocol products",
+    factorLevel3: "HFC-134a",
+    factorLevel4: "",
+    factorColumnText: "Emissions including only Kyoto products",
+    lifecycleBoundary: "direct",
+  },
+  {
     id: "scope3.category4.diesel_van.tonne_km.uk_2026.v1",
     label: "Scope 3 category 4 · Class I diesel van · tonne-km",
     activityType: "freight_transport",
@@ -83,6 +111,10 @@ const blankValues: ActivityFormValues = {
   activityDate: new Date().toISOString().slice(0, 10),
   description: "",
   activityValue: "",
+  openingStockKg: "",
+  purchasesKg: "",
+  closingStockKg: "",
+  recoveredKg: "",
   activityUnit: "litres",
   geographyCode: "GB",
   factorLevel1: "Fuels",
@@ -155,7 +187,7 @@ export function ActivityForm() {
       calculationMethodId: method.id,
       activityType: method.activityType,
       scope: method.scope,
-      scope2Method: "not_applicable",
+      scope2Method: method.scope === "scope_2" ? "location_based" : "not_applicable",
       scope3Category: method.scope3Category,
       activityUnit: method.activityUnit,
       factorLevel1: method.factorLevel1,
@@ -174,6 +206,20 @@ export function ActivityForm() {
     setError(null);
 
     try {
+      const isRefrigerantMassBalance =
+        values.calculationMethodId ===
+        "scope1.refrigerant.hfc134a.mass_balance.kg.uk_2026.v1";
+      const refrigerantEmittedKg = isRefrigerantMassBalance
+        ? String(
+            Number(values.openingStockKg) +
+            Number(values.purchasesKg) -
+            Number(values.closingStockKg) -
+            Number(values.recoveredKg)
+          )
+        : values.activityValue;
+      if (isRefrigerantMassBalance && Number(refrigerantEmittedKg) < 0) {
+        throw new Error("Refrigerant mass balance cannot produce negative emissions.");
+      }
       await apiRequest(
         `/inventories/${values.inventoryId}/activities`,
         {
@@ -189,7 +235,7 @@ export function ActivityForm() {
                 : null,
             activity_date: values.activityDate,
             description: values.description,
-            activity_value: values.activityValue,
+            activity_value: refrigerantEmittedKg,
             activity_unit: values.activityUnit,
             geography_code: values.geographyCode,
             factor_level_1: values.factorLevel1,
@@ -205,7 +251,17 @@ export function ActivityForm() {
             source_record_id: values.sourceRecordId,
             evidence_reference: values.evidenceReference || null,
             metadata_json: values.calculationMethodId
-              ? { calculation_method_id: values.calculationMethodId }
+              ? {
+                  calculation_method_id: values.calculationMethodId,
+                  ...(isRefrigerantMassBalance
+                    ? {
+                        opening_stock_kg: values.openingStockKg,
+                        purchases_kg: values.purchasesKg,
+                        closing_stock_kg: values.closingStockKg,
+                        recovered_kg: values.recoveredKg
+                      }
+                    : {})
+                }
               : {}
           })
         }
@@ -410,16 +466,35 @@ export function ActivityForm() {
               value={values.description}
             />
           </label>
-          <label>
-            Activity value
-            <input
-              inputMode="decimal"
-              onChange={(event) => update("activityValue", event.target.value)}
-              placeholder="1250.50"
-              required
-              value={values.activityValue}
-            />
-          </label>
+{values.calculationMethodId ===
+          "scope1.refrigerant.hfc134a.mass_balance.kg.uk_2026.v1" ? (
+            <>
+              <label>Opening stock (kg)<input inputMode="decimal" min="0" onChange={(event) => update("openingStockKg", event.target.value)} required value={values.openingStockKg} /></label>
+              <label>Purchases/additions (kg)<input inputMode="decimal" min="0" onChange={(event) => update("purchasesKg", event.target.value)} required value={values.purchasesKg} /></label>
+              <label>Closing stock (kg)<input inputMode="decimal" min="0" onChange={(event) => update("closingStockKg", event.target.value)} required value={values.closingStockKg} /></label>
+              <label>Recovered/returned (kg)<input inputMode="decimal" min="0" onChange={(event) => update("recoveredKg", event.target.value)} required value={values.recoveredKg} /></label>
+              <div className="lineage-card">
+                <strong>Calculated refrigerant emitted</strong>
+                <p>{String(
+                  Number(values.openingStockKg || 0) +
+                  Number(values.purchasesKg || 0) -
+                  Number(values.closingStockKg || 0) -
+                  Number(values.recoveredKg || 0)
+                )} kg</p>
+              </div>
+            </>
+          ) : (
+            <label>
+              Activity value
+              <input
+                inputMode="decimal"
+                onChange={(event) => update("activityValue", event.target.value)}
+                placeholder="1250.50"
+                required
+                value={values.activityValue}
+              />
+            </label>
+          )}
           <label>
             Unit
             <select

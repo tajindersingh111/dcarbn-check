@@ -72,6 +72,8 @@ class ActivityCreate(BaseModel):
             factor_level_4=self.factor_level_4,
             factor_column_text=self.factor_column_text,
             metadata_json=self.metadata_json,
+            activity_value=self.activity_value,
+            scope_2_method=self.scope_2_method,
         )
         return self
 

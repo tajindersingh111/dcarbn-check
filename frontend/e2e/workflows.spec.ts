@@ -191,3 +191,39 @@ test("methodology administrator creates a controlled draft version", async ({ pa
   expect(payload.golden_tests[0].expected_output).toBe("200.00000");
   expect(payload.source_reference).toContain("gov.uk");
 });
+
+
+test("refrigerant mass balance submits governed inputs and calculated emitted mass", async ({ page }) => {
+  await page.goto("/activities/new");
+  await page.getByLabel("Governed calculation method").selectOption(
+    "scope1.refrigerant.hfc134a.mass_balance.kg.uk_2026.v1"
+  );
+  await page.getByLabel("Description").fill("HFC-134a annual stock reconciliation");
+  await page.getByLabel("Opening stock (kg)").fill("100");
+  await page.getByLabel("Purchases/additions (kg)").fill("25");
+  await page.getByLabel("Closing stock (kg)").fill("110");
+  await page.getByLabel("Recovered/returned (kg)").fill("5");
+  await page.getByLabel("Evidence reference").fill("refrigerant-register-2026");
+  await page.getByLabel("Source record ID").fill("refrigerant-2026");
+
+  const requestPromise = page.waitForRequest((request) =>
+    request.url().includes("/activities") && request.method() === "POST"
+  );
+  await page.getByRole("button", { name: "Save and validate" }).click();
+  const payload = (await requestPromise).postDataJSON() as {
+    activity_value: string;
+    factor_level_3: string;
+    metadata_json: Record<string, string>;
+  };
+
+  expect(payload.activity_value).toBe("10");
+  expect(payload.factor_level_3).toBe("HFC-134a");
+  expect(payload.metadata_json).toMatchObject({
+    calculation_method_id:
+      "scope1.refrigerant.hfc134a.mass_balance.kg.uk_2026.v1",
+    opening_stock_kg: "100",
+    purchases_kg: "25",
+    closing_stock_kg: "110",
+    recovered_kg: "5"
+  });
+});
