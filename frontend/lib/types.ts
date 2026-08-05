@@ -165,6 +165,14 @@ export interface ActivityFormValues {
   purchasesKg: string;
   closingStockKg: string;
   recoveredKg: string;
+  scope2InstrumentType: string;
+  scope2SupplierOrIssuer: string;
+  scope2InstrumentReference: string;
+  scope2FactorSource: string;
+  scope2FactorValue: string;
+  scope2ValidFrom: string;
+  scope2ValidTo: string;
+  scope2QualityCriteriaAttested: boolean;
   activityUnit: string;
   geographyCode: string;
   factorLevel1: string;

@@ -7,6 +7,7 @@ from app.models.inventory_governance import (
 )
 from app.schemas.inventory_governance import (
     ApprovalDecision,
+    ReportGenerateRequest,
     RestatementDecision,
 )
 
@@ -35,3 +36,17 @@ def test_restatement_decision_accepts_rejected() -> None:
     )
 
     assert payload.decision == RestatementStatus.REJECTED
+
+
+def test_report_generation_requires_explicit_scope2_headline_basis() -> None:
+    with pytest.raises(ValidationError):
+        ReportGenerateRequest(finalize=False)
+
+
+def test_report_generation_accepts_market_based_headline_basis() -> None:
+    payload = ReportGenerateRequest(
+        finalize=True,
+        scope_2_headline_basis="market_based",
+    )
+
+    assert payload.scope_2_headline_basis.value == "market_based"

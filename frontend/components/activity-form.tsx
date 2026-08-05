@@ -115,6 +115,14 @@ const blankValues: ActivityFormValues = {
   purchasesKg: "",
   closingStockKg: "",
   recoveredKg: "",
+  scope2InstrumentType: "supplier_specific",
+  scope2SupplierOrIssuer: "",
+  scope2InstrumentReference: "",
+  scope2FactorSource: "",
+  scope2FactorValue: "",
+  scope2ValidFrom: "",
+  scope2ValidTo: "",
+  scope2QualityCriteriaAttested: false,
   activityUnit: "litres",
   geographyCode: "GB",
   factorLevel1: "Fuels",
@@ -250,19 +258,34 @@ export function ActivityForm() {
             source_system: "carbon-platform",
             source_record_id: values.sourceRecordId,
             evidence_reference: values.evidenceReference || null,
-            metadata_json: values.calculationMethodId
-              ? {
-                  calculation_method_id: values.calculationMethodId,
-                  ...(isRefrigerantMassBalance
-                    ? {
-                        opening_stock_kg: values.openingStockKg,
-                        purchases_kg: values.purchasesKg,
-                        closing_stock_kg: values.closingStockKg,
-                        recovered_kg: values.recoveredKg
-                      }
-                    : {})
-                }
-              : {}
+            metadata_json: {
+              ...(values.calculationMethodId
+                ? { calculation_method_id: values.calculationMethodId }
+                : {}),
+              ...(isRefrigerantMassBalance
+                ? {
+                    opening_stock_kg: values.openingStockKg,
+                    purchases_kg: values.purchasesKg,
+                    closing_stock_kg: values.closingStockKg,
+                    recovered_kg: values.recoveredKg
+                  }
+                : {}),
+              ...(values.scope2Method === "market_based"
+                ? {
+                    instrument_type: values.scope2InstrumentType,
+                    supplier_or_issuer: values.scope2SupplierOrIssuer,
+                    instrument_reference: values.scope2InstrumentReference,
+                    factor_source: values.scope2FactorSource,
+                    factor_value: values.scope2FactorValue,
+                    factor_unit: "kg CO2e/kWh",
+                    valid_from: values.scope2ValidFrom,
+                    valid_to: values.scope2ValidTo,
+                    geography_code: values.geographyCode,
+                    quality_criteria_attested:
+                      values.scope2QualityCriteriaAttested
+                  }
+                : {})
+            }
           })
         }
       );
@@ -424,6 +447,37 @@ export function ActivityForm() {
                 <option value="market_based">Market-based</option>
               </select>
             </label>
+          ) : null}
+          {values.scope === "scope_2" && values.scope2Method === "market_based" ? (
+            <>
+              <label>
+                Contractual instrument
+                <select onChange={(event) => update("scope2InstrumentType", event.target.value)} value={values.scope2InstrumentType}>
+                  <option value="supplier_specific">Supplier-specific</option>
+                  <option value="energy_attribute_certificate">Energy attribute certificate</option>
+                  <option value="direct_contract">Direct contract</option>
+                  <option value="residual_mix">Residual mix</option>
+                </select>
+              </label>
+              <label>Supplier or issuer<input onChange={(event) => update("scope2SupplierOrIssuer", event.target.value)} required value={values.scope2SupplierOrIssuer} /></label>
+              <label>Instrument reference<input onChange={(event) => update("scope2InstrumentReference", event.target.value)} required value={values.scope2InstrumentReference} /></label>
+              <label>Factor source<input onChange={(event) => update("scope2FactorSource", event.target.value)} required value={values.scope2FactorSource} /></label>
+              <label>Contractual factor (kg CO₂e/kWh)<input inputMode="decimal" min="0" onChange={(event) => update("scope2FactorValue", event.target.value)} required value={values.scope2FactorValue} /></label>
+              <label>Valid from<input onChange={(event) => update("scope2ValidFrom", event.target.value)} required type="date" value={values.scope2ValidFrom} /></label>
+              <label>Valid to<input onChange={(event) => update("scope2ValidTo", event.target.value)} required type="date" value={values.scope2ValidTo} /></label>
+              <label className="checkbox-field">
+                <input
+                  checked={values.scope2QualityCriteriaAttested}
+                  onChange={(event) => setValues((current) => ({
+                    ...current,
+                    scope2QualityCriteriaAttested: event.target.checked
+                  }))}
+                  required
+                  type="checkbox"
+                />
+                Instrument meets the Scope 2 quality criteria
+              </label>
+            </>
           ) : null}
           {values.scope === "scope_3" ? (
             <label>

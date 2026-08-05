@@ -34,7 +34,10 @@ export default function AuditReportsPage() {
     try {
       const report = await apiRequest<AuditReport>(`/inventories/${form.get("inventory_id")}/audit-reports`, {
         method: "POST",
-        body: JSON.stringify({ finalize: form.get("finalize") === "on" })
+        body: JSON.stringify({
+          finalize: form.get("finalize") === "on",
+          scope_2_headline_basis: form.get("scope_2_headline_basis")
+        })
       });
       setGenerateModal(false);
       setSelectedReportId(report.id);
@@ -67,6 +70,17 @@ export default function AuditReportsPage() {
       <Modal open={generateModal} onClose={() => setGenerateModal(false)} title="Generate audit report" description="Create a deterministic snapshot from an approved inventory.">
         <form className="modal-form" onSubmit={generate}>
           <label>Inventory<select name="inventory_id" required><option value="">Select approved inventory</option>{(inventories.data?.items ?? []).filter((item) => ["approved", "locked", "superseded"].includes(item.status)).map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
+          <label>
+            Scope 2 headline basis
+            <select name="scope_2_headline_basis" required>
+              <option value="location_based">Location-based</option>
+              <option value="market_based">Market-based (requires verified contractual evidence)</option>
+            </select>
+          </label>
+          <section className="validation-banner">
+            <strong>Dual reporting remains in the report</strong>
+            <p>Both Scope 2 totals are disclosed. This choice only determines the non-double-counted headline total.</p>
+          </section>
           <label className="checkbox-field"><input name="finalize" type="checkbox" /> Finalize report immediately</label>
           <MutationMessage error={error} />
           <div className="button-row modal-actions"><button className="button button-secondary" onClick={() => setGenerateModal(false)} type="button">Cancel</button><button className="button button-primary" disabled={working} type="submit">{working ? "Generating…" : "Generate report"}</button></div>

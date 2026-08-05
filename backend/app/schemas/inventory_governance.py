@@ -5,6 +5,8 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from app.schemas.calculation import Scope2HeadlineBasis
+
 from app.models.inventory_governance import (
     ApprovalStatus,
     ReportStatus,
@@ -119,6 +121,7 @@ class InventoryRestatementResponse(BaseModel):
 
 class ReportGenerateRequest(BaseModel):
     finalize: bool = False
+    scope_2_headline_basis: Scope2HeadlineBasis
 
 
 class AuditReportResponse(BaseModel):

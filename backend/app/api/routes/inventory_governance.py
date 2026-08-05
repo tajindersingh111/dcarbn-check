@@ -231,6 +231,7 @@ async def generate_report(
         principal,
         inventory_id,
         finalize=payload.finalize,
+        scope_2_headline_basis=payload.scope_2_headline_basis,
     )
     return AuditReportResponse.model_validate(report)
 

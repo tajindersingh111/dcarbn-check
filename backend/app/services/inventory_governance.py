@@ -10,7 +10,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.dependencies import CurrentPrincipal
 from app.integrations.data.hashing import canonical_json_sha256
-from app.models.activity import ActivityRecord
+from app.calculations.scope2_reporting import validate_market_based_evidence
+from app.models.activity import ActivityRecord, EmissionScope, Scope2Method
 from app.models.boundary import BoundaryStatus, OrganisationalBoundary
 from app.models.calculation import (
     CalculationResult,
@@ -28,6 +29,7 @@ from app.models.inventory_governance import (
     ReportStatus,
     RestatementStatus,
 )
+from app.schemas.calculation import Scope2HeadlineBasis
 from app.schemas.inventory_governance import (
     ApprovalDecision,
     RestatementDecision,
@@ -527,6 +529,7 @@ async def generate_audit_report(
     inventory_id: UUID,
     *,
     finalize: bool,
+    scope_2_headline_basis: Scope2HeadlineBasis,
 ) -> AuditReport:
     inventory = await _get_inventory(db, principal.tenant_id, inventory_id)
     if inventory.status not in {
@@ -567,6 +570,7 @@ async def generate_audit_report(
         db,
         inventory,
         approval,
+        scope_2_headline_basis,
     )
     report_hash = canonical_json_sha256(payload)
     existing = await db.scalar(
@@ -793,6 +797,7 @@ async def _lock_snapshot(
     db: AsyncSession,
     inventory: Inventory,
     approval: InventoryApproval,
+    scope_2_headline_basis: Scope2HeadlineBasis,
 ) -> dict[str, object]:
     result_count = int(
         (
@@ -822,6 +827,7 @@ async def _build_audit_report_payload(
     db: AsyncSession,
     inventory: Inventory,
     approval: InventoryApproval,
+    scope_2_headline_basis: Scope2HeadlineBasis,
 ) -> dict[str, object]:
     period = await db.get(ReportingPeriod, inventory.reporting_period_id)
     run = await db.get(CalculationRun, approval.calculation_run_id)
@@ -841,10 +847,105 @@ async def _build_audit_report_payload(
         ).all()
     )
 
-    total_kg = sum(
-        (result.allocated_kg_co2e for result in results),
-        Decimal("0"),
+    activities = list(
+        (
+            await db.scalars(
+                select(ActivityRecord).where(
+                    ActivityRecord.inventory_id == inventory.id,
+                    ActivityRecord.is_current.is_(True),
+                )
+            )
+        ).all()
     )
+    activity_by_id = {activity.id: activity for activity in activities}
+
+    market_evidence: list[dict[str, object]] = []
+    market_results = [
+        result
+        for result in results
+        if result.scope == EmissionScope.SCOPE_2
+        and result.scope_2_method == Scope2Method.MARKET_BASED
+    ]
+    if scope_2_headline_basis == Scope2HeadlineBasis.MARKET_BASED:
+        if not market_results:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=(
+                    "Market-based Scope 2 cannot be the headline basis "
+                    "without market-based calculation results."
+                ),
+            )
+        for result in market_results:
+            activity = activity_by_id.get(result.activity_id)
+            if activity is None:
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail="Market-based result is missing its source activity.",
+                )
+            try:
+                evidence = validate_market_based_evidence(
+                    activity.metadata_json,
+                    evidence_reference=activity.evidence_reference,
+                    activity_date=activity.activity_date,
+                    geography_code=activity.geography_code,
+                )
+            except ValueError as exc:
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail=str(exc),
+                ) from exc
+            if (
+                result.factor_value is None
+                or Decimal(str(evidence["factor_value"])) != result.factor_value
+            ):
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail=(
+                        "Market-based contractual factor does not match "
+                        "the factor used by the calculation result."
+                    ),
+                )
+            market_evidence.append(
+                {
+                    "activity_id": str(activity.id),
+                    **evidence,
+                }
+            )
+
+    zero = Decimal("0")
+    scope_1_kg = sum(
+        (r.allocated_kg_co2e for r in results if r.scope == EmissionScope.SCOPE_1),
+        zero,
+    )
+    scope_2_location_kg = sum(
+        (
+            r.allocated_kg_co2e
+            for r in results
+            if r.scope == EmissionScope.SCOPE_2
+            and r.scope_2_method == Scope2Method.LOCATION_BASED
+        ),
+        zero,
+    )
+    scope_2_market_kg = sum(
+        (
+            r.allocated_kg_co2e
+            for r in results
+            if r.scope == EmissionScope.SCOPE_2
+            and r.scope_2_method == Scope2Method.MARKET_BASED
+        ),
+        zero,
+    )
+    scope_3_kg = sum(
+        (r.allocated_kg_co2e for r in results if r.scope == EmissionScope.SCOPE_3),
+        zero,
+    )
+    selected_scope_2_kg = (
+        scope_2_location_kg
+        if scope_2_headline_basis == Scope2HeadlineBasis.LOCATION_BASED
+        else scope_2_market_kg
+    )
+    total_kg = scope_1_kg + selected_scope_2_kg + scope_3_kg
+
     grouped: dict[str, Decimal] = {}
     for result in results:
         key = result.scope.value
@@ -906,14 +1007,7 @@ async def _build_audit_report_payload(
 
     quality_scores = [
         activity.data_quality_score
-        for activity in (
-            await db.scalars(
-                select(ActivityRecord).where(
-                    ActivityRecord.inventory_id == inventory.id,
-                    ActivityRecord.is_current.is_(True),
-                )
-            )
-        ).all()
+        for activity in activities
     ]
     average_quality = (
         sum(quality_scores) / len(quality_scores)
@@ -927,7 +1021,7 @@ async def _build_audit_report_payload(
     )
 
     return {
-        "report_schema_version": "1.0",
+        "report_schema_version": "1.1",
         "inventory": {
             "id": str(inventory.id),
             "name": inventory.name,
@@ -992,13 +1086,22 @@ async def _build_audit_report_payload(
             ),
         },
         "totals": {
+            "scope_2_headline_basis": scope_2_headline_basis.value,
+            "scope_1_kg_co2e": str(scope_1_kg),
+            "scope_2_location_based_kg_co2e": str(scope_2_location_kg),
+            "scope_2_market_based_kg_co2e": str(scope_2_market_kg),
+            "scope_3_kg_co2e": str(scope_3_kg),
             "total_kg_co2e": str(total_kg),
             "total_t_co2e": str(total_kg / Decimal("1000")),
+            "dual_reporting_complete": (
+                scope_2_location_kg > zero and scope_2_market_kg > zero
+            ),
             "by_scope_and_category": {
                 key: str(value)
                 for key, value in sorted(grouped.items())
             },
         },
+        "scope_2_market_based_evidence": market_evidence,
         "scope_3_category_dispositions": scope3_disposition_payload(
             scope3_dispositions
         ),

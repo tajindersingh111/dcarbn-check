@@ -227,3 +227,45 @@ test("refrigerant mass balance submits governed inputs and calculated emitted ma
     recovered_kg: "5"
   });
 });
+
+
+test("market-based Scope 2 submits complete contractual evidence", async ({ page }) => {
+  await page.goto("/activities/new");
+  await page.getByLabel("Scope").selectOption("scope_2");
+  await page.getByLabel("Scope 2 method").selectOption("market_based");
+  await page.getByLabel("Description").fill("Supplier-backed purchased electricity");
+  await page.getByLabel("Activity value").fill("1000");
+  await page.getByLabel("Unit").selectOption("kWh");
+  await page.getByLabel("Supplier or issuer").fill("Example Energy Ltd");
+  await page.getByLabel("Instrument reference").fill("SUPPLY-2026-001");
+  await page.getByLabel("Factor source").fill("Supplier disclosure 2026");
+  await page.getByLabel("Contractual factor (kg CO₂e/kWh)").fill("0.045");
+  await page.getByLabel("Valid from").fill("2026-01-01");
+  await page.getByLabel("Valid to").fill("2026-12-31");
+  await page.getByLabel("Instrument meets the Scope 2 quality criteria").check();
+  await page.getByLabel("Evidence reference").fill("supplier-contract-2026.pdf");
+  await page.getByLabel("Source record ID").fill("electricity-2026");
+
+  const requestPromise = page.waitForRequest((request) =>
+    request.url().includes("/activities") && request.method() === "POST"
+  );
+  await page.getByRole("button", { name: "Save and validate" }).click();
+  const payload = (await requestPromise).postDataJSON() as {
+    scope_2_method: string;
+    metadata_json: Record<string, unknown>;
+  };
+
+  expect(payload.scope_2_method).toBe("market_based");
+  expect(payload.metadata_json).toMatchObject({
+    instrument_type: "supplier_specific",
+    supplier_or_issuer: "Example Energy Ltd",
+    instrument_reference: "SUPPLY-2026-001",
+    factor_source: "Supplier disclosure 2026",
+    factor_value: "0.045",
+    factor_unit: "kg CO2e/kWh",
+    valid_from: "2026-01-01",
+    valid_to: "2026-12-31",
+    geography_code: "GB",
+    quality_criteria_attested: true
+  });
+});

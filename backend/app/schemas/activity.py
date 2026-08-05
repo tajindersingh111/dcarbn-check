@@ -7,6 +7,7 @@ from uuid import UUID
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from app.calculations.governed_methods import validate_governed_method
+from app.calculations.scope2_reporting import validate_market_based_evidence
 from app.models.activity import (
     ActivityStatus,
     ActivityType,
@@ -59,6 +60,13 @@ class ActivityCreate(BaseModel):
                 raise ValueError("Scope 2 activities require a Scope 2 method")
         elif self.scope_2_method != Scope2Method.NOT_APPLICABLE:
             raise ValueError("scope_2_method is only valid for Scope 2 activities")
+        if self.scope_2_method == Scope2Method.MARKET_BASED:
+            validate_market_based_evidence(
+                self.metadata_json,
+                evidence_reference=self.evidence_reference,
+                activity_date=self.activity_date,
+                geography_code=self.geography_code,
+            )
         if not self.factor_level_1:
             raise ValueError("factor_level_1 is required for factor resolution")
         validate_governed_method(
