@@ -148,3 +148,46 @@ test("governed freight method locks and submits exact calculation selectors", as
     }
   });
 });
+
+
+test("methodology administrator creates a controlled draft version", async ({ page }) => {
+  await page.goto("/admin/methodologies");
+  await expect(page.getByRole("heading", { name: "Methodology registry" })).toBeVisible();
+  await page.getByRole("button", { name: "New version" }).click();
+  await page.getByLabel("Method key").fill("scope2.location_electricity");
+  await page.getByLabel("Display name").fill("Scope 2 location electricity");
+  await page.getByLabel("Effective from").fill("2026-01-01");
+  await page.getByLabel("Effective to").fill("2026-12-31");
+  await page.getByLabel("Golden factor value").fill("0.20000");
+  await page.getByLabel("Expected output").fill("200.00000");
+  await page.getByLabel("Official source URL").fill(
+    "https://www.gov.uk/government/publications/greenhouse-gas-reporting-conversion-factors-2026"
+  );
+  await page.getByLabel("Reason for change").fill(
+    "Initial controlled Scope 2 methodology for the 2026 reporting year."
+  );
+
+  const requestPromise = page.waitForRequest((request) =>
+    request.url().endsWith("/api/v1/methodologies") &&
+    request.method() === "POST"
+  );
+  await page.getByRole("button", { name: "Create draft version" }).click();
+  const request = await requestPromise;
+  const payload = request.postDataJSON() as {
+    expression: string;
+    inputs: Array<{ name: string; unit: string }>;
+    golden_tests: Array<{ expected_output: string }>;
+    source_reference: string;
+  };
+
+  expect(payload.expression).toBe(
+    "activity_value * factor_value * allocation_percentage / 100"
+  );
+  expect(payload.inputs.map((item) => item.name)).toEqual([
+    "activity_value",
+    "factor_value",
+    "allocation_percentage"
+  ]);
+  expect(payload.golden_tests[0].expected_output).toBe("200.00000");
+  expect(payload.source_reference).toContain("gov.uk");
+});

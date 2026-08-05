@@ -34,6 +34,8 @@ const tenantAdminOrAuditor = (user: CurrentUser) =>
   user.is_platform_admin ||
   user.roles.some((role) => ["tenant_admin", "auditor"].includes(role));
 const platformAdmin = (user: CurrentUser) => user.is_platform_admin;
+const methodologyAdmin = (user: CurrentUser) =>
+  user.is_platform_admin || user.roles.includes("methodology_manager");
 
 const navigation: NavigationItem[] = [
   { href: "/", label: "Dashboard", icon: DashboardIcon, isVisible: everyUser },
@@ -46,6 +48,7 @@ const navigation: NavigationItem[] = [
   { href: "/audit-reports", label: "Audit reports", icon: ReportIcon, isVisible: everyUser },
   { href: "/admin/users", label: "Users and roles", icon: OrganisationIcon, isVisible: tenantAdmin },
   { href: "/admin/tenants", label: "Tenant onboarding", icon: InventoryIcon, isVisible: platformAdmin },
+  { href: "/admin/methodologies", label: "Methodologies", icon: ReviewIcon, isVisible: methodologyAdmin },
   { href: "/admin/security-events", label: "Security events", icon: ReviewIcon, isVisible: tenantAdminOrAuditor },
   { href: "/admin/operations", label: "Operations", icon: DashboardIcon, isVisible: tenantAdminOrAuditor },
   { href: "/settings/security", label: "Security settings", icon: ApprovalIcon, isVisible: everyUser }

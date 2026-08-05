@@ -7,6 +7,7 @@ from app.models.emission_factor import (
 from app.models.boundary import BoundaryMembership, OrganisationalBoundary
 from app.models.audit import AuditEvent
 from app.models.inventory import Inventory, ReportingPeriod
+from app.models.methodology import MethodologyVersion
 from app.models.organisation import LegalEntity, Organisation, Site
 from app.models.tenant import Tenant
 
@@ -19,6 +20,7 @@ __all__ = [
     "FactorImportJob",
     "Inventory",
     "LegalEntity",
+    "MethodologyVersion",
     "Organisation",
     "OrganisationalBoundary",
     "ReportingPeriod",

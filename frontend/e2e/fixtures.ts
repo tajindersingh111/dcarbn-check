@@ -54,9 +54,37 @@ export async function installApiFixtures(page: Page): Promise<void> {
         tenant_id: organisation.tenant_id,
         tenant_name: organisation.name,
         tenant_slug: "northstar-logistics",
-        roles: ["tenant_admin"],
+        roles: ["tenant_admin", "methodology_manager"],
         is_platform_admin: false
       }});
+    }
+    if (path === "/methodologies" && method === "GET") {
+      return route.fulfill({ json: { items: [], total: 0 } });
+    }
+    if (path === "/methodologies" && method === "POST") {
+      const payload = request.postDataJSON() as Record<string, unknown>;
+      return route.fulfill({ status: 201, json: {
+        ...payload,
+        id: "methodology-1",
+        version: 1,
+        status: "draft",
+        input_schema: { inputs: payload.inputs },
+        created_by: "e2e-user",
+        submitted_at: null,
+        reviewed_by: null,
+        reviewed_at: null,
+        approved_by: null,
+        approved_at: null,
+        activated_by: null,
+        activated_at: null,
+        retired_at: null,
+        supersedes_version_id: null,
+        created_at: "2026-08-05T00:00:00Z",
+        updated_at: "2026-08-05T00:00:00Z"
+      }});
+    }
+    if (path.startsWith("/methodologies/") && method === "POST") {
+      return route.fulfill({ json: { status: "in_review" } });
     }
     if (path === "/dashboard") {
       return route.fulfill({ json: {
