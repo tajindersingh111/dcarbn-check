@@ -13,6 +13,7 @@ from app.schemas.calculation import (
     CalculationRunCreate,
     CalculationRunResponse,
     InventoryCalculationSummary,
+    Scope2HeadlineBasis,
 )
 from app.services.calculations import (
     create_and_execute_calculation_run,
@@ -86,7 +87,13 @@ async def get_results(
 )
 async def get_summary(
     run_id: UUID,
+    scope_2_headline_basis: Scope2HeadlineBasis,
     principal: CurrentPrincipal = Depends(get_current_principal),
     db: AsyncSession = Depends(get_db),
 ) -> InventoryCalculationSummary:
-    return await summarize_calculation_run(db, principal.tenant_id, run_id)
+    return await summarize_calculation_run(
+        db,
+        principal.tenant_id,
+        run_id,
+        scope_2_headline_basis,
+    )
