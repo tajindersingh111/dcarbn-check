@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from decimal import Decimal
+from enum import StrEnum
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -11,6 +12,11 @@ from app.models.calculation import (
     CalculationMethod,
     CalculationRunStatus,
 )
+
+
+class Scope2HeadlineBasis(StrEnum):
+    LOCATION_BASED = "location_based"
+    MARKET_BASED = "market_based"
 
 
 class CalculationRunCreate(BaseModel):
@@ -95,6 +101,11 @@ class InventoryScopeSummaryItem(BaseModel):
 class InventoryCalculationSummary(BaseModel):
     calculation_run_id: UUID
     inventory_id: UUID
+    scope_2_headline_basis: Scope2HeadlineBasis
+    scope_1_kg_co2e: Decimal
+    scope_2_location_based_kg_co2e: Decimal
+    scope_2_market_based_kg_co2e: Decimal
+    scope_3_kg_co2e: Decimal
     total_kg_co2e: Decimal
     total_t_co2e: Decimal
     items: list[InventoryScopeSummaryItem]
