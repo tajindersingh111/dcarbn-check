@@ -75,7 +75,7 @@ export async function installApiFixtures(page: Page): Promise<void> {
     if (path === "/organisations" && method === "POST") {
       return route.fulfill({ status: 201, json: organisation });
     }
-    if (path.startsWith("/inventories") && method === "GET" && !path.includes("calculation-runs")) {
+    if (path.startsWith("/inventories") && method === "GET" && !path.includes("calculation-runs") && !path.includes("scope-3-category-dispositions")) {
       return route.fulfill({ json: { items: [inventory], total: 1, limit: 200, offset: 0 }});
     }
     if (path === "/inventories" && method === "POST") {
@@ -155,6 +155,32 @@ export async function installApiFixtures(page: Page): Promise<void> {
         factor_lineage_complete: true,
         calculation_complete: true
       }], total: 1, limit: 200, offset: 0 }});
+    }
+    if (path.endsWith("/scope-3-category-dispositions") && method === "GET") {
+      return route.fulfill({ json: { items: [], total: 0, complete: false, approved: false } });
+    }
+    if (path.endsWith("/scope-3-category-dispositions") && method === "PUT") {
+      const payload = request.postDataJSON() as { items: Array<Record<string, unknown>> };
+      return route.fulfill({ json: {
+        items: payload.items.map((item, index) => ({
+          ...item,
+          id: `disposition-${index + 1}`,
+          tenant_id: organisation.tenant_id,
+          inventory_id: inventory.id,
+          prepared_by: "e2e-user",
+          prepared_at: "2026-08-05T00:00:00Z",
+          approved_by: null,
+          approved_at: null,
+          created_at: "2026-08-05T00:00:00Z",
+          updated_at: "2026-08-05T00:00:00Z"
+        })),
+        total: 15,
+        complete: true,
+        approved: false
+      }});
+    }
+    if (path.endsWith("/scope-3-category-dispositions/approve") && method === "POST") {
+      return route.fulfill({ json: { items: [], total: 15, complete: true, approved: true } });
     }
     if (path.includes("/calculation-runs") && method === "GET") {
       return route.fulfill({ json: { items: [{

@@ -77,3 +77,27 @@ test("audit report register opens the immutable payload", async ({ page }) => {
   await expect(page.getByText(/total_t_co2e/)).toBeVisible();
   await expect(page.getByText(/12846.28/)).toBeVisible();
 });
+
+
+test("Scope 3 screening saves all category decisions and shows validation boundary", async ({ page }) => {
+  await page.goto("/scope-3-screening");
+  await expect(page.getByRole("heading", { name: "Scope 3 category screening" })).toBeVisible();
+  await expect(page.getByText("Draft — calculation not fully validated")).toBeVisible();
+  await page.getByLabel("Reporting inventory").selectOption("22222222-2222-2222-2222-222222222222");
+
+  for (let category = 1; category <= 15; category += 1) {
+    await page.getByLabel(`Category ${category} rationale`).fill(
+      "Included after documented relevance and materiality screening."
+    );
+  }
+
+  const requestPromise = page.waitForRequest((request) =>
+    request.url().includes("/scope-3-category-dispositions") && request.method() === "PUT"
+  );
+  await page.getByRole("button", { name: "Save all 15 decisions" }).click();
+  const request = await requestPromise;
+  const payload = request.postDataJSON() as { items: Array<{ category: number }> };
+  expect(payload.items).toHaveLength(15);
+  expect(payload.items.map((item) => item.category)).toEqual(Array.from({ length: 15 }, (_, index) => index + 1));
+  await expect(page.getByText("Independent approval is still required.")).toBeVisible();
+});

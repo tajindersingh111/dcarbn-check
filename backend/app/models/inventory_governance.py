@@ -7,6 +7,7 @@ from uuid import UUID
 
 from sqlalchemy import (
     Boolean,
+    CheckConstraint,
     DateTime,
     Enum,
     ForeignKey,
@@ -42,6 +43,54 @@ class ReportStatus(StrEnum):
     DRAFT = "draft"
     FINAL = "final"
     SUPERSEDED = "superseded"
+
+
+class Scope3CategoryDispositionStatus(StrEnum):
+    INCLUDED = "included"
+    NOT_RELEVANT = "not_relevant"
+    EXCLUDED = "excluded"
+
+
+class Scope3CategoryDisposition(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    __tablename__ = "scope_3_category_dispositions"
+    __table_args__ = (
+        UniqueConstraint(
+            "inventory_id",
+            "category",
+            name="uq_scope_3_disposition_inventory_category",
+        ),
+        CheckConstraint(
+            "category >= 1 AND category <= 15",
+            name="scope_3_disposition_category_range",
+        ),
+    )
+
+    tenant_id: Mapped[UUID] = mapped_column(
+        Uuid(as_uuid=True),
+        ForeignKey("tenants.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    inventory_id: Mapped[UUID] = mapped_column(
+        Uuid(as_uuid=True),
+        ForeignKey("inventories.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    category: Mapped[int] = mapped_column(Integer, nullable=False)
+    disposition: Mapped[Scope3CategoryDispositionStatus] = mapped_column(
+        Enum(
+            Scope3CategoryDispositionStatus,
+            name="scope_3_category_disposition_status",
+        ),
+        nullable=False,
+    )
+    rationale: Mapped[str] = mapped_column(Text, nullable=False)
+    evidence_reference: Mapped[str | None] = mapped_column(String(1000))
+    prepared_by: Mapped[str] = mapped_column(String(200), nullable=False)
+    prepared_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    approved_by: Mapped[str | None] = mapped_column(String(200))
+    approved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
 class InventoryApproval(UUIDPrimaryKeyMixin, TimestampMixin, Base):

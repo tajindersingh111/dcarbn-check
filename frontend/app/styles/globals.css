@@ -1296,3 +1296,37 @@ textarea {
   padding: 0.55rem;
   text-align: center;
 }
+
+
+.validation-banner {
+  background: var(--colour-warning-soft);
+  border: 1px solid var(--colour-warning);
+  border-radius: var(--radius-medium);
+  margin-bottom: 1.2rem;
+  padding: 1rem 1.2rem;
+}
+.validation-banner strong { color: var(--colour-warning); }
+.validation-banner p { color: var(--colour-text-muted); margin: 0.35rem 0 0; }
+.screening-selector,
+.screening-actions {
+  align-items: end;
+  display: flex;
+  gap: 1rem;
+  justify-content: space-between;
+  margin-bottom: 1.2rem;
+  padding: 1.2rem;
+}
+.screening-selector label { min-width: min(32rem, 100%); }
+.screening-status { align-items: center; display: flex; gap: 0.8rem; }
+.scope3-grid { display: grid; gap: 1rem; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.scope3-card { display: grid; gap: 0.9rem; padding: 1.2rem; }
+.scope3-card header span { color: var(--brand-secondary); font-size: 0.75rem; font-weight: 700; text-transform: uppercase; }
+.scope3-card header h2 { font-size: 1rem; margin-top: 0.2rem; }
+.scope3-card small { color: var(--colour-text-muted); }
+.screening-actions { margin-top: 1.2rem; }
+.screening-actions p { color: var(--colour-text-muted); margin: 0.3rem 0 0; }
+@media (max-width: 54rem) {
+  .scope3-grid { grid-template-columns: 1fr; }
+  .screening-selector,
+  .screening-actions { align-items: stretch; flex-direction: column; }
+}

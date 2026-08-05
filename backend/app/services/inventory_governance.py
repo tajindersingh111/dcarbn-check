@@ -34,6 +34,11 @@ from app.schemas.inventory_governance import (
     RestatementRequestCreate,
 )
 from app.services.audit import record_audit_event
+from app.services.scope3_governance import (
+    list_scope3_dispositions,
+    scope3_disposition_payload,
+    scope3_dispositions_are_approved,
+)
 
 
 async def _get_inventory(
@@ -94,6 +99,19 @@ async def create_approval_request(
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail="Inventory is not ready for approval.",
+        )
+
+    if not await scope3_dispositions_are_approved(
+        db,
+        principal.tenant_id,
+        inventory.id,
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=(
+                "All 15 Scope 3 category dispositions must be prepared "
+                "and independently approved."
+            ),
         )
 
     existing = await db.scalar(
@@ -521,6 +539,16 @@ async def generate_audit_report(
             detail="Inventory must be approved before report generation.",
         )
 
+    if not await scope3_dispositions_are_approved(
+        db,
+        principal.tenant_id,
+        inventory.id,
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Approved Scope 3 category dispositions are required.",
+        )
+
     approval = await db.scalar(
         select(InventoryApproval)
         .where(
@@ -892,6 +920,11 @@ async def _build_audit_report_payload(
         if quality_scores
         else None
     )
+    scope3_dispositions = await list_scope3_dispositions(
+        db,
+        inventory.tenant_id,
+        inventory.id,
+    )
 
     return {
         "report_schema_version": "1.0",
@@ -966,6 +999,9 @@ async def _build_audit_report_payload(
                 for key, value in sorted(grouped.items())
             },
         },
+        "scope_3_category_dispositions": scope3_disposition_payload(
+            scope3_dispositions
+        ),
         "factor_sets": factor_sets,
         "data_quality": {
             "activity_count": len(quality_scores),
