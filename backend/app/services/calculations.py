@@ -37,6 +37,7 @@ from app.schemas.calculation import (
     CalculationRunCreate,
     InventoryCalculationSummary,
     InventoryScopeSummaryItem,
+    Scope2HeadlineBasis,
 )
 from app.services.activities import get_inventory
 from app.services.audit import record_audit_event
@@ -321,6 +322,7 @@ async def summarize_calculation_run(
     db: AsyncSession,
     tenant_id: UUID,
     run_id: UUID,
+    scope_2_headline_basis: Scope2HeadlineBasis,
 ) -> InventoryCalculationSummary:
     run = await get_calculation_run(db, tenant_id, run_id)
     if run is None:
@@ -349,14 +351,65 @@ async def summarize_calculation_run(
             ),
         )
     ]
-    total = sum((item.kg_co2e for item in items), Decimal("0"))
+    totals = calculate_inventory_totals(items, scope_2_headline_basis)
     return InventoryCalculationSummary(
         calculation_run_id=run.id,
         inventory_id=run.inventory_id,
-        total_kg_co2e=total,
-        total_t_co2e=kg_to_tonnes(total),
+        scope_2_headline_basis=scope_2_headline_basis,
+        scope_1_kg_co2e=totals["scope_1"],
+        scope_2_location_based_kg_co2e=totals["scope_2_location_based"],
+        scope_2_market_based_kg_co2e=totals["scope_2_market_based"],
+        scope_3_kg_co2e=totals["scope_3"],
+        total_kg_co2e=totals["headline_total"],
+        total_t_co2e=kg_to_tonnes(totals["headline_total"]),
         items=items,
     )
+
+
+def calculate_inventory_totals(
+    items: list[InventoryScopeSummaryItem],
+    scope_2_headline_basis: Scope2HeadlineBasis,
+) -> dict[str, Decimal]:
+    """Return disclosed scope totals and one non-double-counted corporate total."""
+    zero = Decimal("0")
+    scope_1 = sum(
+        (item.kg_co2e for item in items if item.scope == EmissionScope.SCOPE_1),
+        zero,
+    )
+    scope_2_location_based = sum(
+        (
+            item.kg_co2e
+            for item in items
+            if item.scope == EmissionScope.SCOPE_2
+            and item.scope_2_method == Scope2Method.LOCATION_BASED
+        ),
+        zero,
+    )
+    scope_2_market_based = sum(
+        (
+            item.kg_co2e
+            for item in items
+            if item.scope == EmissionScope.SCOPE_2
+            and item.scope_2_method == Scope2Method.MARKET_BASED
+        ),
+        zero,
+    )
+    scope_3 = sum(
+        (item.kg_co2e for item in items if item.scope == EmissionScope.SCOPE_3),
+        zero,
+    )
+    selected_scope_2 = (
+        scope_2_location_based
+        if scope_2_headline_basis == Scope2HeadlineBasis.LOCATION_BASED
+        else scope_2_market_based
+    )
+    return {
+        "scope_1": scope_1,
+        "scope_2_location_based": scope_2_location_based,
+        "scope_2_market_based": scope_2_market_based,
+        "scope_3": scope_3,
+        "headline_total": scope_1 + selected_scope_2 + scope_3,
+    }
 
 
 def _factor_scope_label(scope: EmissionScope) -> str:
