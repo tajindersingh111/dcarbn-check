@@ -1,0 +1,125 @@
+{
+  "schema_version": "2.0",
+  "idempotency_key": "uat-comparison",
+  "records": [
+    {
+      "external_customer_id": "uat-northstar",
+      "external_calculation_id": "UAT-S1-FLEET-001",
+      "external_vehicle_id": "VAN-001",
+      "suggested_scope": "scope_1",
+      "suggested_scope_3_category": null,
+      "classification_reason": "Owned Class I diesel delivery van.",
+      "methodology_version": "DcarbN-2026.1",
+      "external_activity_key": "fleet-1",
+      "method_identifier": "dcarbn.mobile_fleet.v2",
+      "calculation_software_version": "DATa-2026.1",
+      "reporting_period_start": "2026-01-01",
+      "reporting_period_end": "2026-01-31",
+      "uncertainty_percentage": "3.5",
+      "comparison_inputs": {
+        "government_method_id": "scope1.mobile_combustion.delivery_van.class1.diesel.km.uk_2026.v1",
+        "activity_value": "1000",
+        "activity_unit": "km"
+      },
+      "total_kg_co2e": "125",
+      "co2_kg": "120",
+      "ch4_kg_co2e": "2",
+      "n2o_kg_co2e": "3",
+      "data_quality_level": "primary",
+      "data_quality_score": 95,
+      "calculated_at": "2026-02-01T00:00:00Z",
+      "source_record_version": "1",
+      "source_hash": "hash0001",
+      "lineage": {"route_reference": "fleet-1"},
+      "metadata": {
+        "uat_government_baseline_kg_co2e": "100",
+        "uat_expected_delta_relation": "higher"
+      }
+    },
+    {
+      "external_customer_id": "uat-northstar",
+      "external_calculation_id": "UAT-S3-CAT4-001",
+      "external_shipment_id": "SHIP-IN-001",
+      "suggested_scope": "scope_3",
+      "suggested_scope_3_category": 4,
+      "classification_reason": "Third-party upstream freight.",
+      "methodology_version": "DcarbN-2026.1",
+      "external_activity_key": "inbound-1",
+      "method_identifier": "dcarbn.freight.upstream.v2",
+      "calculation_software_version": "DATa-2026.1",
+      "reporting_period_start": "2026-02-01",
+      "reporting_period_end": "2026-02-28",
+      "uncertainty_percentage": "5",
+      "comparison_inputs": {
+        "government_method_id": "scope3.category4.diesel_van.tonne_km.uk_2026.v1",
+        "activity_value": "850",
+        "activity_unit": "tonne.km"
+      },
+      "total_kg_co2e": "80",
+      "data_quality_level": "secondary",
+      "data_quality_score": 86,
+      "calculated_at": "2026-03-01T00:00:00Z",
+      "source_record_version": "1",
+      "source_hash": "hash0002",
+      "lineage": {"consignment_reference": "SHIP-IN-001"},
+      "metadata": {
+        "uat_government_baseline_kg_co2e": "100",
+        "uat_expected_delta_relation": "lower"
+      }
+    },
+    {
+      "external_customer_id": "uat-northstar",
+      "external_calculation_id": "UAT-S3-CAT9-001",
+      "external_shipment_id": "SHIP-OUT-001",
+      "suggested_scope": "scope_3",
+      "suggested_scope_3_category": 9,
+      "classification_reason": "Third-party downstream freight.",
+      "methodology_version": "DcarbN-2026.1",
+      "external_activity_key": "outbound-1",
+      "method_identifier": "dcarbn.freight.downstream.v2",
+      "calculation_software_version": "DATa-2026.1",
+      "reporting_period_start": "2026-03-01",
+      "reporting_period_end": "2026-03-31",
+      "uncertainty_percentage": "4",
+      "comparison_inputs": {
+        "government_method_id": "scope3.category9.average_diesel_van.tonne_km.uk_2026.v1",
+        "activity_value": "1250",
+        "activity_unit": "tonne.km"
+      },
+      "total_kg_co2e": "100",
+      "data_quality_level": "primary",
+      "data_quality_score": 92,
+      "calculated_at": "2026-04-01T00:00:00Z",
+      "source_record_version": "1",
+      "source_hash": "hash0003",
+      "lineage": {"consignment_reference": "SHIP-OUT-001"},
+      "metadata": {
+        "uat_government_baseline_kg_co2e": "100",
+        "uat_expected_delta_relation": "equal"
+      }
+    },
+    {
+      "external_customer_id": "uat-northstar",
+      "external_calculation_id": "UAT-S3-UNAVAILABLE-001",
+      "external_shipment_id": "SHIP-NODATA-001",
+      "suggested_scope": "scope_3",
+      "suggested_scope_3_category": 9,
+      "classification_reason": "Downstream freight without defensible comparator inputs.",
+      "methodology_version": "DcarbN-2026.1",
+      "external_activity_key": "unavailable-1",
+      "method_identifier": "dcarbn.freight.downstream.v2",
+      "calculation_software_version": "DATa-2026.1",
+      "reporting_period_start": "2026-04-01",
+      "reporting_period_end": "2026-04-30",
+      "comparison_inputs": {},
+      "total_kg_co2e": "75",
+      "data_quality_level": "estimated",
+      "data_quality_score": 60,
+      "calculated_at": "2026-05-01T00:00:00Z",
+      "source_record_version": "1",
+      "source_hash": "hash0004",
+      "lineage": {"reason": "missing-tonne-km"},
+      "metadata": {"uat_expected_status": "comparison_unavailable"}
+    }
+  ]
+}
