@@ -6,11 +6,13 @@ from typing import Any
 import pytest
 
 from app.models.activity import (
+    ActivityType,
     DataQualityLevel,
     EmissionScope,
 )
 from app.services.data_review import (
     _comparison_group_key,
+    _external_activity_type,
     _map_data_quality,
     _parse_scope,
     _validate_confirmed_classification,
@@ -96,3 +98,16 @@ def test_comparison_group_key_has_legacy_fallback() -> None:
     assert _comparison_group_key(emission, inventory_period) == (
         "dcarbn:legacy-calc-1:2026-01-01:2026-12-31"
     )
+
+
+
+def test_dcarbn_scope1_routes_to_mobile_combustion() -> None:
+    assert _external_activity_type(
+        EmissionScope.SCOPE_1
+    ) == ActivityType.MOBILE_COMBUSTION
+
+
+def test_dcarbn_scope3_routes_to_freight_transport() -> None:
+    assert _external_activity_type(
+        EmissionScope.SCOPE_3
+    ) == ActivityType.FREIGHT_TRANSPORT

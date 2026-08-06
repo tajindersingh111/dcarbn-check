@@ -87,3 +87,25 @@ def test_comparator_result_is_explicitly_excluded_from_totals() -> None:
     assert COMPARISON_WARNING == (
         "comparison_only_not_included_in_inventory_totals"
     )
+
+
+
+def test_scope1_mobile_comparison_inputs_route_to_governed_method() -> None:
+    emission: Any = SimpleNamespace(
+        confirmed_scope="scope_1",
+        confirmed_scope_3_category=None,
+        comparison_inputs_json={
+            "government_method_id":
+                "scope1.mobile_combustion.delivery_van.class1.diesel.km.uk_2026.v1",
+            "activity_value": "1000",
+            "activity_unit": "km",
+        },
+    )
+
+    method, value, unit = _comparison_inputs(emission)
+
+    assert method == (
+        GovernedCalculationMethod.SCOPE1_CLASS1_DIESEL_VAN_KM_2026
+    )
+    assert value == Decimal("1000")
+    assert unit == "km"

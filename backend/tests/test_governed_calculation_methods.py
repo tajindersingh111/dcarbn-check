@@ -409,3 +409,49 @@ def test_scope3_category9_cannot_be_misclassified_as_upstream_freight() -> None:
             },
             lifecycle_boundary="indirect_value_chain",
         )
+
+
+
+def test_scope1_class1_diesel_van_km_2026_golden_result() -> None:
+    method = validate_governed_method(
+        activity_type=ActivityType.MOBILE_COMBUSTION,
+        scope=EmissionScope.SCOPE_1,
+        scope_3_category=None,
+        activity_unit="km",
+        factor_level_1="Delivery vehicles",
+        factor_level_2="Vans",
+        factor_level_3="Class I (up to 1.305 tonnes)",
+        factor_level_4=None,
+        factor_column_text="Diesel",
+        metadata_json={
+            "calculation_method_id":
+                "scope1.mobile_combustion.delivery_van.class1.diesel.km.uk_2026.v1"
+        },
+    )
+    result = calculate_activity_factor_emissions(
+        factor_activity_value=Decimal("1000"),
+        factor_value=Decimal("0.15833"),
+        allocation_percentage=Decimal("100"),
+    )
+
+    assert method == GovernedCalculationMethod.SCOPE1_CLASS1_DIESEL_VAN_KM_2026
+    assert result.allocated_kg_co2e == Decimal("158.33000")
+
+
+def test_scope1_mobile_method_rejects_scope3_classification() -> None:
+    with pytest.raises(ValueError, match="scope must be scope_1"):
+        validate_governed_method(
+            activity_type=ActivityType.MOBILE_COMBUSTION,
+            scope=EmissionScope.SCOPE_3,
+            scope_3_category=4,
+            activity_unit="km",
+            factor_level_1="Delivery vehicles",
+            factor_level_2="Vans",
+            factor_level_3="Class I (up to 1.305 tonnes)",
+            factor_level_4=None,
+            factor_column_text="Diesel",
+            metadata_json={
+                "calculation_method_id":
+                    "scope1.mobile_combustion.delivery_van.class1.diesel.km.uk_2026.v1"
+            },
+        )

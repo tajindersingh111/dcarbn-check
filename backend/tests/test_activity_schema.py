@@ -15,13 +15,19 @@ def base_payload() -> dict[str, object]:
         "activity_type": ActivityType.MOBILE_COMBUSTION,
         "scope": EmissionScope.SCOPE_1,
         "activity_date": date(2026, 1, 1),
-        "description": "Diesel used by owned fleet",
+        "description": "Distance travelled by owned Class I diesel van",
         "activity_value": Decimal("100"),
-        "activity_unit": "litres",
-        "factor_level_1": "Fuels",
-        "factor_level_2": "Liquid fuels",
-        "factor_level_3": "Diesel",
-        "source_record_id": "fuel-001",
+        "activity_unit": "km",
+        "factor_level_1": "Delivery vehicles",
+        "factor_level_2": "Vans",
+        "factor_level_3": "Class I (up to 1.305 tonnes)",
+        "factor_column_text": "Diesel",
+        "source_record_id": "fleet-distance-001",
+        "metadata_json": {
+            "calculation_method_id": (
+                "scope1.mobile_combustion.delivery_van.class1.diesel.km.uk_2026.v1"
+            )
+        },
     }
 
 

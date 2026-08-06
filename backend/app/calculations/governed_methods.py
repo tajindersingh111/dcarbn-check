@@ -8,6 +8,9 @@ from app.models.activity import ActivityType, EmissionScope
 
 
 class GovernedCalculationMethod(StrEnum):
+    SCOPE1_CLASS1_DIESEL_VAN_KM_2026 = (
+        "scope1.mobile_combustion.delivery_van.class1.diesel.km.uk_2026.v1"
+    )
     SCOPE1_STATIONARY_DIESEL_LITRES_2026 = "scope1.stationary_diesel.litres.uk_2026.v1"
     SCOPE2_LOCATION_ELECTRICITY_KWH_2026 = "scope2.location_electricity.kwh.uk_2026.v1"
     SCOPE1_HFC134A_MASS_BALANCE_KG_2026 = "scope1.refrigerant.hfc134a.mass_balance.kg.uk_2026.v1"
@@ -52,6 +55,17 @@ class GovernedMethodSpecification:
 
 
 METHODS: dict[GovernedCalculationMethod, GovernedMethodSpecification] = {
+    GovernedCalculationMethod.SCOPE1_CLASS1_DIESEL_VAN_KM_2026:
+        GovernedMethodSpecification(
+            activity_type=ActivityType.MOBILE_COMBUSTION,
+            scope=EmissionScope.SCOPE_1,
+            scope_3_category=None,
+            activity_unit="km",
+            factor_level_1="Delivery vehicles",
+            factor_level_2="Vans",
+            factor_level_3="Class I (up to 1.305 tonnes)",
+            factor_column_text="Diesel",
+        ),
     GovernedCalculationMethod.SCOPE1_STATIONARY_DIESEL_LITRES_2026:
         GovernedMethodSpecification(
             activity_type=ActivityType.STATIONARY_COMBUSTION,
@@ -179,6 +193,7 @@ METHODS: dict[GovernedCalculationMethod, GovernedMethodSpecification] = {
 }
 
 GOVERNED_ACTIVITY_TYPES = {
+    ActivityType.MOBILE_COMBUSTION,
     ActivityType.STATIONARY_COMBUSTION,
     ActivityType.PURCHASED_ELECTRICITY,
     ActivityType.REFRIGERANT,

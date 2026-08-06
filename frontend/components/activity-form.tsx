@@ -29,6 +29,20 @@ interface GovernedMethodOption {
 
 const governedMethods: GovernedMethodOption[] = [
   {
+    id: "scope1.mobile_combustion.delivery_van.class1.diesel.km.uk_2026.v1",
+    label: "Scope 1 · Class I diesel delivery van · km · 0.15833",
+    activityType: "mobile_combustion",
+    scope: "scope_1",
+    scope3Category: "",
+    activityUnit: "km",
+    factorLevel1: "Delivery vehicles",
+    factorLevel2: "Vans",
+    factorLevel3: "Class I (up to 1.305 tonnes)",
+    factorLevel4: "",
+    factorColumnText: "Diesel",
+    lifecycleBoundary: "",
+  },
+  {
     id: "scope1.stationary_diesel.litres.uk_2026.v1",
     label: "Scope 1 · Stationary diesel · litres",
     activityType: "stationary_combustion",

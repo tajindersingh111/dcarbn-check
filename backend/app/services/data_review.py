@@ -417,6 +417,16 @@ async def _ensure_comparison_group_available(
     return comparison_group_key
 
 
+def _external_activity_type(scope: EmissionScope) -> ActivityType:
+    if scope == EmissionScope.SCOPE_1:
+        return ActivityType.MOBILE_COMBUSTION
+    if scope == EmissionScope.SCOPE_3:
+        return ActivityType.FREIGHT_TRANSPORT
+    raise ValueError(
+        "DcarbN operational transport results may only map to Scope 1 or Scope 3."
+    )
+
+
 async def _create_external_activity(
     db: AsyncSession,
     principal: CurrentPrincipal,
@@ -442,7 +452,7 @@ async def _create_external_activity(
         tenant_id=principal.tenant_id,
         inventory_id=inventory.id,
         organisation_id=emission.organisation_id,
-        activity_type=ActivityType.FREIGHT_TRANSPORT,
+        activity_type=_external_activity_type(scope),
         status=ActivityStatus.CALCULATED,
         scope=scope,
         scope_3_category=emission.confirmed_scope_3_category,

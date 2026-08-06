@@ -374,3 +374,37 @@ test("Category 9 downstream freight preserves mode and accounting classification
     });
   }
 });
+
+
+
+test("Scope 1 DcarbN comparator method preserves delivery-van selectors", async ({ page }) => {
+  await page.goto("/activities/new");
+  await page.getByLabel("Governed calculation method").selectOption(
+    "scope1.mobile_combustion.delivery_van.class1.diesel.km.uk_2026.v1"
+  );
+  await page.getByLabel("Description").fill("DcarbN fleet delivery van comparator");
+  await page.getByLabel("Activity value").fill("1000");
+  await page.getByLabel("Evidence reference").fill("dcarbn-fleet-ledger-2026");
+  await page.getByLabel("Source record ID").fill("dcarbn-scope1-van-2026");
+
+  const requestPromise = page.waitForRequest((request) =>
+    request.url().includes("/activities") && request.method() === "POST"
+  );
+  await page.getByRole("button", { name: "Save and validate" }).click();
+  const payload = (await requestPromise).postDataJSON() as Record<string, unknown>;
+
+  expect(payload).toMatchObject({
+    activity_type: "mobile_combustion",
+    scope: "scope_1",
+    scope_3_category: null,
+    activity_unit: "km",
+    factor_level_1: "Delivery vehicles",
+    factor_level_2: "Vans",
+    factor_level_3: "Class I (up to 1.305 tonnes)",
+    factor_column_text: "Diesel",
+    metadata_json: {
+      calculation_method_id:
+        "scope1.mobile_combustion.delivery_van.class1.diesel.km.uk_2026.v1"
+    }
+  });
+});
