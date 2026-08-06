@@ -1,6 +1,6 @@
 from fastapi import APIRouter
 
-from app.api.routes import activities, boundaries, calculations, data_integration, data_review, emission_factors, factor_resolution, health, identity, inventory_governance, methodologies, methodology_governance, operations, organisations, security, scope3_governance, tenants, workflows
+from app.api.routes import activities, boundaries, calculations, data_comparisons, data_integration, data_review, emission_factors, factor_resolution, health, identity, inventory_governance, methodologies, methodology_governance, operations, organisations, security, scope3_governance, tenants, workflows
 
 api_router = APIRouter()
 api_router.include_router(health.router, tags=["health"])
@@ -38,6 +38,11 @@ api_router.include_router(
 api_router.include_router(data_integration.router, tags=["DATa integration"])
 
 api_router.include_router(data_review.router, tags=["DATa review"])
+
+api_router.include_router(
+    data_comparisons.router,
+    tags=["DcarbN and Government comparisons"],
+)
 
 api_router.include_router(
     inventory_governance.router,
