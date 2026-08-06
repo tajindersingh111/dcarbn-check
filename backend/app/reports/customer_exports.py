@@ -62,10 +62,21 @@ def build_audit_report_csv(payload: dict[str, object], report_sha256: str) -> by
         "activity_value", "activity_unit", "factor_id", "factor_value",
         "factor_unit", "gross_kg_co2e", "allocated_kg_co2e",
         "allocation_percentage", "formula", "methodology_version",
-        "evidence_reference", "warnings",
+        "evidence_reference", "warnings", "comparison_status",
+        "reporting_basis", "dcarbn_kg_co2e", "dcarbn_methodology_version",
+        "uk_government_kg_co2e", "uk_government_methodology_version",
+        "absolute_delta_kg_co2e", "percentage_delta",
+        "comparison_unavailable_reason", "comparison_disclosure",
     ]
     writer.writerow(columns)
+    comparisons = {
+        str(_mapping(item.get("dcarbn_result")).get("result_id", "")): item
+        for item in _mappings(payload.get("calculation_comparisons"))
+    }
     for row in sorted(_mappings(payload.get("results")), key=lambda item: str(item.get("id", ""))):
+        comparison = _mapping(comparisons.get(str(row.get("id", ""))))
+        dcarbn = _mapping(comparison.get("dcarbn_result"))
+        government = _mapping(comparison.get("uk_government_comparator"))
         writer.writerow([
             report_sha256, row.get("id"), row.get("activity_id"), row.get("activity_date"),
             row.get("description"), row.get("scope"), row.get("scope_2_method"),
@@ -76,6 +87,14 @@ def build_audit_report_csv(payload: dict[str, object], report_sha256: str) -> by
             row.get("allocation_percentage"), row.get("calculation_formula"),
             row.get("methodology_version"), row.get("evidence_reference"),
             " | ".join(str(item) for item in _sequence(row.get("warnings"))),
+            comparison.get("status"), comparison.get("reporting_basis"),
+            dcarbn.get("allocated_kg_co2e"), dcarbn.get("methodology_version"),
+            government.get("allocated_kg_co2e"),
+            government.get("methodology_version"),
+            comparison.get("absolute_delta_kg_co2e"),
+            comparison.get("percentage_delta"),
+            comparison.get("comparison_unavailable_reason"),
+            comparison.get("disclosure"),
         ])
     return output.getvalue().encode("utf-8-sig")
 
@@ -177,6 +196,68 @@ def build_audit_report_pdf(payload: dict[str, object], report_sha256: str) -> by
         ])
     story.append(_repeatable_section_table(scope3_rows, doc.width))
     story.append(Spacer(1, 3 * mm))
+
+    comparisons = sorted(
+        _mappings(payload.get("calculation_comparisons")),
+        key=lambda item: str(item.get("comparison_group_key", "")),
+    )
+    if comparisons:
+        story.extend([
+            _section("DcarbN and UK Government comparison", styles),
+            Paragraph(
+                "UK Government values are disclosure-only comparators and are "
+                "excluded from inventory totals. Their presentation does not imply "
+                "UK Government endorsement of the DcarbN methodology.",
+                styles["body"],
+            ),
+            Spacer(1, 2 * mm),
+        ])
+        for comparison in comparisons:
+            dcarbn = _mapping(comparison.get("dcarbn_result"))
+            government = _mapping(
+                comparison.get("uk_government_comparator")
+            )
+            story.append(_field_table([
+                ("Comparison key", comparison.get("comparison_group_key")),
+                ("Status", comparison.get("status")),
+                ("Headline basis", comparison.get("reporting_basis")),
+                ("Basis reason", comparison.get("basis_reason")),
+                (
+                    "DcarbN operational result",
+                    _amount(dcarbn.get("allocated_kg_co2e"), "kg CO2e"),
+                ),
+                (
+                    "DcarbN methodology",
+                    dcarbn.get("methodology_version"),
+                ),
+                (
+                    "UK Government comparator",
+                    _amount(
+                        government.get("allocated_kg_co2e"),
+                        "kg CO2e",
+                    ),
+                ),
+                (
+                    "UK Government methodology",
+                    government.get("methodology_version"),
+                ),
+                (
+                    "Absolute difference",
+                    _amount(
+                        comparison.get("absolute_delta_kg_co2e"),
+                        "kg CO2e",
+                    ),
+                ),
+                (
+                    "Percentage difference",
+                    _amount(comparison.get("percentage_delta"), "%"),
+                ),
+                (
+                    "Unavailable reason",
+                    comparison.get("comparison_unavailable_reason"),
+                ),
+            ], styles))
+            story.append(Spacer(1, 2 * mm))
 
     lineage_rows: list[list[object]] = [[Paragraph("Calculation lineage", styles["section_text"])]]
     for result in sorted(_mappings(payload.get("results")), key=lambda item: str(item.get("id", ""))):

@@ -10,7 +10,7 @@ from app.reports.customer_exports import (
 
 def report_payload() -> dict[str, object]:
     return {
-        "report_schema_version": "1.2",
+        "report_schema_version": "1.3",
         "inventory": {"name": "Northstar 2026"},
         "reporting_period": {
             "start_date": "2026-01-01",
@@ -52,6 +52,37 @@ def report_payload() -> dict[str, object]:
             "confidence_interval": None,
             "qualitative_sources": ["No estimated activity data."],
         },
+        "calculation_comparisons": [
+            {
+                "comparison_id": "comparison-1",
+                "comparison_group_key": "dcarbn:route-199:2026",
+                "status": "ready",
+                "reporting_basis": "dcarbn_operational",
+                "basis_reason": "DcarbN is the approved headline basis.",
+                "comparison_unavailable_reason": None,
+                "absolute_delta_kg_co2e": "5",
+                "percentage_delta": "11.11111111",
+                "dcarbn_result": {
+                    "result_id": "result-1",
+                    "allocated_kg_co2e": "50",
+                    "methodology_version": "approved-exact-v1",
+                    "factor_id": "factor-1",
+                    "lineage": {"source": "DcarbN"},
+                },
+                "uk_government_comparator": {
+                    "result_id": "government-result-1",
+                    "allocated_kg_co2e": "45",
+                    "methodology_version": "UK-Government-comparator-v1",
+                    "factor_id": "government-factor-1",
+                    "lineage": {"governed_method_id": "uk-2026-v1"},
+                },
+                "disclosure": (
+                    "The UK Government result is a disclosure-only comparator "
+                    "and is excluded from inventory totals. This comparison does "
+                    "not imply UK Government endorsement of the DcarbN methodology."
+                ),
+            }
+        ],
         "scope_3_category_dispositions": [
             {
                 "category": 1,
@@ -92,6 +123,9 @@ def test_csv_export_contains_full_lineage() -> None:
     assert "abc123,result-1,activity-1" in content
     assert "factor-1,0.05,kWh" in content
     assert "invoice-1" in content
+    assert "dcarbn_kg_co2e" in content
+    assert "50,approved-exact-v1,45,UK-Government-comparator-v1" in content
+    assert "disclosure-only comparator" in content
 
 
 def test_pdf_export_is_deterministic_and_valid() -> None:
@@ -102,7 +136,14 @@ def test_pdf_export_is_deterministic_and_valid() -> None:
     assert first.startswith(b"%PDF-")
     reader = PdfReader(BytesIO(first))
     extracted_text = "\n".join(page.extract_text() or "" for page in reader.pages)
-    assert "DcarbN Analytics" in extracted_text
+    normalized_text = " ".join(extracted_text.split())
+    assert "DcarbN Analytics" in normalized_text
+    assert "DcarbN and UK Government comparison" in normalized_text
+    assert "50 kg CO2e" in normalized_text
+    assert "45 kg CO2e" in normalized_text
+    assert "UK-Government-comparator-v1" in normalized_text
+    assert "excluded from inventory totals" in normalized_text
+    assert "does not imply UK Government endorsement" in normalized_text
     assert reader.metadata is not None
     assert reader.metadata.title == "DcarbN Analytics GHG Inventory Report"
     assert len(first) > 2000

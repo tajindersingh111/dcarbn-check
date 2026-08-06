@@ -21,6 +21,7 @@ from app.models.calculation import (
 )
 from app.models.emission_factor import EmissionFactor, EmissionFactorSet
 from app.models.inventory import Inventory, InventoryStatus, ReportingPeriod
+from app.models.data_integration import DataCalculationComparison
 from app.models.inventory_governance import (
     ApprovalStatus,
     AuditReport,
@@ -1049,8 +1050,119 @@ async def _build_audit_report_payload(
         inventory.id,
     )
 
+    result_ids = [result.id for result in results]
+    comparisons = (
+        list(
+            (
+                await db.scalars(
+                    select(DataCalculationComparison).where(
+                        DataCalculationComparison.tenant_id == inventory.tenant_id,
+                        DataCalculationComparison.dcarbn_result_id.in_(result_ids),
+                    )
+                )
+            ).all()
+        )
+        if result_ids
+        else []
+    )
+    comparison_result_ids = {
+        comparison.government_result_id
+        for comparison in comparisons
+        if comparison.government_result_id is not None
+    }
+    comparison_results = (
+        list(
+            (
+                await db.scalars(
+                    select(CalculationResult).where(
+                        CalculationResult.id.in_(comparison_result_ids)
+                    )
+                )
+            ).all()
+        )
+        if comparison_result_ids
+        else []
+    )
+    comparison_result_by_id = {
+        result.id: result for result in [*results, *comparison_results]
+    }
+    calculation_comparisons = []
+    for comparison in sorted(
+        comparisons,
+        key=lambda item: item.comparison_group_key,
+    ):
+        dcarbn_result = comparison_result_by_id.get(comparison.dcarbn_result_id)
+        government_result = comparison_result_by_id.get(
+            comparison.government_result_id
+        )
+        calculation_comparisons.append(
+            {
+                "comparison_id": str(comparison.id),
+                "comparison_group_key": comparison.comparison_group_key,
+                "status": comparison.status.value,
+                "reporting_basis": comparison.reporting_basis.value,
+                "basis_reason": comparison.basis_reason,
+                "comparison_unavailable_reason": (
+                    comparison.comparison_unavailable_reason
+                ),
+                "absolute_delta_kg_co2e": (
+                    str(comparison.absolute_delta_kg_co2e)
+                    if comparison.absolute_delta_kg_co2e is not None
+                    else None
+                ),
+                "percentage_delta": (
+                    str(comparison.percentage_delta)
+                    if comparison.percentage_delta is not None
+                    else None
+                ),
+                "dcarbn_result": (
+                    {
+                        "result_id": str(dcarbn_result.id),
+                        "allocated_kg_co2e": str(
+                            dcarbn_result.allocated_kg_co2e
+                        ),
+                        "methodology_version": (
+                            dcarbn_result.methodology_version
+                        ),
+                        "factor_id": (
+                            str(dcarbn_result.selected_factor_id)
+                            if dcarbn_result.selected_factor_id
+                            else None
+                        ),
+                        "lineage": dcarbn_result.intermediate_values,
+                    }
+                    if dcarbn_result
+                    else None
+                ),
+                "uk_government_comparator": (
+                    {
+                        "result_id": str(government_result.id),
+                        "allocated_kg_co2e": str(
+                            government_result.allocated_kg_co2e
+                        ),
+                        "methodology_version": (
+                            government_result.methodology_version
+                        ),
+                        "factor_id": (
+                            str(government_result.selected_factor_id)
+                            if government_result.selected_factor_id
+                            else None
+                        ),
+                        "lineage": government_result.intermediate_values,
+                    }
+                    if government_result
+                    else None
+                ),
+                "disclosure": (
+                    "The UK Government result is a disclosure-only comparator "
+                    "and is excluded from inventory totals. This comparison does "
+                    "not imply UK Government endorsement of the DcarbN methodology."
+                ),
+            }
+        )
+
     return {
-        "report_schema_version": "1.2",
+        "report_schema_version": "1.3",
         "defensibility_statement": {
             "preparation_basis": (
                 "Prepared from approved organisational boundaries, current activity "
@@ -1143,6 +1255,7 @@ async def _build_audit_report_payload(
                 for key, value in sorted(grouped.items())
             },
         },
+        "calculation_comparisons": calculation_comparisons,
         "scope_2_market_based_evidence": market_evidence,
         "scope_3_category_dispositions": scope3_disposition_payload(
             scope3_dispositions
