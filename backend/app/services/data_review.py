@@ -707,9 +707,15 @@ def _validate_confirmed_classification(
     scope: EmissionScope,
     category: int | None,
 ) -> None:
-    if scope == EmissionScope.SCOPE_3 and category is None:
-        raise ValueError("Confirmed Scope 3 classification requires a category.")
-    if scope != EmissionScope.SCOPE_3 and category is not None:
+    if scope == EmissionScope.SCOPE_3:
+        if category is None:
+            raise ValueError("Confirmed Scope 3 classification requires a category.")
+        if category not in {4, 9}:
+            raise ValueError(
+                "DcarbN operational transport results may only map to "
+                "Scope 3 Category 4 or Category 9."
+            )
+    elif category is not None:
         raise ValueError(
             "A Scope 3 category cannot be used outside confirmed Scope 3."
         )

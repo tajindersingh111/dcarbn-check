@@ -67,6 +67,28 @@ def test_comparison_inputs_require_governed_method_and_classification() -> None:
     assert unit == "tonne.km"
 
 
+def test_scope3_category4_freight_inputs_route_to_governed_method() -> None:
+    emission: Any = SimpleNamespace(
+        confirmed_scope="scope_3",
+        confirmed_scope_3_category=4,
+        comparison_inputs_json={
+            "government_method_id":
+                "scope3.category4.diesel_van.tonne_km.uk_2026.v1",
+            "activity_value": "850",
+            "activity_unit": "tonne.km",
+        },
+    )
+
+    method, value, unit = _comparison_inputs(emission)
+
+    assert method == (
+        GovernedCalculationMethod
+        .SCOPE3_CATEGORY4_DIESEL_VAN_TONNE_KM_2026
+    )
+    assert value == Decimal("850")
+    assert unit == "tonne.km"
+
+
 def test_comparison_inputs_reject_category_mismatch() -> None:
     emission: Any = SimpleNamespace(
         confirmed_scope="scope_3",

@@ -48,6 +48,26 @@ def test_non_scope_3_rejects_category() -> None:
         )
 
 
+@pytest.mark.parametrize("category", [4, 9])
+def test_dcarbn_scope_3_accepts_transport_categories(category: int) -> None:
+    _validate_confirmed_classification(
+        EmissionScope.SCOPE_3,
+        category,
+    )
+
+
+@pytest.mark.parametrize("category", [1, 3, 5, 6, 7, 15])
+def test_dcarbn_scope_3_rejects_non_transport_categories(category: int) -> None:
+    with pytest.raises(
+        ValueError,
+        match="Category 4 or Category 9",
+    ):
+        _validate_confirmed_classification(
+            EmissionScope.SCOPE_3,
+            category,
+        )
+
+
 @pytest.mark.parametrize(
     ("value", "expected"),
     [
