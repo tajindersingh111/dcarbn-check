@@ -50,6 +50,17 @@ class DataClassificationStatus(StrEnum):
     REVIEW_REQUIRED = "review_required"
 
 
+class DataComparisonStatus(StrEnum):
+    PENDING = "pending"
+    READY = "ready"
+    UNAVAILABLE = "unavailable"
+
+
+class DataReportingBasis(StrEnum):
+    DCRBN_OPERATIONAL = "dcarbn_operational"
+    UK_GOVERNMENT = "uk_government"
+
+
 class DataOrganisationMapping(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     __tablename__ = "data_organisation_mappings"
     __table_args__ = (
@@ -390,6 +401,17 @@ class DataOperationalEmission(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     confirmed_scope: Mapped[str | None] = mapped_column(String(50))
     confirmed_scope_3_category: Mapped[int | None] = mapped_column(Integer)
     methodology_version: Mapped[str] = mapped_column(String(100), nullable=False)
+    external_activity_key: Mapped[str | None] = mapped_column(String(200), index=True)
+    method_identifier: Mapped[str | None] = mapped_column(String(200))
+    calculation_software_version: Mapped[str | None] = mapped_column(String(100))
+    reporting_period_start: Mapped[date | None] = mapped_column(Date)
+    reporting_period_end: Mapped[date | None] = mapped_column(Date)
+    uncertainty_percentage: Mapped[Decimal | None] = mapped_column(Numeric(10, 4))
+    comparison_inputs_json: Mapped[dict[str, Any]] = mapped_column(
+        JSON,
+        nullable=False,
+        default=dict,
+    )
     total_kg_co2e: Mapped[Decimal] = mapped_column(Numeric(30, 15), nullable=False)
     co2_kg: Mapped[Decimal | None] = mapped_column(Numeric(30, 15))
     ch4_kg_co2e: Mapped[Decimal | None] = mapped_column(Numeric(30, 15))
@@ -406,3 +428,60 @@ class DataOperationalEmission(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         back_populates="operational_emission",
         uselist=False,
     )
+
+
+
+class DataCalculationComparison(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    __tablename__ = "data_calculation_comparisons"
+    __table_args__ = (
+        UniqueConstraint(
+            "tenant_id",
+            "comparison_group_key",
+            name="uq_data_comparison_group",
+        ),
+        UniqueConstraint(
+            "operational_emission_id",
+            name="uq_data_comparison_operational_emission",
+        ),
+    )
+
+    tenant_id: Mapped[UUID] = mapped_column(
+        Uuid(as_uuid=True),
+        ForeignKey("tenants.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    operational_emission_id: Mapped[UUID] = mapped_column(
+        Uuid(as_uuid=True),
+        ForeignKey("data_operational_emissions.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    comparison_group_key: Mapped[str] = mapped_column(String(300), nullable=False)
+    dcarbn_result_id: Mapped[UUID | None] = mapped_column(
+        Uuid(as_uuid=True),
+        ForeignKey("calculation_results.id", ondelete="RESTRICT"),
+        index=True,
+    )
+    government_result_id: Mapped[UUID | None] = mapped_column(
+        Uuid(as_uuid=True),
+        ForeignKey("calculation_results.id", ondelete="RESTRICT"),
+        index=True,
+    )
+    status: Mapped[DataComparisonStatus] = mapped_column(
+        Enum(DataComparisonStatus, name="data_comparison_status"),
+        nullable=False,
+        default=DataComparisonStatus.PENDING,
+        index=True,
+    )
+    reporting_basis: Mapped[DataReportingBasis] = mapped_column(
+        Enum(DataReportingBasis, name="data_reporting_basis"),
+        nullable=False,
+        default=DataReportingBasis.DCRBN_OPERATIONAL,
+    )
+    basis_reason: Mapped[str | None] = mapped_column(Text)
+    basis_selected_by: Mapped[str | None] = mapped_column(String(200))
+    basis_selected_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    comparison_unavailable_reason: Mapped[str | None] = mapped_column(Text)
+    absolute_delta_kg_co2e: Mapped[Decimal | None] = mapped_column(Numeric(30, 15))
+    percentage_delta: Mapped[Decimal | None] = mapped_column(Numeric(18, 8))

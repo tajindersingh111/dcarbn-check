@@ -118,6 +118,17 @@ class DataOperationalEmissionPayload(BaseModel):
     suggested_scope_3_category: int | None = Field(default=None, ge=1, le=15)
     classification_reason: str | None = None
     methodology_version: str
+    external_activity_key: str | None = Field(default=None, min_length=1, max_length=200)
+    method_identifier: str | None = Field(default=None, min_length=1, max_length=200)
+    calculation_software_version: str | None = Field(
+        default=None,
+        min_length=1,
+        max_length=100,
+    )
+    reporting_period_start: date | None = None
+    reporting_period_end: date | None = None
+    uncertainty_percentage: Decimal | None = Field(default=None, ge=0)
+    comparison_inputs: dict[str, object] = Field(default_factory=dict)
     total_kg_co2e: Decimal = Field(ge=0)
     co2_kg: Decimal | None = Field(default=None, ge=0)
     ch4_kg_co2e: Decimal | None = Field(default=None, ge=0)
@@ -129,6 +140,32 @@ class DataOperationalEmissionPayload(BaseModel):
     source_hash: str = Field(min_length=8, max_length=128)
     lineage: dict[str, object] = Field(default_factory=dict)
     metadata: dict[str, object] = Field(default_factory=dict)
+
+    @model_validator(mode="after")
+    def validate_comparison_contract(self) -> "DataOperationalEmissionPayload":
+        if (self.reporting_period_start is None) != (self.reporting_period_end is None):
+            raise ValueError(
+                "reporting_period_start and reporting_period_end must be supplied together"
+            )
+        if (
+            self.reporting_period_start is not None
+            and self.reporting_period_end is not None
+            and self.reporting_period_end < self.reporting_period_start
+        ):
+            raise ValueError("reporting_period_end must not precede reporting_period_start")
+        comparison_fields = (
+            self.external_activity_key,
+            self.method_identifier,
+            self.calculation_software_version,
+        )
+        if any(value is not None for value in comparison_fields) and not all(
+            value is not None for value in comparison_fields
+        ):
+            raise ValueError(
+                "external_activity_key, method_identifier and "
+                "calculation_software_version must be supplied together"
+            )
+        return self
 
 
 T = TypeVar("T")
@@ -204,6 +241,13 @@ class DataOperationalEmissionResponse(BaseModel):
     confirmed_scope: str | None
     confirmed_scope_3_category: int | None
     methodology_version: str
+    external_activity_key: str | None
+    method_identifier: str | None
+    calculation_software_version: str | None
+    reporting_period_start: date | None
+    reporting_period_end: date | None
+    uncertainty_percentage: Decimal | None
+    comparison_inputs_json: dict[str, object]
     total_kg_co2e: Decimal
     co2_kg: Decimal | None
     ch4_kg_co2e: Decimal | None
