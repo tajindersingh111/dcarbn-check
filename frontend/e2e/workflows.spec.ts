@@ -279,3 +279,51 @@ test("audit report exposes customer PDF and CSV exports", async ({ page }) => {
   await expect(page.getByRole("button", { name: "Download CSV" })).toBeVisible();
   await expect(page.getByText("Report contents")).toBeVisible();
 });
+
+
+test("Scope 3 categories 3, 5 and 7 submit governed selectors", async ({ page }) => {
+  const cases = [
+    {
+      method: "scope3.category3.diesel_wtt.litres.uk_2026.v1",
+      category: 3, type: "stationary_combustion", unit: "litres",
+      level1: "WTT- fuels", level3: "Diesel (average biofuel blend)",
+      boundary: "well_to_tank"
+    },
+    {
+      method: "scope3.category5.commercial_waste.landfill.tonnes.uk_2026.v1",
+      category: 5, type: "waste_generated", unit: "tonnes",
+      level1: "Waste disposal", level3: "Commercial and industrial waste",
+      boundary: "indirect_value_chain"
+    },
+    {
+      method: "scope3.category7.average_car.unknown_fuel.km.uk_2026.v1",
+      category: 7, type: "employee_commuting", unit: "km",
+      level1: "Business travel- land", level3: "Average car",
+      boundary: "indirect_value_chain"
+    }
+  ];
+
+  for (const item of cases) {
+    await page.goto("/activities/new");
+    await page.getByLabel("Governed calculation method").selectOption(item.method);
+    await page.getByLabel("Description").fill(`Governed category ${item.category} activity`);
+    await page.getByLabel("Activity value").fill("1000");
+    await page.getByLabel("Evidence reference").fill(`category-${item.category}-evidence`);
+    await page.getByLabel("Source record ID").fill(`category-${item.category}-2026`);
+    const requestPromise = page.waitForRequest((request) =>
+      request.url().includes("/activities") && request.method() === "POST"
+    );
+    await page.getByRole("button", { name: "Save and validate" }).click();
+    const payload = (await requestPromise).postDataJSON() as Record<string, unknown>;
+    expect(payload).toMatchObject({
+      activity_type: item.type,
+      scope: "scope_3",
+      scope_3_category: item.category,
+      activity_unit: item.unit,
+      factor_level_1: item.level1,
+      factor_level_3: item.level3,
+      lifecycle_boundary: item.boundary,
+      metadata_json: { calculation_method_id: item.method }
+    });
+  }
+});

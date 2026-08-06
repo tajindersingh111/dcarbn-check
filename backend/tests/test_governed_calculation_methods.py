@@ -258,3 +258,83 @@ def test_refrigerant_mass_balance_rejects_activity_value_mismatch() -> None:
             },
             activity_value=Decimal("11"),
         )
+
+
+@pytest.mark.parametrize(
+    ("method_id", "activity_type", "category", "unit", "level_1", "level_2",
+     "level_3", "column_text", "boundary", "factor", "expected"),
+    [
+        (
+            "scope3.category3.diesel_wtt.litres.uk_2026.v1",
+            ActivityType.STATIONARY_COMBUSTION, 3, "litres", "WTT- fuels",
+            "Liquid fuels", "Diesel (average biofuel blend)", None,
+            "well_to_tank", "0.61101", "611.01000",
+        ),
+        (
+            "scope3.category5.commercial_waste.landfill.tonnes.uk_2026.v1",
+            ActivityType.WASTE_GENERATED, 5, "tonnes", "Waste disposal",
+            "Refuse", "Commercial and industrial waste", "Landfill",
+            "indirect_value_chain", "520.58023", "520580.23000",
+        ),
+        (
+            "scope3.category7.average_car.unknown_fuel.km.uk_2026.v1",
+            ActivityType.EMPLOYEE_COMMUTING, 7, "km", "Business travel- land",
+            "Cars (by size)", "Average car", "Unknown",
+            "indirect_value_chain", "0.16591", "165.91000",
+        ),
+    ],
+)
+def test_scope3_2026_category_contracts_and_golden_results(
+    method_id: str,
+    activity_type: ActivityType,
+    category: int,
+    unit: str,
+    level_1: str,
+    level_2: str,
+    level_3: str,
+    column_text: str | None,
+    boundary: str,
+    factor: str,
+    expected: str,
+) -> None:
+    method = validate_governed_method(
+        activity_type=activity_type,
+        scope=EmissionScope.SCOPE_3,
+        scope_3_category=category,
+        activity_unit=unit,
+        factor_level_1=level_1,
+        factor_level_2=level_2,
+        factor_level_3=level_3,
+        factor_level_4=None,
+        factor_column_text=column_text,
+        metadata_json={"calculation_method_id": method_id},
+        lifecycle_boundary=boundary,
+    )
+    result = calculate_activity_factor_emissions(
+        factor_activity_value=Decimal("1000"),
+        factor_value=Decimal(factor),
+        allocation_percentage=Decimal("100"),
+    )
+
+    assert method.value == method_id
+    assert result.allocated_kg_co2e == Decimal(expected)
+
+
+def test_scope3_governed_method_rejects_wrong_lifecycle_boundary() -> None:
+    with pytest.raises(ValueError, match="lifecycle_boundary must be well_to_tank"):
+        validate_governed_method(
+            activity_type=ActivityType.STATIONARY_COMBUSTION,
+            scope=EmissionScope.SCOPE_3,
+            scope_3_category=3,
+            activity_unit="litres",
+            factor_level_1="WTT- fuels",
+            factor_level_2="Liquid fuels",
+            factor_level_3="Diesel (average biofuel blend)",
+            factor_level_4=None,
+            factor_column_text=None,
+            metadata_json={
+                "calculation_method_id":
+                    "scope3.category3.diesel_wtt.litres.uk_2026.v1"
+            },
+            lifecycle_boundary="direct",
+        )

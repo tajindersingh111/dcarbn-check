@@ -71,6 +71,48 @@ const governedMethods: GovernedMethodOption[] = [
     lifecycleBoundary: "direct",
   },
   {
+    id: "scope3.category3.diesel_wtt.litres.uk_2026.v1",
+    label: "Scope 3 category 3 · Diesel well-to-tank · litres · 0.61101",
+    activityType: "stationary_combustion",
+    scope: "scope_3",
+    scope3Category: "3",
+    activityUnit: "litres",
+    factorLevel1: "WTT- fuels",
+    factorLevel2: "Liquid fuels",
+    factorLevel3: "Diesel (average biofuel blend)",
+    factorLevel4: "",
+    factorColumnText: "",
+    lifecycleBoundary: "well_to_tank",
+  },
+  {
+    id: "scope3.category5.commercial_waste.landfill.tonnes.uk_2026.v1",
+    label: "Scope 3 category 5 · Commercial waste to landfill · tonnes · 520.58023",
+    activityType: "waste_generated",
+    scope: "scope_3",
+    scope3Category: "5",
+    activityUnit: "tonnes",
+    factorLevel1: "Waste disposal",
+    factorLevel2: "Refuse",
+    factorLevel3: "Commercial and industrial waste",
+    factorLevel4: "",
+    factorColumnText: "Landfill",
+    lifecycleBoundary: "indirect_value_chain",
+  },
+  {
+    id: "scope3.category7.average_car.unknown_fuel.km.uk_2026.v1",
+    label: "Scope 3 category 7 · Average car commuting · km · 0.16591",
+    activityType: "employee_commuting",
+    scope: "scope_3",
+    scope3Category: "7",
+    activityUnit: "km",
+    factorLevel1: "Business travel- land",
+    factorLevel2: "Cars (by size)",
+    factorLevel3: "Average car",
+    factorLevel4: "",
+    factorColumnText: "Unknown",
+    lifecycleBoundary: "indirect_value_chain",
+  },
+  {
     id: "scope3.category4.diesel_van.tonne_km.uk_2026.v1",
     label: "Scope 3 category 4 · Class I diesel van · tonne-km",
     activityType: "freight_transport",
@@ -415,6 +457,7 @@ export function ActivityForm() {
               <option value="freight_transport">Freight transport</option>
               <option value="business_travel">Business travel</option>
               <option value="employee_commuting">Employee commuting</option>
+              <option value="waste_generated">Waste generated in operations</option>
             </select>
           </label>
           <label>
@@ -562,6 +605,8 @@ export function ActivityForm() {
               <option value="passenger.km">Passenger-km</option>
               <option value="vehicle-km">Vehicle-km</option>
               <option value="kg">kg</option>
+              <option value="tonnes">Tonnes</option>
+              <option value="km">km</option>
             </select>
           </label>
           <label>

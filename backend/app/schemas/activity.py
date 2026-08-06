@@ -82,6 +82,7 @@ class ActivityCreate(BaseModel):
             metadata_json=self.metadata_json,
             activity_value=self.activity_value,
             scope_2_method=self.scope_2_method,
+            lifecycle_boundary=self.lifecycle_boundary,
         )
         return self
 

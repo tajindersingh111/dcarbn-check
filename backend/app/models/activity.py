@@ -42,6 +42,7 @@ class ActivityType(StrEnum):
     FREIGHT_TRANSPORT = "freight_transport"
     BUSINESS_TRAVEL = "business_travel"
     EMPLOYEE_COMMUTING = "employee_commuting"
+    WASTE_GENERATED = "waste_generated"
 
 
 class EmissionScope(StrEnum):
