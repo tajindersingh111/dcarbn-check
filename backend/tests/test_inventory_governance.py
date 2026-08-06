@@ -1,3 +1,5 @@
+from inspect import signature
+
 import pytest
 from pydantic import ValidationError
 
@@ -5,6 +7,7 @@ from app.models.inventory_governance import (
     ApprovalStatus,
     RestatementStatus,
 )
+from app.services.inventory_governance import _lock_snapshot
 from app.schemas.inventory_governance import (
     ApprovalDecision,
     ReportGenerateRequest,
@@ -50,3 +53,11 @@ def test_report_generation_accepts_market_based_headline_basis() -> None:
     )
 
     assert payload.scope_2_headline_basis.value == "market_based"
+
+
+def test_lock_snapshot_keeps_runtime_call_contract() -> None:
+    assert list(signature(_lock_snapshot).parameters) == [
+        "db",
+        "inventory",
+        "approval",
+    ]

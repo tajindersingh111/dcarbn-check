@@ -7,7 +7,7 @@ import { DataTable } from "@/components/data-table";
 import { Modal } from "@/components/modal";
 import { PageHeader } from "@/components/page-header";
 import { StatusBadge } from "@/components/status-badge";
-import { apiRequest } from "@/lib/api";
+import { apiDownload, apiRequest } from "@/lib/api";
 import { useApiQuery } from "@/lib/use-api";
 import type { AuditReport, AuditReportListItem, Inventory, ListResponse } from "@/lib/types";
 
@@ -25,6 +25,29 @@ export default function AuditReportsPage() {
     () => reports.data?.items.find((item) => item.id === selectedReportId) ?? null,
     [reports.data, selectedReportId]
   );
+
+  async function download(format: "pdf" | "csv") {
+    if (!selectedReportId) return;
+    setWorking(true);
+    setError(null);
+    try {
+      const { blob, filename } = await apiDownload(
+        `/audit-reports/${selectedReportId}/export.${format}`
+      );
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = filename;
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      URL.revokeObjectURL(url);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Report download failed.");
+    } finally {
+      setWorking(false);
+    }
+  }
 
   async function generate(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -63,7 +86,14 @@ export default function AuditReportsPage() {
       </section>
 
       {selectedReportId ? <section className="panel report-preview">
-        <div className="panel-heading"><div><p className="eyebrow">Report contents</p><h2>{selectedListItem?.inventory_name ?? "Audit report"}</h2></div></div>
+        <div className="panel-heading">
+          <div><p className="eyebrow">Report contents</p><h2>{selectedListItem?.inventory_name ?? "Audit report"}</h2></div>
+          <div className="button-row">
+            <button className="button button-secondary" disabled={working} onClick={() => void download("csv")} type="button">Download CSV</button>
+            <button className="button button-primary" disabled={working} onClick={() => void download("pdf")} type="button">Download PDF</button>
+          </div>
+        </div>
+        <MutationMessage error={error} />
         {selectedReport.loading ? <LoadingState label="Loading report payload" /> : selectedReport.error ? <ErrorState message={selectedReport.error} onRetry={selectedReport.refresh} /> : <pre className="report-json">{JSON.stringify(selectedReport.data?.report_payload ?? {}, null, 2)}</pre>}
       </section> : null}
 

@@ -76,3 +76,30 @@ export async function apiRequest<T>(
   }
   return body as T;
 }
+
+
+export async function apiDownload(
+  path: string,
+  allowRefresh = true
+): Promise<{ blob: Blob; filename: string }> {
+  const response = await fetch(`${baseUrl}${path}`, {
+    method: "GET",
+    credentials: "include",
+    cache: "no-store"
+  });
+  if (response.status === 401 && allowRefresh && !path.startsWith("/auth/")) {
+    if (await refreshSession()) return apiDownload(path, false);
+  }
+  if (!response.ok) {
+    const body = await parseResponse(response);
+    const detail =
+      typeof (body as { detail?: unknown })?.detail === "string"
+        ? String((body as { detail: string }).detail)
+        : "The report could not be downloaded.";
+    throw new ApiError(detail, response.status, body);
+  }
+  const disposition = response.headers.get("Content-Disposition") ?? "";
+  const filename =
+    disposition.match(/filename="([^"]+)"/)?.[1] ?? "dcarbn-report";
+  return { blob: await response.blob(), filename };
+}

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.dependencies import (
@@ -11,6 +11,10 @@ from app.auth.dependencies import (
     require_roles,
 )
 from app.db.session import get_db
+from app.reports.customer_exports import (
+    build_audit_report_csv,
+    build_audit_report_pdf,
+)
 from app.schemas.inventory_governance import (
     ApprovalDecision,
     ApprovalRequestCreate,
@@ -253,3 +257,45 @@ async def get_report(
     if report is None:
         raise HTTPException(status_code=404, detail="Audit report not found.")
     return AuditReportResponse.model_validate(report)
+
+
+@router.get("/audit-reports/{report_id}/export.csv")
+async def export_report_csv(
+    report_id: UUID,
+    principal: CurrentPrincipal = Depends(get_current_principal),
+    db: AsyncSession = Depends(get_db),
+) -> Response:
+    report = await get_audit_report(db, principal.tenant_id, report_id)
+    if report is None:
+        raise HTTPException(status_code=404, detail="Audit report not found.")
+    content = build_audit_report_csv(report.report_payload, report.report_sha256)
+    return Response(
+        content=content,
+        media_type="text/csv; charset=utf-8",
+        headers={
+            "Content-Disposition":
+                f'attachment; filename="dcarbn-report-{report.id}.csv"',
+            "X-Content-Type-Options": "nosniff",
+        },
+    )
+
+
+@router.get("/audit-reports/{report_id}/export.pdf")
+async def export_report_pdf(
+    report_id: UUID,
+    principal: CurrentPrincipal = Depends(get_current_principal),
+    db: AsyncSession = Depends(get_db),
+) -> Response:
+    report = await get_audit_report(db, principal.tenant_id, report_id)
+    if report is None:
+        raise HTTPException(status_code=404, detail="Audit report not found.")
+    content = build_audit_report_pdf(report.report_payload, report.report_sha256)
+    return Response(
+        content=content,
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition":
+                f'attachment; filename="dcarbn-report-{report.id}.pdf"',
+            "X-Content-Type-Options": "nosniff",
+        },
+    )

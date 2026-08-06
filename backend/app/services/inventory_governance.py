@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections import Counter
 from datetime import UTC, datetime
 from decimal import Decimal
 from uuid import UUID
@@ -797,7 +798,6 @@ async def _lock_snapshot(
     db: AsyncSession,
     inventory: Inventory,
     approval: InventoryApproval,
-    scope_2_headline_basis: Scope2HeadlineBasis,
 ) -> dict[str, object]:
     result_count = int(
         (
@@ -1005,15 +1005,44 @@ async def _build_audit_report_payload(
         .order_by(OrganisationalBoundary.version.desc())
     )
 
-    quality_scores = [
-        activity.data_quality_score
-        for activity in activities
-    ]
+    quality_scores = [activity.data_quality_score for activity in activities]
     average_quality = (
         sum(quality_scores) / len(quality_scores)
         if quality_scores
         else None
     )
+    quality_distribution = Counter(
+        activity.data_quality_level.value for activity in activities
+    )
+    evidenced_count = sum(
+        1 for activity in activities if activity.evidence_reference
+    )
+    evidence_coverage = (
+        Decimal(evidenced_count) * Decimal("100") / Decimal(len(activities))
+        if activities
+        else Decimal("0")
+    )
+    estimated_count = quality_distribution.get("estimated", 0)
+    warning_count = sum(len(result.warnings) for result in results)
+    uncertainty_sources = [
+        (
+            f"{estimated_count} activity record(s) use estimated data."
+            if estimated_count
+            else "No activity records are classified as estimated."
+        ),
+        (
+            f"{warning_count} factor-resolution or calculation warning(s) "
+            "require reviewer consideration."
+        ),
+        (
+            f"Evidence is attached to {evidenced_count} of "
+            f"{len(activities)} activity record(s)."
+        ),
+        (
+            "Scenario uncertainty includes the selected organisational boundary, "
+            "Scope 2 headline basis and approved Scope 3 category dispositions."
+        ),
+    ]
     scope3_dispositions = await list_scope3_dispositions(
         db,
         inventory.tenant_id,
@@ -1021,7 +1050,20 @@ async def _build_audit_report_payload(
     )
 
     return {
-        "report_schema_version": "1.1",
+        "report_schema_version": "1.2",
+        "defensibility_statement": {
+            "preparation_basis": (
+                "Prepared from approved organisational boundaries, current activity "
+                "records, deterministic factor resolution and versioned calculation "
+                "methods. Every reported result retains activity, factor, formula, "
+                "evidence and approval lineage."
+            ),
+            "assurance_limitation": (
+                "This report is assurance-ready but is not an independent verification "
+                "or assurance opinion. External assurance status must be evidenced "
+                "separately."
+            ),
+        },
         "inventory": {
             "id": str(inventory.id),
             "name": inventory.name,
@@ -1109,6 +1151,24 @@ async def _build_audit_report_payload(
         "data_quality": {
             "activity_count": len(quality_scores),
             "average_score": average_quality,
+            "minimum_score": min(quality_scores) if quality_scores else None,
+            "maximum_score": max(quality_scores) if quality_scores else None,
+            "evidenced_activity_count": evidenced_count,
+            "evidence_coverage_percent": str(evidence_coverage),
+            "level_distribution": {
+                key: quality_distribution.get(key, 0)
+                for key in ("primary", "secondary", "estimated", "unknown")
+            },
+        },
+        "uncertainty": {
+            "quantitative_status": "not_quantified",
+            "confidence_interval": None,
+            "reason": (
+                "A confidence interval is not reported because activity- and "
+                "factor-level uncertainty distributions have not been supplied "
+                "for every calculation. No unsupported precision is inferred."
+            ),
+            "qualitative_sources": uncertainty_sources,
         },
         "results": [
             {
@@ -1123,9 +1183,35 @@ async def _build_audit_report_payload(
                     if result.selected_factor_id
                     else None
                 ),
+                "activity_date": (
+                    activity_by_id[result.activity_id].activity_date.isoformat()
+                    if result.activity_id in activity_by_id
+                    else None
+                ),
+                "description": (
+                    activity_by_id[result.activity_id].description
+                    if result.activity_id in activity_by_id
+                    else None
+                ),
+                "original_activity_value": str(result.original_activity_value),
+                "original_activity_unit": result.original_activity_unit,
+                "factor_activity_value": str(result.factor_activity_value),
+                "factor_activity_unit": result.factor_activity_unit,
+                "factor_value": (
+                    str(result.factor_value)
+                    if result.factor_value is not None
+                    else None
+                ),
+                "allocation_percentage": str(result.allocation_percentage),
                 "gross_kg_co2e": str(result.gross_kg_co2e),
                 "allocated_kg_co2e": str(result.allocated_kg_co2e),
+                "calculation_formula": result.calculation_formula,
                 "methodology_version": result.methodology_version,
+                "evidence_reference": (
+                    activity_by_id[result.activity_id].evidence_reference
+                    if result.activity_id in activity_by_id
+                    else None
+                ),
                 "warnings": result.warnings,
                 "intermediate_values": result.intermediate_values,
             }

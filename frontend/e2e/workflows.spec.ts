@@ -269,3 +269,13 @@ test("market-based Scope 2 submits complete contractual evidence", async ({ page
     quality_criteria_attested: true
   });
 });
+
+
+test("audit report exposes customer PDF and CSV exports", async ({ page }) => {
+  await page.goto("/audit-reports");
+  await page.getByRole("button", { name: "Open" }).click();
+
+  await expect(page.getByRole("button", { name: "Download PDF" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Download CSV" })).toBeVisible();
+  await expect(page.getByText("Report contents")).toBeVisible();
+});
