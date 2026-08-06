@@ -61,6 +61,26 @@ test("DATa review decision calls the review API", async ({ page }) => {
   await requestPromise;
 });
 
+test("customer sees DcarbN and Government calculation comparison", async ({ page }) => {
+  await page.goto("/data-reviews");
+  await page.getByText("DATa-CALC-2026-0199").click();
+
+  const comparison = page.getByLabel(
+    "DcarbN and UK Government comparison"
+  );
+  await expect(comparison).toBeVisible();
+  await expect(comparison.getByText("410.5 kgCO₂e")).toBeVisible();
+  await expect(comparison.getByText("384.33 kgCO₂e")).toBeVisible();
+  await expect(comparison.getByText("26.17 kgCO₂e")).toBeVisible();
+  await expect(
+    comparison.getByText("DcarbN operational", { exact: true })
+  ).toBeVisible();
+  await expect(
+    comparison.getByText(/does not imply UK Government endorsement/)
+  ).toBeVisible();
+});
+
+
 test("inventory approval calls the decision API", async ({ page }) => {
   await page.goto("/approvals");
   await expect(page.getByText("Northstar Corporate Inventory 2026").first()).toBeVisible();

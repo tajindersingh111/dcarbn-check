@@ -162,7 +162,88 @@ export async function installApiFixtures(page: Page): Promise<void> {
         data_quality_level: "primary",
         data_quality_score: 92,
         calculated_at: "2026-08-01T00:00:00Z"
-      }], total: 1, limit: 200, offset: 0 }});
+      }, {
+        review: {
+          id: "review-2",
+          tenant_id: organisation.tenant_id,
+          operational_emission_id: "emission-2",
+          inventory_id: inventory.id,
+          status: "converted",
+          reviewer_id: "reviewer",
+          review_started_at: "2026-08-01T00:00:00Z",
+          reviewed_at: "2026-08-01T01:00:00Z",
+          converted_at: "2026-08-01T02:00:00Z",
+          reviewer_comment: "Approved for comparison",
+          rejection_reason: null,
+          conversion_failure: null,
+          calculation_run_id: "dcarbn-run-2",
+          calculation_result_id: "dcarbn-result-2",
+          activity_id: "activity-2",
+          review_snapshot: {},
+          created_at: "2026-08-01T00:00:00Z",
+          updated_at: "2026-08-01T02:00:00Z"
+        },
+        external_calculation_id: "DATa-CALC-2026-0199",
+        external_customer_id: "northstar",
+        organisation_id: organisation.id,
+        suggested_scope: "scope_3",
+        suggested_scope_3_category: 9,
+        confirmed_scope: "scope_3",
+        confirmed_scope_3_category: 9,
+        methodology_version: "DATa-2026.1",
+        total_kg_co2e: "410.5",
+        data_quality_level: "primary",
+        data_quality_score: 94,
+        calculated_at: "2026-08-02T00:00:00Z"
+      }], total: 2, limit: 200, offset: 0 }});
+    }
+    if (
+      path ===
+        "/integrations/data/comparisons/operational-emissions/emission-2" &&
+      method === "GET"
+    ) {
+      return route.fulfill({ json: {
+        id: "comparison-2",
+        tenant_id: organisation.tenant_id,
+        operational_emission_id: "emission-2",
+        comparison_group_key: "dcarbn:route-199:2026-01-01:2026-12-31",
+        dcarbn_result_id: "dcarbn-result-2",
+        government_result_id: "government-result-2",
+        status: "ready",
+        reporting_basis: "dcarbn_operational",
+        basis_reason: "DcarbN selected as the operational headline basis.",
+        comparison_unavailable_reason: null,
+        absolute_delta_kg_co2e: "26.17",
+        percentage_delta: "6.81",
+        confirmed_scope: "scope_3",
+        confirmed_scope_3_category: 9,
+        data_quality_level: "primary",
+        data_quality_score: 94,
+        uncertainty_percentage: "4.5",
+        dcarbn_result: {
+          result_id: "dcarbn-result-2",
+          allocated_kg_co2e: "410.5",
+          methodology_version: "DATa-2026.1",
+          calculation_method: "external_operational_result",
+          factor_id: null,
+          factor_value: null,
+          warnings: [],
+          lineage: { route_reference: "route-199" }
+        },
+        government_result: {
+          result_id: "government-result-2",
+          allocated_kg_co2e: "384.33",
+          methodology_version: "UK-Government-comparator-v1",
+          calculation_method: "activity_factor",
+          factor_id: "factor-2026-van",
+          factor_value: "0.38433",
+          warnings: ["comparison_only_not_included_in_inventory_totals"],
+          lineage: {
+            governed_method_id:
+              "scope3.category9.average_diesel_van.tonne_km.uk_2026.v1"
+          }
+        }
+      }});
     }
     if (path.startsWith("/integrations/data/reviews/") && method === "POST") {
       return route.fulfill({ json: { status: "approved" } });

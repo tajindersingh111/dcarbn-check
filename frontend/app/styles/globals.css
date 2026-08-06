@@ -1330,3 +1330,45 @@ textarea {
   .screening-selector,
   .screening-actions { align-items: stretch; flex-direction: column; }
 }
+
+.comparison-panel {
+  border-top: 1px solid var(--colour-border);
+  display: grid;
+  gap: 1rem;
+  margin: 1rem 0;
+  padding-top: 1rem;
+}
+.comparison-results {
+  display: grid;
+  gap: 0.8rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.comparison-results article {
+  background: var(--colour-surface-muted);
+  border: 1px solid var(--colour-border);
+  border-radius: var(--radius-medium);
+  display: grid;
+  gap: 0.35rem;
+  padding: 1rem;
+}
+.comparison-results span,
+.comparison-results small {
+  color: var(--colour-text-muted);
+}
+.comparison-results strong {
+  font-size: 1.15rem;
+}
+.comparison-warning {
+  background: var(--colour-warning-soft);
+  border-left: 3px solid var(--colour-warning);
+  padding: 0.8rem;
+}
+.comparison-disclaimer {
+  color: var(--colour-text-muted);
+  font-size: 0.8rem;
+  line-height: 1.45;
+  margin: 0;
+}
+@media (max-width: 54rem) {
+  .comparison-results { grid-template-columns: 1fr; }
+}

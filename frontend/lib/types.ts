@@ -184,3 +184,36 @@ export interface ActivityFormValues {
   evidenceReference: string;
   sourceRecordId: string;
 }
+
+export interface DataComparisonResultView {
+  result_id: string;
+  allocated_kg_co2e: string;
+  methodology_version: string;
+  calculation_method: string;
+  factor_id: string | null;
+  factor_value: string | null;
+  warnings: string[];
+  lineage: Record<string, unknown>;
+}
+
+export interface DataCalculationComparisonDetail {
+  id: string;
+  tenant_id: string;
+  operational_emission_id: string;
+  comparison_group_key: string;
+  dcarbn_result_id: string | null;
+  government_result_id: string | null;
+  status: "pending" | "ready" | "unavailable";
+  reporting_basis: "dcarbn_operational" | "uk_government";
+  basis_reason: string | null;
+  comparison_unavailable_reason: string | null;
+  absolute_delta_kg_co2e: string | null;
+  percentage_delta: string | null;
+  confirmed_scope: string | null;
+  confirmed_scope_3_category: number | null;
+  data_quality_level: string | null;
+  data_quality_score: number | null;
+  uncertainty_percentage: string | null;
+  dcarbn_result: DataComparisonResultView | null;
+  government_result: DataComparisonResultView | null;
+}

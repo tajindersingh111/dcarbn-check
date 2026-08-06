@@ -8,7 +8,12 @@ import { PageHeader } from "@/components/page-header";
 import { StatusBadge } from "@/components/status-badge";
 import { apiRequest } from "@/lib/api";
 import { useApiQuery } from "@/lib/use-api";
-import type { DataReviewQueueItem, Inventory, ListResponse } from "@/lib/types";
+import type {
+  DataCalculationComparisonDetail,
+  DataReviewQueueItem,
+  Inventory,
+  ListResponse
+} from "@/lib/types";
 
 function classification(scope: string | null, category: number | null): string {
   if (!scope) return "Not confirmed";
@@ -25,6 +30,9 @@ export default function DataReviewsPage() {
   const [working, setWorking] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [comparison, setComparison] =
+    useState<DataCalculationComparisonDetail | null>(null);
+  const [comparisonLoading, setComparisonLoading] = useState(false);
 
   const selected = useMemo(
     () => reviews.data?.items.find((item) => item.review.id === selectedId) ?? reviews.data?.items[0] ?? null,
@@ -35,6 +43,36 @@ export default function DataReviewsPage() {
     if (selected && selected.review.id !== selectedId) setSelectedId(selected.review.id);
     if (selected?.review.inventory_id) setInventoryId(selected.review.inventory_id);
   }, [selected, selectedId]);
+
+  useEffect(() => {
+    if (!selected || selected.review.status !== "converted") {
+      setComparison(null);
+      return;
+    }
+    let active = true;
+    setComparisonLoading(true);
+    void apiRequest<DataCalculationComparisonDetail>(
+      `/integrations/data/comparisons/operational-emissions/${selected.review.operational_emission_id}`
+    )
+      .then((response) => {
+        if (active) setComparison(response);
+      })
+      .catch((caught) => {
+        if (active) {
+          setError(
+            caught instanceof Error
+              ? caught.message
+              : "Calculation comparison could not be loaded."
+          );
+        }
+      })
+      .finally(() => {
+        if (active) setComparisonLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [selected]);
 
   async function perform(action: "sync" | "start" | "approve" | "reject" | "convert") {
     setWorking(true);
@@ -59,7 +97,14 @@ export default function DataReviewsPage() {
             })
           });
         } else {
-          await apiRequest(`/integrations/data/reviews/${selected.review.id}/convert`, { method: "POST" });
+          const conversion = await apiRequest<{ comparison_id: string }>(
+            `/integrations/data/reviews/${selected.review.id}/convert`,
+            { method: "POST" }
+          );
+          await apiRequest(
+            `/integrations/data/comparisons/${conversion.comparison_id}/government`,
+            { method: "POST" }
+          );
         }
       }
       setMessage("Workflow updated.");
@@ -102,6 +147,89 @@ export default function DataReviewsPage() {
                 <div><dt>Methodology</dt><dd>{selected.methodology_version}</dd></div>
                 <div><dt>Quality score</dt><dd>{selected.data_quality_score ?? "—"}/100</dd></div>
               </dl>
+              {comparisonLoading ? (
+                <LoadingState label="Loading calculation comparison" />
+              ) : null}
+              {comparison ? (
+                <section
+                  aria-label="DcarbN and UK Government comparison"
+                  className="comparison-panel"
+                >
+                  <div className="panel-heading">
+                    <div>
+                      <p className="eyebrow">Calculation comparison</p>
+                      <h3>DcarbN and UK Government</h3>
+                    </div>
+                    <StatusBadge status={comparison.status} />
+                  </div>
+                  <div className="comparison-results">
+                    <article>
+                      <span>DcarbN operational methodology</span>
+                      <strong>
+                        {comparison.dcarbn_result
+                          ? `${Number(
+                              comparison.dcarbn_result.allocated_kg_co2e
+                            ).toLocaleString("en-GB")} kgCO₂e`
+                          : "Not available"}
+                      </strong>
+                      <small>
+                        {comparison.dcarbn_result?.methodology_version ?? "—"}
+                      </small>
+                    </article>
+                    <article>
+                      <span>UK Government factor comparator</span>
+                      <strong>
+                        {comparison.government_result
+                          ? `${Number(
+                              comparison.government_result.allocated_kg_co2e
+                            ).toLocaleString("en-GB")} kgCO₂e`
+                          : "Not available"}
+                      </strong>
+                      <small>
+                        {comparison.government_result?.methodology_version ?? "—"}
+                      </small>
+                    </article>
+                  </div>
+                  {comparison.status === "ready" ? (
+                    <dl className="detail-list">
+                      <div>
+                        <dt>Absolute difference</dt>
+                        <dd>{comparison.absolute_delta_kg_co2e} kgCO₂e</dd>
+                      </div>
+                      <div>
+                        <dt>Percentage difference</dt>
+                        <dd>
+                          {comparison.percentage_delta === null
+                            ? "Not applicable — zero Government baseline"
+                            : `${comparison.percentage_delta}%`}
+                        </dd>
+                      </div>
+                      <div>
+                        <dt>Headline basis</dt>
+                        <dd>
+                          {comparison.reporting_basis === "dcarbn_operational"
+                            ? "DcarbN operational"
+                            : "UK Government"}
+                        </dd>
+                      </div>
+                      <div>
+                        <dt>Data quality</dt>
+                        <dd>{comparison.data_quality_score ?? "—"}/100</dd>
+                      </div>
+                    </dl>
+                  ) : null}
+                  {comparison.comparison_unavailable_reason ? (
+                    <p className="comparison-warning">
+                      {comparison.comparison_unavailable_reason}
+                    </p>
+                  ) : null}
+                  <p className="comparison-disclaimer">
+                    The UK Government result is a disclosure-only comparator and
+                    is excluded from inventory totals. This comparison does not
+                    imply UK Government endorsement of the DcarbN methodology.
+                  </p>
+                </section>
+              ) : null}
               <label>Target inventory<select value={inventoryId} onChange={(event) => setInventoryId(event.target.value)}><option value="">Select inventory</option>{(inventories.data?.items ?? []).map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
               <label className="full-width-field">Reviewer comment<textarea rows={3} value={comment} onChange={(event) => setComment(event.target.value)} /></label>
               <MutationMessage error={error} success={message} />
