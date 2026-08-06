@@ -200,6 +200,11 @@ async def approve_methodology_version(
             status_code=status.HTTP_409_CONFLICT,
             detail="The methodology version must be reviewed before approval.",
         )
+    if method.reviewed_by == principal.subject:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="The methodology reviewer cannot approve the same version.",
+        )
     execute_golden_tests(
         expression=method.expression,
         golden_tests=method.golden_tests,

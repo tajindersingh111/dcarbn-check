@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import date, datetime
 from decimal import Decimal
+from typing import Any
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -19,11 +20,7 @@ class MethodologyInputDefinition(BaseModel):
 
     @model_validator(mode="after")
     def validate_range(self) -> "MethodologyInputDefinition":
-        if (
-            self.minimum is not None
-            and self.maximum is not None
-            and self.maximum < self.minimum
-        ):
+        if self.minimum is not None and self.maximum is not None and self.maximum < self.minimum:
             raise ValueError("maximum must be greater than or equal to minimum")
         return self
 
@@ -67,15 +64,12 @@ class MethodologyVersionCreate(BaseModel):
         validate_formula(self.expression, set(names))
         for test in self.golden_tests:
             if set(test.inputs) != set(names):
-                raise ValueError(
-                    "each golden test must provide exactly the declared inputs"
-                )
+                raise ValueError("each golden test must provide exactly the declared inputs")
         return self
 
 
 class MethodologyVersionResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
-
     id: UUID
     method_key: str
     version: int
@@ -111,3 +105,37 @@ class MethodologyVersionResponse(BaseModel):
 class MethodologyVersionListResponse(BaseModel):
     items: list[MethodologyVersionResponse]
     total: int
+
+
+class GoldenTestResult(BaseModel):
+    name: str
+    actual: str
+    expected: str
+    tolerance: str
+
+
+class GoldenTestRunResponse(BaseModel):
+    methodology_id: UUID
+    passed: bool
+    results: list[GoldenTestResult]
+
+
+class MethodologyComparisonResponse(BaseModel):
+    baseline_id: UUID
+    candidate_id: UUID
+    same_method_key: bool
+    changed_fields: dict[str, dict[str, Any]]
+
+
+class MethodologyImpactPreviewRequest(BaseModel):
+    inputs: dict[str, Decimal] = Field(min_length=1, max_length=50)
+
+
+class MethodologyImpactPreviewResponse(BaseModel):
+    baseline_id: UUID
+    candidate_id: UUID
+    baseline_output: str
+    candidate_output: str
+    absolute_change: str
+    percentage_change: str | None
+    output_unit: str

@@ -26,6 +26,8 @@ interface MethodologyVersion {
   effective_to: string | null;
   expression: string;
   output_unit: string;
+  input_schema: { inputs: Array<{ name: string }> };
+  golden_tests: Array<{ inputs: Record<string, string> }>;
   source_reference: string;
   change_reason: string;
   created_by: string;
@@ -34,11 +36,25 @@ interface MethodologyVersion {
   activated_by: string | null;
 }
 
-const lifecycleAction: Record<string, string | undefined> = {
-  draft: "submit",
-  in_review: "review",
-  approved: "activate"
-};
+function lifecycleAction(item: MethodologyVersion): string | undefined {
+  if (item.status === "draft") return "submit";
+  if (item.status === "in_review") return item.reviewed_by ? "approve" : "review";
+  if (item.status === "approved") return "activate";
+  if (item.status === "active") return "retire";
+  return undefined;
+}
+
+interface Comparison {
+  changed_fields: Record<string, unknown>;
+}
+
+interface ImpactPreview {
+  baseline_output: string;
+  candidate_output: string;
+  absolute_change: string;
+  percentage_change: string | null;
+  output_unit: string;
+}
 
 export default function MethodologiesPage() {
   const methods = useApiQuery<ListResponse<MethodologyVersion>>("/methodologies");
@@ -48,6 +64,8 @@ export default function MethodologiesPage() {
   const [scope, setScope] = useState("scope_2");
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [comparing, setComparing] = useState(false);
 
   async function createVersion(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -129,6 +147,35 @@ export default function MethodologiesPage() {
     }
   }
 
+  async function compareSelected() {
+    if (selectedIds.length !== 2) return;
+    setComparing(true);
+    setError(null);
+    try {
+      const [baselineId, candidateId] = selectedIds;
+      const baseline = methods.data?.items.find((item) => item.id === baselineId);
+      if (!baseline) throw new Error("Baseline methodology was not found.");
+      const comparison = await apiRequest<Comparison>(
+        `/methodologies/${baselineId}/compare/${candidateId}`
+      );
+      const inputs = baseline.golden_tests[0]?.inputs;
+      if (!inputs) throw new Error("A baseline golden test is required for impact preview.");
+      const impact = await apiRequest<ImpactPreview>(
+        `/methodologies/${baselineId}/impact-preview/${candidateId}`,
+        { method: "POST", body: JSON.stringify({ inputs }) }
+      );
+      setMessage(
+        `${Object.keys(comparison.changed_fields).length} controlled fields changed. ` +
+        `Impact: ${impact.baseline_output} → ${impact.candidate_output} ${impact.output_unit} ` +
+        `(${impact.percentage_change ?? "not applicable"}%). No inventory was changed.`
+      );
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Version comparison failed.");
+    } finally {
+      setComparing(false);
+    }
+  }
+
   if (methods.loading) return <LoadingState label="Loading methodology registry" />;
   if (methods.error) return <ErrorState message={methods.error} onRetry={() => void methods.refresh()} />;
 
@@ -148,13 +195,19 @@ export default function MethodologiesPage() {
       <section className="panel">
         <div className="panel-heading">
           <div><p className="eyebrow">Version register</p><h2>Calculation methodologies</h2></div>
-          <span className="record-count">{methods.data?.total ?? 0} versions</span>
+          <div className="button-row">
+            <span className="record-count">{methods.data?.total ?? 0} versions</span>
+            <button className="button button-secondary" disabled={selectedIds.length !== 2 || comparing} onClick={() => void compareSelected()} type="button">
+              {comparing ? "Comparing…" : "Compare selected"}
+            </button>
+          </div>
         </div>
-        <DataTable caption="Calculation methodology versions" headers={["Method", "Version", "Scope", "Effective", "Status", "Control"]}>
+        <DataTable caption="Calculation methodology versions" headers={["Select", "Method", "Version", "Scope", "Effective", "Status", "Control"]}>
           {(methods.data?.items ?? []).map((item) => {
-            const action = lifecycleAction[item.status];
+            const action = lifecycleAction(item);
             return (
               <tr key={item.id}>
+                <td><input aria-label={`Select ${item.name} v${item.version}`} checked={selectedIds.includes(item.id)} disabled={!selectedIds.includes(item.id) && selectedIds.length >= 2} onChange={(event) => setSelectedIds((current) => event.target.checked ? [...current, item.id] : current.filter((id) => id !== item.id))} type="checkbox" /></td>
                 <td><div className="stacked-cell"><strong>{item.name}</strong><span>{item.method_key}</span></div></td>
                 <td>v{item.version}</td>
                 <td>{item.scope.replace("_", " ")}{item.scope_3_category ? ` · Cat ${item.scope_3_category}` : ""}</td>
