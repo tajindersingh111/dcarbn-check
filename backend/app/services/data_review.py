@@ -25,9 +25,12 @@ from app.models.calculation import (
     CalculationRunStatus,
 )
 from app.models.data_integration import (
+    DataCalculationComparison,
     DataClassificationStatus,
+    DataComparisonStatus,
     DataOperationalEmission,
     DataOrganisationMapping,
+    DataReportingBasis,
 )
 from app.models.data_review import (
     DataOperationalEmissionReview,
@@ -293,6 +296,12 @@ async def convert_review(
             raise ValueError(
                 "DATa calculation date is outside the inventory reporting period."
             )
+        comparison_group_key = await _ensure_comparison_group_available(
+            db,
+            principal.tenant_id,
+            emission,
+            period,
+        )
 
         activity = await _create_external_activity(
             db,
@@ -314,6 +323,24 @@ async def convert_review(
             scope,
         )
         db.add(result)
+        await db.flush()
+
+        comparison = DataCalculationComparison(
+            tenant_id=principal.tenant_id,
+            operational_emission_id=emission.id,
+            comparison_group_key=comparison_group_key,
+            dcarbn_result_id=result.id,
+            government_result_id=None,
+            status=DataComparisonStatus.PENDING,
+            reporting_basis=DataReportingBasis.DCRBN_OPERATIONAL,
+            basis_reason=(
+                "DcarbN operational result selected pending a defensible "
+                "UK Government comparator."
+            ),
+            basis_selected_by=principal.subject,
+            basis_selected_at=datetime.now(UTC),
+        )
+        db.add(comparison)
         await db.flush()
 
         review.status = DataReviewStatus.CONVERTED
@@ -338,6 +365,9 @@ async def convert_review(
                 "calculation_result_id": str(result.id),
                 "external_calculation_id": emission.external_calculation_id,
                 "total_kg_co2e": str(emission.total_kg_co2e),
+                "comparison_id": str(comparison.id),
+                "comparison_group_key": comparison_group_key,
+                "reporting_basis": comparison.reporting_basis.value,
             },
         )
         await db.commit()
@@ -350,6 +380,41 @@ async def convert_review(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=str(exc),
         ) from exc
+
+
+def _comparison_group_key(
+    emission: DataOperationalEmission,
+    period: ReportingPeriod,
+) -> str:
+    activity_key = (
+        emission.external_activity_key
+        or emission.external_calculation_id
+    )
+    start = emission.reporting_period_start or period.start_date
+    end = emission.reporting_period_end or period.end_date
+    return f"dcarbn:{activity_key}:{start.isoformat()}:{end.isoformat()}"
+
+
+async def _ensure_comparison_group_available(
+    db: AsyncSession,
+    tenant_id: UUID,
+    emission: DataOperationalEmission,
+    period: ReportingPeriod,
+) -> str:
+    comparison_group_key = _comparison_group_key(emission, period)
+    existing = await db.scalar(
+        select(DataCalculationComparison.id).where(
+            DataCalculationComparison.tenant_id == tenant_id,
+            DataCalculationComparison.comparison_group_key
+            == comparison_group_key,
+        )
+    )
+    if existing is not None:
+        raise ValueError(
+            "A DcarbN comparison already exists for this activity and "
+            "reporting period."
+        )
+    return comparison_group_key
 
 
 async def _create_external_activity(
@@ -404,6 +469,25 @@ async def _create_external_activity(
             "external_shipment_id": await _external_shipment_id(db, emission),
             "external_vehicle_id": await _external_vehicle_id(db, emission),
             "methodology_version": emission.methodology_version,
+            "method_identifier": emission.method_identifier,
+            "calculation_software_version": emission.calculation_software_version,
+            "external_activity_key": emission.external_activity_key,
+            "reporting_period_start": (
+                emission.reporting_period_start.isoformat()
+                if emission.reporting_period_start
+                else None
+            ),
+            "reporting_period_end": (
+                emission.reporting_period_end.isoformat()
+                if emission.reporting_period_end
+                else None
+            ),
+            "uncertainty_percentage": (
+                str(emission.uncertainty_percentage)
+                if emission.uncertainty_percentage is not None
+                else None
+            ),
+            "comparison_inputs": emission.comparison_inputs_json,
             "lineage": emission.lineage_json,
             "source_record_version": emission.source_record_version,
         },
@@ -490,6 +574,15 @@ def _create_external_calculation_result(
             "data_operational_emission_id": str(emission.id),
             "external_calculation_id": emission.external_calculation_id,
             "methodology_version": emission.methodology_version,
+            "method_identifier": emission.method_identifier,
+            "calculation_software_version": emission.calculation_software_version,
+            "external_activity_key": emission.external_activity_key,
+            "uncertainty_percentage": (
+                str(emission.uncertainty_percentage)
+                if emission.uncertainty_percentage is not None
+                else None
+            ),
+            "comparison_inputs": emission.comparison_inputs_json,
             "source_record_hash": emission.source_record_hash,
             "source_record_version": emission.source_record_version,
             "calculated_at": emission.calculated_at.isoformat(),
@@ -627,6 +720,25 @@ def _build_review_snapshot(
                 emission.confirmed_scope_3_category
             ),
             "methodology_version": emission.methodology_version,
+            "method_identifier": emission.method_identifier,
+            "calculation_software_version": emission.calculation_software_version,
+            "external_activity_key": emission.external_activity_key,
+            "reporting_period_start": (
+                emission.reporting_period_start.isoformat()
+                if emission.reporting_period_start
+                else None
+            ),
+            "reporting_period_end": (
+                emission.reporting_period_end.isoformat()
+                if emission.reporting_period_end
+                else None
+            ),
+            "uncertainty_percentage": (
+                str(emission.uncertainty_percentage)
+                if emission.uncertainty_percentage is not None
+                else None
+            ),
+            "comparison_inputs": emission.comparison_inputs_json,
             "total_kg_co2e": str(emission.total_kg_co2e),
             "co2_kg": str(emission.co2_kg) if emission.co2_kg is not None else None,
             "ch4_kg_co2e": (

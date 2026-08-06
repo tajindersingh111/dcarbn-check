@@ -12,7 +12,10 @@ from app.auth.dependencies import (
     require_roles,
 )
 from app.db.session import get_db
-from app.models.data_integration import DataOrganisationMapping
+from app.models.data_integration import (
+    DataCalculationComparison,
+    DataOrganisationMapping,
+)
 from app.models.data_review import DataReviewStatus
 from app.schemas.data_review import (
     DataConversionResponse,
@@ -214,9 +217,23 @@ async def convert(
             detail="Converted review is missing calculation references.",
         )
 
+    comparison_id = await db.scalar(
+        select(DataCalculationComparison.id).where(
+            DataCalculationComparison.tenant_id == principal.tenant_id,
+            DataCalculationComparison.operational_emission_id
+            == review.operational_emission_id,
+        )
+    )
+    if comparison_id is None:
+        raise HTTPException(
+            status_code=500,
+            detail="Converted review is missing its calculation comparison.",
+        )
+
     return DataConversionResponse(
         review=DataReviewResponse.model_validate(review),
         activity_id=review.activity_id,
         calculation_run_id=review.calculation_run_id,
         calculation_result_id=review.calculation_result_id,
+        comparison_id=comparison_id,
     )

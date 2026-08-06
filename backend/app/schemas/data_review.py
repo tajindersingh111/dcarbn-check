@@ -84,3 +84,4 @@ class DataConversionResponse(BaseModel):
     activity_id: UUID
     calculation_run_id: UUID
     calculation_result_id: UUID
+    comparison_id: UUID

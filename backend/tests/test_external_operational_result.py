@@ -25,6 +25,14 @@ def test_external_result_is_not_factor_recalculated() -> None:
         ch4_kg_co2e=Decimal("2.115"),
         n2o_kg_co2e=Decimal("6.410"),
         methodology_version="DATa-2026.1",
+        method_identifier="dcarbn.route.vehicle.v3",
+        calculation_software_version="data-engine-3.4.0",
+        external_activity_key="route-44-2026",
+        uncertainty_percentage=Decimal("3.5"),
+        comparison_inputs_json={
+            "activity_value": "1250",
+            "activity_unit": "tonne.km",
+        },
         source_record_hash="abc123",
         source_record_version="3",
         calculated_at=datetime.now(UTC),
@@ -44,5 +52,17 @@ def test_external_result_is_not_factor_recalculated() -> None:
     assert result.method == CalculationMethod.EXTERNAL_OPERATIONAL_RESULT
     assert result.factor_value is None
     assert result.gross_kg_co2e == Decimal("326.745")
+    assert (
+        result.intermediate_values["method_identifier"]
+        == "dcarbn.route.vehicle.v3"
+    )
+    assert (
+        result.intermediate_values["calculation_software_version"]
+        == "data-engine-3.4.0"
+    )
+    assert result.intermediate_values["comparison_inputs"] == {
+        "activity_value": "1250",
+        "activity_unit": "tonne.km",
+    }
     assert result.allocated_kg_co2e == Decimal("326.745")
     assert "no emission factor reapplied" in result.calculation_formula
