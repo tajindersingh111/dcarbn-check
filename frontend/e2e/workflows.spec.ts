@@ -327,3 +327,50 @@ test("Scope 3 categories 3, 5 and 7 submit governed selectors", async ({ page })
     });
   }
 });
+
+
+test("Category 9 downstream freight preserves mode and accounting classification", async ({ page }) => {
+  const cases = [
+    {
+      method: "scope3.category9.average_diesel_van.tonne_km.uk_2026.v1",
+      level2: "Vans", level3: "Average (up to 3.5 tonnes)", column: "Diesel"
+    },
+    {
+      method: "scope3.category9.average_non_refrigerated_hgv.average_laden.tonne_km.uk_2026.v1",
+      level2: "HGV (non-refrigerated, all diesel)",
+      level3: "Average non-refrigerated HGVs", column: "Average laden"
+    },
+    {
+      method: "scope3.category9.rail_freight.tonne_km.uk_2026.v1",
+      level2: "Rail", level3: "Freight train", column: null
+    }
+  ];
+
+  for (const item of cases) {
+    await page.goto("/activities/new");
+    await page.getByLabel("Governed calculation method").selectOption(item.method);
+    await page.getByLabel("Description").fill("Customer-contracted downstream distribution");
+    await page.getByLabel("Activity value").fill("1000");
+    await page.getByLabel("Evidence reference").fill("carrier-movement-ledger-2026");
+    await page.getByLabel("Source record ID").fill(`downstream-${item.level2}-2026`);
+
+    const requestPromise = page.waitForRequest((request) =>
+      request.url().includes("/activities") && request.method() === "POST"
+    );
+    await page.getByRole("button", { name: "Save and validate" }).click();
+    const payload = (await requestPromise).postDataJSON() as Record<string, unknown>;
+
+    expect(payload).toMatchObject({
+      activity_type: "freight_transport",
+      scope: "scope_3",
+      scope_3_category: 9,
+      activity_unit: "tonne.km",
+      factor_level_1: "Freighting goods",
+      factor_level_2: item.level2,
+      factor_level_3: item.level3,
+      factor_column_text: item.column,
+      lifecycle_boundary: "indirect_value_chain",
+      metadata_json: { calculation_method_id: item.method }
+    });
+  }
+});

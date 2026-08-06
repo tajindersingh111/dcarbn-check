@@ -20,6 +20,15 @@ class GovernedCalculationMethod(StrEnum):
     SCOPE3_CATEGORY7_AVERAGE_CAR_COMMUTING_KM_2026 = (
         "scope3.category7.average_car.unknown_fuel.km.uk_2026.v1"
     )
+    SCOPE3_CATEGORY9_AVERAGE_DIESEL_VAN_TONNE_KM_2026 = (
+        "scope3.category9.average_diesel_van.tonne_km.uk_2026.v1"
+    )
+    SCOPE3_CATEGORY9_AVERAGE_HGV_TONNE_KM_2026 = (
+        "scope3.category9.average_non_refrigerated_hgv.average_laden.tonne_km.uk_2026.v1"
+    )
+    SCOPE3_CATEGORY9_RAIL_FREIGHT_TONNE_KM_2026 = (
+        "scope3.category9.rail_freight.tonne_km.uk_2026.v1"
+    )
     SCOPE3_CATEGORY4_DIESEL_VAN_TONNE_KM_2026 = (
         "scope3.category4.diesel_van.tonne_km.uk_2026.v1"
     )
@@ -107,6 +116,41 @@ METHODS: dict[GovernedCalculationMethod, GovernedMethodSpecification] = {
             factor_level_2="Cars (by size)",
             factor_level_3="Average car",
             factor_column_text="Unknown",
+            lifecycle_boundary="indirect_value_chain",
+        ),
+    GovernedCalculationMethod.SCOPE3_CATEGORY9_AVERAGE_DIESEL_VAN_TONNE_KM_2026:
+        GovernedMethodSpecification(
+            activity_type=ActivityType.FREIGHT_TRANSPORT,
+            scope=EmissionScope.SCOPE_3,
+            scope_3_category=9,
+            activity_unit="tonne.km",
+            factor_level_1="Freighting goods",
+            factor_level_2="Vans",
+            factor_level_3="Average (up to 3.5 tonnes)",
+            factor_column_text="Diesel",
+            lifecycle_boundary="indirect_value_chain",
+        ),
+    GovernedCalculationMethod.SCOPE3_CATEGORY9_AVERAGE_HGV_TONNE_KM_2026:
+        GovernedMethodSpecification(
+            activity_type=ActivityType.FREIGHT_TRANSPORT,
+            scope=EmissionScope.SCOPE_3,
+            scope_3_category=9,
+            activity_unit="tonne.km",
+            factor_level_1="Freighting goods",
+            factor_level_2="HGV (non-refrigerated, all diesel)",
+            factor_level_3="Average non-refrigerated HGVs",
+            factor_column_text="Average laden",
+            lifecycle_boundary="indirect_value_chain",
+        ),
+    GovernedCalculationMethod.SCOPE3_CATEGORY9_RAIL_FREIGHT_TONNE_KM_2026:
+        GovernedMethodSpecification(
+            activity_type=ActivityType.FREIGHT_TRANSPORT,
+            scope=EmissionScope.SCOPE_3,
+            scope_3_category=9,
+            activity_unit="tonne.km",
+            factor_level_1="Freighting goods",
+            factor_level_2="Rail",
+            factor_level_3="Freight train",
             lifecycle_boundary="indirect_value_chain",
         ),
     GovernedCalculationMethod.SCOPE3_CATEGORY4_DIESEL_VAN_TONNE_KM_2026:

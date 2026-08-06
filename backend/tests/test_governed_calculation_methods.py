@@ -338,3 +338,74 @@ def test_scope3_governed_method_rejects_wrong_lifecycle_boundary() -> None:
             },
             lifecycle_boundary="direct",
         )
+
+
+@pytest.mark.parametrize(
+    ("method_id", "level_2", "level_3", "column_text", "factor", "expected"),
+    [
+        (
+            "scope3.category9.average_diesel_van.tonne_km.uk_2026.v1",
+            "Vans", "Average (up to 3.5 tonnes)", "Diesel",
+            "0.63511", "635.11000",
+        ),
+        (
+            "scope3.category9.average_non_refrigerated_hgv.average_laden.tonne_km.uk_2026.v1",
+            "HGV (non-refrigerated, all diesel)",
+            "Average non-refrigerated HGVs", "Average laden",
+            "0.10356", "103.56000",
+        ),
+        (
+            "scope3.category9.rail_freight.tonne_km.uk_2026.v1",
+            "Rail", "Freight train", None, "0.02583", "25.83000",
+        ),
+    ],
+)
+def test_scope3_category9_downstream_freight_golden_results(
+    method_id: str,
+    level_2: str,
+    level_3: str,
+    column_text: str | None,
+    factor: str,
+    expected: str,
+) -> None:
+    method = validate_governed_method(
+        activity_type=ActivityType.FREIGHT_TRANSPORT,
+        scope=EmissionScope.SCOPE_3,
+        scope_3_category=9,
+        activity_unit="tonne.km",
+        factor_level_1="Freighting goods",
+        factor_level_2=level_2,
+        factor_level_3=level_3,
+        factor_level_4=None,
+        factor_column_text=column_text,
+        metadata_json={"calculation_method_id": method_id},
+        lifecycle_boundary="indirect_value_chain",
+    )
+    result = calculate_activity_factor_emissions(
+        factor_activity_value=Decimal("1000"),
+        factor_value=Decimal(factor),
+        allocation_percentage=Decimal("100"),
+    )
+
+    assert method.value == method_id
+    assert result.allocated_kg_co2e == Decimal(expected)
+
+
+def test_scope3_category9_cannot_be_misclassified_as_upstream_freight() -> None:
+    with pytest.raises(ValueError, match="scope_3_category must be 9"):
+        validate_governed_method(
+            activity_type=ActivityType.FREIGHT_TRANSPORT,
+            scope=EmissionScope.SCOPE_3,
+            scope_3_category=4,
+            activity_unit="tonne.km",
+            factor_level_1="Freighting goods",
+            factor_level_2="Rail",
+            factor_level_3="Freight train",
+            factor_level_4=None,
+            factor_column_text=None,
+            metadata_json={
+                "calculation_method_id":
+                    "scope3.category9.rail_freight.tonne_km.uk_2026.v1"
+            },
+            lifecycle_boundary="indirect_value_chain",
+        )
