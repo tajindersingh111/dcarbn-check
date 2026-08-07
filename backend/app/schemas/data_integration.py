@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import date, datetime
 from decimal import Decimal
+from enum import StrEnum
 from typing import Generic, TypeVar
 from uuid import UUID
 
@@ -95,6 +96,66 @@ class DataFuelPayload(BaseModel):
     quantity_source: str | None = None
     transaction_at: datetime | None = None
     metadata: dict[str, object] = Field(default_factory=dict)
+
+
+class AccountingSourceSystem(StrEnum):
+    CSV = "csv"
+    QUICKBOOKS = "quickbooks"
+    XERO = "xero"
+    SAGE = "sage"
+    API = "api"
+
+
+class DataAccountingScope3Payload(BaseModel):
+    external_customer_id: str = Field(min_length=1, max_length=200)
+    external_transaction_id: str = Field(min_length=1, max_length=200)
+    source_system: AccountingSourceSystem
+    source_account_code: str | None = Field(default=None, max_length=100)
+    source_account_name: str | None = Field(default=None, max_length=300)
+    transaction_date: date
+    supplier_name: str = Field(min_length=1, max_length=300)
+    description: str = Field(min_length=1, max_length=1000)
+    currency_code: str | None = Field(default=None, min_length=3, max_length=3)
+    net_amount: Decimal | None = None
+    scope_3_category: int = Field(ge=1, le=15)
+    reported_kg_co2e: Decimal = Field(gt=0)
+    allocation_percentage: Decimal = Field(default=Decimal("100"), gt=0, le=100)
+    supplier_methodology: str = Field(min_length=1, max_length=300)
+    supplier_methodology_version: str = Field(min_length=1, max_length=100)
+    supplier_reporting_period_start: date
+    supplier_reporting_period_end: date
+    supplier_result_calculated_at: datetime
+    boundary_description: str = Field(min_length=1, max_length=1000)
+    assurance_status: str = Field(min_length=1, max_length=100)
+    evidence_reference: str = Field(min_length=1, max_length=500)
+    source_document_reference: str | None = Field(default=None, max_length=500)
+    source_record_version: str | None = Field(default=None, max_length=100)
+    metadata: dict[str, object] = Field(default_factory=dict)
+
+    @model_validator(mode="after")
+    def validate_supplier_specific_category(self) -> "DataAccountingScope3Payload":
+        supported_categories = {1, 2, 8, 10, 11, 12, 13, 14, 15}
+        if self.scope_3_category not in supported_categories:
+            raise ValueError(
+                "Accounting supplier-result imports support Scope 3 categories "
+                "1, 2, 8 and 10-15"
+            )
+        if self.supplier_reporting_period_end < self.supplier_reporting_period_start:
+            raise ValueError(
+                "supplier_reporting_period_end must not precede "
+                "supplier_reporting_period_start"
+            )
+        if self.currency_code is not None:
+            self.currency_code = self.currency_code.upper()
+        return self
+
+
+class DataAccountingScope3TemplateResponse(BaseModel):
+    schema_version: str
+    supported_source_systems: list[AccountingSourceSystem]
+    required_columns: list[str]
+    optional_columns: list[str]
+    governed_methods: dict[int, str]
 
 
 class DataPayloadPayload(BaseModel):

@@ -113,3 +113,42 @@ the reporting company's boundary configuration.
 
 The reconciliation endpoint reports imported record counts, unclassified
 operational-emission records and activity links for the authenticated tenant.
+
+
+## Accounting and CSV Scope 3 supplier results
+
+The accounting contract accepts supplier/investee-specific reported emissions for
+Categories 1, 2, 8 and 10-15 from CSV, QuickBooks, Xero, Sage or a direct API.
+It does not infer emissions from spend or silently treat a ledger account as a
+Scope 3 classification.
+
+```text
+GET  /api/v1/integrations/data/accounting/scope-3/template
+POST /api/v1/integrations/data/accounting/scope-3/batch
+```
+
+The template endpoint returns the supported sources, exact required and optional
+columns, and the governed method identifier for every supported category. The
+customer CSV template is available at
+`docs/templates/scope3-accounting-supplier-results.csv`.
+
+Each import preserves two distinct evidence layers:
+
+- the accounting transaction: source system, transaction ID, account, date,
+  currency, amount and source document;
+- the emissions assertion: supplier/investee, methodology and version,
+  reporting period, lifecycle boundary, assurance status and evidence reference.
+
+The platform calculates only the declared allocation:
+
+```text
+allocated kgCO2e = supplier-reported kgCO2e × allocation percentage ÷ 100
+```
+
+The resulting record enters the existing operational-emissions review queue.
+The suggested Scope 3 category never overrides the customer's approved
+classification or inventory boundary.
+
+Categories 3-7 and 9 continue to use their governed activity-data routes where
+published factors or transport-specific methods apply. They are deliberately
+rejected by this supplier-result accounting contract.

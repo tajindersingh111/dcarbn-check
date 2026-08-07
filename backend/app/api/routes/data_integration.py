@@ -7,8 +7,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.dependencies import CurrentPrincipal, get_current_principal, require_roles
 from app.db.session import get_db
+from app.integrations.data.accounting_scope3 import (
+    accounting_scope3_template,
+    normalise_scope3_accounting_result,
+)
 from app.models.data_integration import DataRecordType
 from app.schemas.data_integration import (
+    DataAccountingScope3Payload,
+    DataAccountingScope3TemplateResponse,
     DataBatchRequest,
     DataClassificationConfirmRequest,
     DataFuelPayload,
@@ -61,6 +67,44 @@ async def upsert_mapping(
 ) -> DataOrganisationMappingResponse:
     mapping = await create_mapping(db, principal, payload)
     return DataOrganisationMappingResponse.model_validate(mapping)
+
+
+@router.get(
+    "/accounting/scope-3/template",
+    response_model=DataAccountingScope3TemplateResponse,
+)
+async def get_accounting_scope3_template() -> DataAccountingScope3TemplateResponse:
+    return accounting_scope3_template()
+
+
+@router.post(
+    "/accounting/scope-3/batch",
+    response_model=DataImportBatchResponse,
+    status_code=status.HTTP_202_ACCEPTED,
+    dependencies=[integration_writer],
+)
+async def import_accounting_scope3_results(
+    payload: DataBatchRequest[DataAccountingScope3Payload],
+    principal: CurrentPrincipal = Depends(get_current_principal),
+    db: AsyncSession = Depends(get_db),
+) -> DataImportBatchResponse:
+    normalised = DataBatchRequest[DataOperationalEmissionPayload](
+        schema_version=payload.schema_version,
+        idempotency_key=payload.idempotency_key,
+        records=[
+            normalise_scope3_accounting_result(item)
+            for item in payload.records
+        ],
+    )
+    batch = await process_batch(
+        db,
+        principal,
+        record_type=DataRecordType.OPERATIONAL_EMISSION,
+        request=normalised,
+        handler=upsert_operational_emission,
+        external_id_getter=lambda item: item.external_calculation_id,
+    )
+    return DataImportBatchResponse.model_validate(batch)
 
 
 @router.post(
