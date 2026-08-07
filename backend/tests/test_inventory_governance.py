@@ -1,3 +1,4 @@
+from decimal import Decimal
 from inspect import signature
 
 import pytest
@@ -12,7 +13,10 @@ from app.schemas.inventory_governance import (
     RestatementDecision,
     RestatementRequestCreate,
 )
-from app.services.inventory_governance import _lock_snapshot
+from app.services.inventory_governance import (
+    _assess_assurance_readiness,
+    _lock_snapshot,
+)
 from pydantic import ValidationError
 
 
@@ -94,3 +98,48 @@ def test_lock_snapshot_keeps_runtime_call_contract() -> None:
         "inventory",
         "approval",
     ]
+
+
+def test_assurance_readiness_passes_only_complete_controls() -> None:
+    assessment = _assess_assurance_readiness(
+        boundary_approved=True,
+        approval_separated=True,
+        result_count=3,
+        result_lineage_complete=True,
+        evidence_coverage_percent=Decimal(100),
+        included_scope3_categories={4},
+        calculated_scope3_categories={4},
+        scope2_present=True,
+        scope2_dual_reporting_complete=True,
+        unresolved_warning_count=0,
+        open_restatement_count=0,
+    )
+
+    assert assessment["ready"] is True
+    assert assessment["status"] == "assurance_ready"
+    assert assessment["blockers"] == []
+
+
+def test_assurance_readiness_returns_specific_blockers() -> None:
+    assessment = _assess_assurance_readiness(
+        boundary_approved=True,
+        approval_separated=True,
+        result_count=2,
+        result_lineage_complete=True,
+        evidence_coverage_percent=Decimal(50),
+        included_scope3_categories={1, 4},
+        calculated_scope3_categories={4},
+        scope2_present=False,
+        scope2_dual_reporting_complete=False,
+        unresolved_warning_count=1,
+        open_restatement_count=0,
+    )
+
+    assert assessment["ready"] is False
+    assert assessment["status"] == "draft_calculation_not_fully_validated"
+    failed = {item["code"] for item in assessment["checks"] if not item["passed"]}
+    assert failed == {
+        "evidence_coverage",
+        "scope3_included_category_results",
+        "unresolved_calculation_warnings",
+    }

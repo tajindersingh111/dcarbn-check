@@ -334,7 +334,17 @@ export async function installApiFixtures(page: Page): Promise<void> {
         finalized_by: "Alex Morgan",
         finalized_at: "2026-08-01T10:00:00Z",
         report_sha256: "hash",
-        report_payload: { totals: { total_t_co2e: "12846.28" } },
+        report_payload: {
+          totals: { total_t_co2e: "12846.28" },
+          assurance_readiness: {
+            status: "assurance_ready",
+            claim_wording: "Assurance-ready reporting pack",
+            ready: true,
+            checks: [{ code: "approved_boundary", passed: true, summary: "The inventory boundary is approved." }],
+            blockers: [],
+            external_assurance_required: true
+          }
+        },
         superseded_by_report_id: null,
         created_at: "2026-08-01T10:00:00Z",
         updated_at: "2026-08-01T10:00:00Z"

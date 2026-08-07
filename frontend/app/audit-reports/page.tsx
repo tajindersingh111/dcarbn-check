@@ -23,9 +23,22 @@ type RestatementHistoryItem = {
   requested_at: string;
 };
 
+type AssuranceReadiness = {
+  status: string;
+  claim_wording: string;
+  ready: boolean;
+  blockers: string[];
+  external_assurance_required: boolean;
+};
+
 function restatementHistory(report: AuditReport | null): RestatementHistoryItem[] {
   const value = report?.report_payload?.restatement_history;
   return Array.isArray(value) ? (value as RestatementHistoryItem[]) : [];
+}
+
+function assuranceReadiness(report: AuditReport | null): AssuranceReadiness | null {
+  const value = report?.report_payload?.assurance_readiness;
+  return value && typeof value === "object" ? (value as AssuranceReadiness) : null;
 }
 
 export default function AuditReportsPage() {
@@ -43,6 +56,7 @@ export default function AuditReportsPage() {
     [reports.data, selectedReportId]
   );
   const changeHistory = restatementHistory(selectedReport.data ?? null);
+  const readiness = assuranceReadiness(selectedReport.data ?? null);
 
   async function download(format: "pdf" | "csv") {
     if (!selectedReportId) return;
@@ -95,7 +109,7 @@ export default function AuditReportsPage() {
 
   return (
     <>
-      <PageHeader eyebrow="Audit-ready output" title="Audit reports" description="Generate immutable, versioned reporting snapshots with canonical SHA-256 hashes." actions={<button className="button button-primary" onClick={() => setGenerateModal(true)} type="button">Generate report</button>} />
+      <PageHeader eyebrow="Governed reporting output" title="Audit reports" description="Generate immutable, versioned reporting snapshots with canonical SHA-256 hashes and an explicit assurance-readiness assessment." actions={<button className="button button-primary" onClick={() => setGenerateModal(true)} type="button">Generate report</button>} />
       <section className="panel">
         <div className="panel-heading"><div><p className="eyebrow">Report register</p><h2>Generated snapshots</h2></div><span className="record-count">{reports.data?.total ?? 0} reports</span></div>
         <DataTable caption="Audit reports" headers={["Inventory", "Version", "Generated", "Total tCO₂e", "SHA-256", "Status", ""]}>
@@ -113,6 +127,11 @@ export default function AuditReportsPage() {
         </div>
         <MutationMessage error={error} />
         {selectedReport.loading ? <LoadingState label="Loading report payload" /> : selectedReport.error ? <ErrorState message={selectedReport.error} onRetry={selectedReport.refresh} /> : <>
+          <section className="validation-banner">
+            <strong>{readiness?.claim_wording ?? "Draft — calculation not fully validated"}</strong>
+            <p>{readiness?.ready ? "All automated report-readiness controls passed. Independent external assurance is still required before making a verified claim." : "This report must remain draft until every failed readiness control has been resolved."}</p>
+            {(readiness?.blockers ?? []).length > 0 ? <ul>{readiness?.blockers.map((blocker) => <li key={blocker}>{blocker}</li>)}</ul> : null}
+          </section>
           <section className="validation-banner">
             <strong>Recalculation and change history</strong>
             <p>{changeHistory.length === 0 ? "No restatements are recorded for this inventory." : `${changeHistory.length} governed restatement record${changeHistory.length === 1 ? "" : "s"} are included in this immutable report snapshot.`}</p>

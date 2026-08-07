@@ -1,16 +1,23 @@
 from io import BytesIO
 
-from pypdf import PdfReader
-
 from app.reports.customer_exports import (
     build_audit_report_csv,
     build_audit_report_pdf,
 )
+from pypdf import PdfReader
 
 
 def report_payload() -> dict[str, object]:
     return {
-        "report_schema_version": "1.3",
+        "report_schema_version": "1.5",
+        "assurance_readiness": {
+            "status": "assurance_ready",
+            "claim_wording": "Assurance-ready reporting pack",
+            "ready": True,
+            "checks": [],
+            "blockers": [],
+            "external_assurance_required": True,
+        },
         "inventory": {"name": "Northstar 2026"},
         "reporting_period": {
             "start_date": "2026-01-01",
@@ -119,8 +126,8 @@ def report_payload() -> dict[str, object]:
 def test_csv_export_contains_full_lineage() -> None:
     content = build_audit_report_csv(report_payload(), "abc123").decode("utf-8-sig")
 
-    assert "report_sha256,result_id,activity_id" in content
-    assert "abc123,result-1,activity-1" in content
+    assert "report_sha256,assurance_readiness_status,assurance_claim" in content
+    assert "abc123,assurance_ready,Assurance-ready reporting pack,result-1" in content
     assert "factor-1,0.05,kWh" in content
     assert "invoice-1" in content
     assert "dcarbn_kg_co2e" in content
@@ -138,6 +145,7 @@ def test_pdf_export_is_deterministic_and_valid() -> None:
     extracted_text = "\n".join(page.extract_text() or "" for page in reader.pages)
     normalized_text = " ".join(extracted_text.split())
     assert "DcarbN Analytics" in normalized_text
+    assert "Assurance-ready reporting pack" in normalized_text
     assert "DcarbN and UK Government comparison" in normalized_text
     assert "50 kg CO2e" in normalized_text
     assert "45 kg CO2e" in normalized_text
@@ -147,6 +155,26 @@ def test_pdf_export_is_deterministic_and_valid() -> None:
     assert reader.metadata is not None
     assert reader.metadata.title == "DcarbN Analytics GHG Inventory Report"
     assert len(first) > 2000
+
+
+def test_pdf_export_discloses_draft_blockers() -> None:
+    payload = report_payload()
+    payload["assurance_readiness"] = {
+        "status": "draft_calculation_not_fully_validated",
+        "claim_wording": "Draft — calculation not fully validated",
+        "ready": False,
+        "checks": [],
+        "blockers": ["Every current activity has a supporting evidence reference."],
+        "external_assurance_required": True,
+    }
+
+    reader = PdfReader(BytesIO(build_audit_report_pdf(payload, "abc123")))
+    text = " ".join(
+        " ".join(page.extract_text() or "" for page in reader.pages).split()
+    )
+
+    assert "Draft — calculation not fully validated" in text
+    assert "Every current activity has a supporting evidence reference" in text
 
 
 def test_pdf_repeats_header_across_paginated_disclosures() -> None:

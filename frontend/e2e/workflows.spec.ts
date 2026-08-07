@@ -94,6 +94,8 @@ test("inventory approval calls the decision API", async ({ page }) => {
 test("audit report register opens the immutable payload", async ({ page }) => {
   await page.goto("/audit-reports");
   await page.getByRole("button", { name: "Open" }).click();
+  await expect(page.getByText("Assurance-ready reporting pack", { exact: true })).toBeVisible();
+  await expect(page.getByText(/Independent external assurance is still required/)).toBeVisible();
   await expect(page.getByText(/total_t_co2e/)).toBeVisible();
   await expect(page.getByText(/12846.28/)).toBeVisible();
 });

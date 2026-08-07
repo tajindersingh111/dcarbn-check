@@ -5,6 +5,10 @@ from datetime import UTC, datetime
 from decimal import Decimal
 from uuid import UUID
 
+from fastapi import HTTPException, status
+from sqlalchemy import func, or_, select
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from app.auth.dependencies import CurrentPrincipal
 from app.calculations.scope2_reporting import validate_market_based_evidence
 from app.integrations.data.hashing import canonical_json_sha256
@@ -39,11 +43,96 @@ from app.services.scope3_governance import (
     scope3_disposition_payload,
     scope3_dispositions_are_approved,
 )
-from fastapi import HTTPException, status
-from sqlalchemy import func, or_, select
-from sqlalchemy.ext.asyncio import AsyncSession
 
 
+def _assess_assurance_readiness(
+    *,
+    boundary_approved: bool,
+    approval_separated: bool,
+    result_count: int,
+    result_lineage_complete: bool,
+    evidence_coverage_percent: Decimal,
+    included_scope3_categories: set[int],
+    calculated_scope3_categories: set[int],
+    scope2_present: bool,
+    scope2_dual_reporting_complete: bool,
+    unresolved_warning_count: int,
+    open_restatement_count: int,
+) -> dict[str, object]:
+    """Return deterministic claim wording and the controls supporting it."""
+    missing_scope3_categories = sorted(
+        included_scope3_categories - calculated_scope3_categories
+    )
+    checks = [
+        {
+            "code": "approved_boundary",
+            "passed": boundary_approved,
+            "summary": "An approved or locked organisational boundary is recorded.",
+        },
+        {
+            "code": "independent_approval",
+            "passed": approval_separated,
+            "summary": "The inventory preparer and approver are independently identified.",
+        },
+        {
+            "code": "calculation_lineage",
+            "passed": result_count > 0 and result_lineage_complete,
+            "summary": (
+                "Every result retains its activity, exact factor, formula and "
+                "methodology version."
+            ),
+        },
+        {
+            "code": "evidence_coverage",
+            "passed": evidence_coverage_percent == Decimal(100),
+            "summary": "Every current activity has a supporting evidence reference.",
+        },
+        {
+            "code": "scope3_included_category_results",
+            "passed": not missing_scope3_categories,
+            "summary": (
+                "Every Scope 3 category marked included has a calculated result "
+                "or must be returned to data collection."
+            ),
+            "missing_categories": missing_scope3_categories,
+        },
+        {
+            "code": "scope2_dual_reporting",
+            "passed": not scope2_present or scope2_dual_reporting_complete,
+            "summary": (
+                "Scope 2 location- and market-based totals are both disclosed "
+                "when Scope 2 activity is reported."
+            ),
+        },
+        {
+            "code": "unresolved_calculation_warnings",
+            "passed": unresolved_warning_count == 0,
+            "summary": "No unresolved calculation or factor-resolution warnings remain.",
+            "warning_count": unresolved_warning_count,
+        },
+        {
+            "code": "open_restatements",
+            "passed": open_restatement_count == 0,
+            "summary": "No requested, under-review or approved restatement remains open.",
+            "open_restatement_count": open_restatement_count,
+        },
+    ]
+    blockers = [str(item["summary"]) for item in checks if not item["passed"]]
+    ready = not blockers
+    return {
+        "status": (
+            "assurance_ready" if ready else "draft_calculation_not_fully_validated"
+        ),
+        "claim_wording": (
+            "Assurance-ready reporting pack"
+            if ready
+            else "Draft — calculation not fully validated"
+        ),
+        "ready": ready,
+        "checks": checks,
+        "blockers": blockers,
+        "external_assurance_required": True,
+    }
 async def _get_inventory(
     db: AsyncSession,
     tenant_id: UUID,
@@ -1234,9 +1323,64 @@ async def _build_audit_report_payload(
         }
         for item in restatements
     ]
+    included_scope3_categories = {
+        item.category
+        for item in scope3_dispositions
+        if item.disposition.value == "included"
+    }
+    calculated_scope3_categories = {
+        result.scope_3_category
+        for result in results
+        if result.scope == EmissionScope.SCOPE_3 and result.scope_3_category is not None
+    }
+    scope2_location_present = any(
+        result.scope == EmissionScope.SCOPE_2
+        and result.scope_2_method == Scope2Method.LOCATION_BASED
+        for result in results
+    )
+    scope2_market_present = any(
+        result.scope == EmissionScope.SCOPE_2
+        and result.scope_2_method == Scope2Method.MARKET_BASED
+        for result in results
+    )
+    result_lineage_complete = all(
+        result.selected_factor_id is not None
+        and result.factor_value is not None
+        and bool(result.calculation_formula)
+        and bool(result.methodology_version)
+        for result in results
+    )
+    open_restatement_count = sum(
+        item.status
+        in {
+            RestatementStatus.REQUESTED,
+            RestatementStatus.UNDER_REVIEW,
+            RestatementStatus.APPROVED,
+        }
+        for item in restatements
+    )
+    assurance_readiness = _assess_assurance_readiness(
+        boundary_approved=boundary is not None,
+        approval_separated=(
+            approval.reviewer_id is not None
+            and approval.requested_by != approval.reviewer_id
+        ),
+        result_count=len(results),
+        result_lineage_complete=result_lineage_complete,
+        evidence_coverage_percent=evidence_coverage,
+        included_scope3_categories=included_scope3_categories,
+        calculated_scope3_categories=calculated_scope3_categories,
+        scope2_present=scope2_location_present or scope2_market_present,
+        scope2_dual_reporting_complete=(
+            scope2_location_present and scope2_market_present
+        ),
+        unresolved_warning_count=warning_count,
+        open_restatement_count=open_restatement_count,
+    )
 
     return {
-        "report_schema_version": "1.4",
+        "report_schema_version": "1.5",
+        "assurance_readiness": assurance_readiness,
         "defensibility_statement": {
             "preparation_basis": (
                 "Prepared from approved organisational boundaries, current activity "
