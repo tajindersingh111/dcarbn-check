@@ -1,18 +1,19 @@
 from inspect import signature
 
 import pytest
-from pydantic import ValidationError
-
 from app.models.inventory_governance import (
     ApprovalStatus,
     RestatementStatus,
+    RestatementTrigger,
 )
-from app.services.inventory_governance import _lock_snapshot
 from app.schemas.inventory_governance import (
     ApprovalDecision,
     ReportGenerateRequest,
     RestatementDecision,
+    RestatementRequestCreate,
 )
+from app.services.inventory_governance import _lock_snapshot
+from pydantic import ValidationError
 
 
 def test_approval_decision_accepts_approved() -> None:
@@ -39,6 +40,38 @@ def test_restatement_decision_accepts_rejected() -> None:
     )
 
     assert payload.decision == RestatementStatus.REJECTED
+
+
+def test_restatement_request_accepts_quantified_materiality() -> None:
+    payload = RestatementRequestCreate(
+        trigger=RestatementTrigger.MATERIAL_ERROR,
+        reason="A material source-data error was identified after approval.",
+        materiality_assessment="The estimated change is material to reported emissions.",
+        estimated_impact_percent="6.25",
+    )
+
+    assert payload.estimated_impact_percent is not None
+    assert payload.estimated_impact_percent.as_tuple().exponent == -2
+
+
+def test_restatement_request_requires_override_rationale() -> None:
+    with pytest.raises(ValidationError):
+        RestatementRequestCreate(
+            trigger=RestatementTrigger.METHODOLOGY_CHANGE,
+            reason="The governed calculation methodology has changed.",
+            materiality_assessment="Impact cannot yet be quantified reliably.",
+            qualitative_override=True,
+        )
+
+
+def test_boundary_restatement_requires_change_summary() -> None:
+    with pytest.raises(ValidationError):
+        RestatementRequestCreate(
+            trigger=RestatementTrigger.ACQUISITION,
+            reason="A controlled business was acquired during the period.",
+            materiality_assessment="The acquisition changes the inventory boundary.",
+            estimated_impact_percent="8.0",
+        )
 
 
 def test_report_generation_requires_explicit_scope2_headline_basis() -> None:

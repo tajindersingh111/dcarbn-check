@@ -11,6 +11,23 @@ import { apiDownload, apiRequest } from "@/lib/api";
 import { useApiQuery } from "@/lib/use-api";
 import type { AuditReport, AuditReportListItem, Inventory, ListResponse } from "@/lib/types";
 
+type RestatementHistoryItem = {
+  id: string;
+  status: string;
+  trigger: string;
+  estimated_impact_percent: string | null;
+  significance_threshold_percent: string;
+  threshold_exceeded: boolean;
+  qualitative_override: boolean;
+  reason: string;
+  requested_at: string;
+};
+
+function restatementHistory(report: AuditReport | null): RestatementHistoryItem[] {
+  const value = report?.report_payload?.restatement_history;
+  return Array.isArray(value) ? (value as RestatementHistoryItem[]) : [];
+}
+
 export default function AuditReportsPage() {
   const reports = useApiQuery<ListResponse<AuditReportListItem>>("/audit-reports?limit=200");
   const inventories = useApiQuery<ListResponse<Inventory>>("/inventories?limit=200");
@@ -25,6 +42,7 @@ export default function AuditReportsPage() {
     () => reports.data?.items.find((item) => item.id === selectedReportId) ?? null,
     [reports.data, selectedReportId]
   );
+  const changeHistory = restatementHistory(selectedReport.data ?? null);
 
   async function download(format: "pdf" | "csv") {
     if (!selectedReportId) return;
@@ -94,7 +112,24 @@ export default function AuditReportsPage() {
           </div>
         </div>
         <MutationMessage error={error} />
-        {selectedReport.loading ? <LoadingState label="Loading report payload" /> : selectedReport.error ? <ErrorState message={selectedReport.error} onRetry={selectedReport.refresh} /> : <pre className="report-json">{JSON.stringify(selectedReport.data?.report_payload ?? {}, null, 2)}</pre>}
+        {selectedReport.loading ? <LoadingState label="Loading report payload" /> : selectedReport.error ? <ErrorState message={selectedReport.error} onRetry={selectedReport.refresh} /> : <>
+          <section className="validation-banner">
+            <strong>Recalculation and change history</strong>
+            <p>{changeHistory.length === 0 ? "No restatements are recorded for this inventory." : `${changeHistory.length} governed restatement record${changeHistory.length === 1 ? "" : "s"} are included in this immutable report snapshot.`}</p>
+          </section>
+          {changeHistory.length > 0 ? <DataTable caption="Restatement change history" headers={["Requested", "Trigger", "Impact", "Threshold", "Decision basis", "Status"]}>
+            {changeHistory.map((item) => <tr key={item.id}>
+              <td>{new Date(item.requested_at).toLocaleDateString("en-GB")}</td>
+              <td><strong>{item.trigger.replaceAll("_", " ")}</strong><br /><small>{item.reason}</small></td>
+              <td>{item.estimated_impact_percent === null ? "Not quantified" : `${Number(item.estimated_impact_percent).toLocaleString("en-GB", { maximumFractionDigits: 4 })}%`}</td>
+              <td>{Number(item.significance_threshold_percent).toLocaleString("en-GB", { maximumFractionDigits: 4 })}%</td>
+              <td>{item.threshold_exceeded ? "Threshold exceeded" : item.qualitative_override ? "Qualitative override" : "Below threshold"}</td>
+              <td><StatusBadge status={item.status} /></td>
+            </tr>)}
+          </DataTable> : null}
+          <p className="eyebrow">Complete technical report payload</p>
+          <pre className="report-json">{JSON.stringify(selectedReport.data?.report_payload ?? {}, null, 2)}</pre>
+        </>}
       </section> : null}
 
       <Modal open={generateModal} onClose={() => setGenerateModal(false)} title="Generate audit report" description="Create a deterministic snapshot from an approved inventory.">

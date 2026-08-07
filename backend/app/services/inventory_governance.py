@@ -5,13 +5,9 @@ from datetime import UTC, datetime
 from decimal import Decimal
 from uuid import UUID
 
-from fastapi import HTTPException, status
-from sqlalchemy import func, select
-from sqlalchemy.ext.asyncio import AsyncSession
-
 from app.auth.dependencies import CurrentPrincipal
-from app.integrations.data.hashing import canonical_json_sha256
 from app.calculations.scope2_reporting import validate_market_based_evidence
+from app.integrations.data.hashing import canonical_json_sha256
 from app.models.activity import ActivityRecord, EmissionScope, Scope2Method
 from app.models.boundary import BoundaryStatus, OrganisationalBoundary
 from app.models.calculation import (
@@ -19,9 +15,9 @@ from app.models.calculation import (
     CalculationRun,
     CalculationRunStatus,
 )
+from app.models.data_integration import DataCalculationComparison
 from app.models.emission_factor import EmissionFactor, EmissionFactorSet
 from app.models.inventory import Inventory, InventoryStatus, ReportingPeriod
-from app.models.data_integration import DataCalculationComparison
 from app.models.inventory_governance import (
     ApprovalStatus,
     AuditReport,
@@ -43,6 +39,9 @@ from app.services.scope3_governance import (
     scope3_disposition_payload,
     scope3_dispositions_are_approved,
 )
+from fastapi import HTTPException, status
+from sqlalchemy import func, or_, select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 
 async def _get_inventory(
@@ -130,16 +129,19 @@ async def create_approval_request(
     if existing is not None:
         return existing
 
-    next_version = int(
-        (
-            await db.scalar(
-                select(func.coalesce(func.max(InventoryApproval.version), 0)).where(
-                    InventoryApproval.inventory_id == inventory.id
+    next_version = (
+        int(
+            (
+                await db.scalar(
+                    select(func.coalesce(func.max(InventoryApproval.version), 0)).where(
+                        InventoryApproval.inventory_id == inventory.id
+                    )
                 )
             )
+            or 0
         )
-        or 0
-    ) + 1
+        + 1
+    )
 
     checks = await _approval_checks(db, inventory, run)
     approval = InventoryApproval(
@@ -364,6 +366,23 @@ async def request_restatement(
     if open_request is not None:
         return open_request
 
+    period = await db.get(ReportingPeriod, inventory.reporting_period_id)
+    if period is None:
+        raise HTTPException(status_code=404, detail="Reporting period not found.")
+    threshold = period.recalculation_significance_threshold_percent
+    threshold_exceeded = (
+        payload.estimated_impact_percent is not None
+        and payload.estimated_impact_percent >= threshold
+    )
+    if not threshold_exceeded and not payload.qualitative_override:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=(
+                "Restatement impact does not meet the reporting-period significance "
+                "threshold. Record a justified qualitative override to continue."
+            ),
+        )
+
     restatement = InventoryRestatement(
         tenant_id=principal.tenant_id,
         original_inventory_id=inventory.id,
@@ -372,6 +391,13 @@ async def request_restatement(
         requested_at=datetime.now(UTC),
         reason=payload.reason,
         materiality_assessment=payload.materiality_assessment,
+        trigger=payload.trigger,
+        estimated_impact_percent=payload.estimated_impact_percent,
+        significance_threshold_percent=threshold,
+        threshold_exceeded=threshold_exceeded,
+        qualitative_override=payload.qualitative_override,
+        qualitative_override_rationale=payload.qualitative_override_rationale,
+        boundary_change_summary=payload.boundary_change_summary,
         requested_changes=payload.requested_changes,
     )
     db.add(restatement)
@@ -387,6 +413,17 @@ async def request_restatement(
             "inventory_id": str(inventory.id),
             "reason": payload.reason,
             "materiality_assessment": payload.materiality_assessment,
+            "trigger": payload.trigger.value,
+            "estimated_impact_percent": (
+                str(payload.estimated_impact_percent)
+                if payload.estimated_impact_percent is not None
+                else None
+            ),
+            "significance_threshold_percent": str(threshold),
+            "threshold_exceeded": threshold_exceeded,
+            "qualitative_override": payload.qualitative_override,
+            "qualitative_override_rationale": (payload.qualitative_override_rationale),
+            "boundary_change_summary": payload.boundary_change_summary,
         },
     )
     await db.commit()
@@ -581,16 +618,19 @@ async def generate_audit_report(
     if existing is not None:
         return existing
 
-    next_version = int(
-        (
-            await db.scalar(
-                select(func.coalesce(func.max(AuditReport.version), 0)).where(
-                    AuditReport.inventory_id == inventory.id
+    next_version = (
+        int(
+            (
+                await db.scalar(
+                    select(func.coalesce(func.max(AuditReport.version), 0)).where(
+                        AuditReport.inventory_id == inventory.id
+                    )
                 )
             )
+            or 0
         )
-        or 0
-    ) + 1
+        + 1
+    )
 
     now = datetime.now(UTC)
     report = AuditReport(
@@ -717,8 +757,7 @@ async def _approval_checks(
                 .where(
                     CalculationResult.calculation_run_id == run.id,
                     CalculationResult.selected_factor_id.is_(None),
-                    CalculationResult.method
-                    != "external_operational_result",
+                    CalculationResult.method != "external_operational_result",
                 )
             )
         )
@@ -731,8 +770,7 @@ async def _approval_checks(
                 .select_from(OrganisationalBoundary)
                 .join(
                     ReportingPeriod,
-                    ReportingPeriod.id
-                    == OrganisationalBoundary.reporting_period_id,
+                    ReportingPeriod.id == OrganisationalBoundary.reporting_period_id,
                 )
                 .where(
                     ReportingPeriod.id == inventory.reporting_period_id,
@@ -806,8 +844,7 @@ async def _lock_snapshot(
                 select(func.count())
                 .select_from(CalculationResult)
                 .where(
-                    CalculationResult.calculation_run_id
-                    == approval.calculation_run_id
+                    CalculationResult.calculation_run_id == approval.calculation_run_id
                 )
             )
         )
@@ -913,7 +950,7 @@ async def _build_audit_report_payload(
                 }
             )
 
-    zero = Decimal("0")
+    zero = Decimal(0)
     scope_1_kg = sum(
         (r.allocated_kg_co2e for r in results if r.scope == EmissionScope.SCOPE_1),
         zero,
@@ -954,7 +991,7 @@ async def _build_audit_report_payload(
             key = f"{key}:category_{result.scope_3_category}"
         if result.scope_2_method.value != "not_applicable":
             key = f"{key}:{result.scope_2_method.value}"
-        grouped[key] = grouped.get(key, Decimal("0")) + result.allocated_kg_co2e
+        grouped[key] = grouped.get(key, Decimal(0)) + result.allocated_kg_co2e
 
     factor_ids = {
         result.selected_factor_id
@@ -1008,20 +1045,16 @@ async def _build_audit_report_payload(
 
     quality_scores = [activity.data_quality_score for activity in activities]
     average_quality = (
-        sum(quality_scores) / len(quality_scores)
-        if quality_scores
-        else None
+        sum(quality_scores) / len(quality_scores) if quality_scores else None
     )
     quality_distribution = Counter(
         activity.data_quality_level.value for activity in activities
     )
-    evidenced_count = sum(
-        1 for activity in activities if activity.evidence_reference
-    )
+    evidenced_count = sum(1 for activity in activities if activity.evidence_reference)
     evidence_coverage = (
-        Decimal(evidenced_count) * Decimal("100") / Decimal(len(activities))
+        Decimal(evidenced_count) * Decimal(100) / Decimal(len(activities))
         if activities
-        else Decimal("0")
+        else Decimal(0)
     )
     estimated_count = quality_distribution.get("estimated", 0)
     warning_count = sum(len(result.warnings) for result in results)
@@ -1092,9 +1125,7 @@ async def _build_audit_report_payload(
         key=lambda item: item.comparison_group_key,
     ):
         dcarbn_result = comparison_result_by_id.get(comparison.dcarbn_result_id)
-        government_result = comparison_result_by_id.get(
-            comparison.government_result_id
-        )
+        government_result = comparison_result_by_id.get(comparison.government_result_id)
         calculation_comparisons.append(
             {
                 "comparison_id": str(comparison.id),
@@ -1118,12 +1149,8 @@ async def _build_audit_report_payload(
                 "dcarbn_result": (
                     {
                         "result_id": str(dcarbn_result.id),
-                        "allocated_kg_co2e": str(
-                            dcarbn_result.allocated_kg_co2e
-                        ),
-                        "methodology_version": (
-                            dcarbn_result.methodology_version
-                        ),
+                        "allocated_kg_co2e": str(dcarbn_result.allocated_kg_co2e),
+                        "methodology_version": (dcarbn_result.methodology_version),
                         "factor_id": (
                             str(dcarbn_result.selected_factor_id)
                             if dcarbn_result.selected_factor_id
@@ -1137,12 +1164,8 @@ async def _build_audit_report_payload(
                 "uk_government_comparator": (
                     {
                         "result_id": str(government_result.id),
-                        "allocated_kg_co2e": str(
-                            government_result.allocated_kg_co2e
-                        ),
-                        "methodology_version": (
-                            government_result.methodology_version
-                        ),
+                        "allocated_kg_co2e": str(government_result.allocated_kg_co2e),
+                        "methodology_version": (government_result.methodology_version),
                         "factor_id": (
                             str(government_result.selected_factor_id)
                             if government_result.selected_factor_id
@@ -1161,8 +1184,59 @@ async def _build_audit_report_payload(
             }
         )
 
+    restatements = list(
+        (
+            await db.scalars(
+                select(InventoryRestatement)
+                .where(
+                    InventoryRestatement.tenant_id == inventory.tenant_id,
+                    or_(
+                        InventoryRestatement.original_inventory_id == inventory.id,
+                        InventoryRestatement.replacement_inventory_id == inventory.id,
+                    ),
+                )
+                .order_by(InventoryRestatement.requested_at.asc())
+            )
+        ).all()
+    )
+    restatement_history = [
+        {
+            "id": str(item.id),
+            "status": item.status.value,
+            "trigger": item.trigger.value,
+            "original_inventory_id": str(item.original_inventory_id),
+            "replacement_inventory_id": (
+                str(item.replacement_inventory_id)
+                if item.replacement_inventory_id
+                else None
+            ),
+            "reason": item.reason,
+            "materiality_assessment": item.materiality_assessment,
+            "estimated_impact_percent": (
+                str(item.estimated_impact_percent)
+                if item.estimated_impact_percent is not None
+                else None
+            ),
+            "significance_threshold_percent": str(item.significance_threshold_percent),
+            "threshold_exceeded": item.threshold_exceeded,
+            "qualitative_override": item.qualitative_override,
+            "qualitative_override_rationale": (item.qualitative_override_rationale),
+            "boundary_change_summary": item.boundary_change_summary,
+            "requested_changes": item.requested_changes,
+            "requested_by": item.requested_by,
+            "requested_at": item.requested_at.isoformat(),
+            "reviewed_by": item.reviewed_by,
+            "reviewed_at": (item.reviewed_at.isoformat() if item.reviewed_at else None),
+            "decision_reason": item.decision_reason,
+            "completed_at": (
+                item.completed_at.isoformat() if item.completed_at else None
+            ),
+        }
+        for item in restatements
+    ]
+
     return {
-        "report_schema_version": "1.3",
+        "report_schema_version": "1.4",
         "defensibility_statement": {
             "preparation_basis": (
                 "Prepared from approved organisational boundaries, current activity "
@@ -1182,14 +1256,10 @@ async def _build_audit_report_payload(
             "version": inventory.version,
             "status": inventory.status.value,
             "approved_at": (
-                inventory.approved_at.isoformat()
-                if inventory.approved_at
-                else None
+                inventory.approved_at.isoformat() if inventory.approved_at else None
             ),
             "locked_at": (
-                inventory.locked_at.isoformat()
-                if inventory.locked_at
-                else None
+                inventory.locked_at.isoformat() if inventory.locked_at else None
             ),
         },
         "reporting_period": {
@@ -1198,14 +1268,23 @@ async def _build_audit_report_payload(
             "start_date": period.start_date.isoformat(),
             "end_date": period.end_date.isoformat(),
             "is_base_year": period.is_base_year,
+            "base_year_reason": period.base_year_reason,
+            "recalculation_policy": period.recalculation_policy,
+            "recalculation_significance_threshold_percent": str(
+                period.recalculation_significance_threshold_percent
+            ),
+            "comparative_reporting_period_id": (
+                str(period.comparative_reporting_period_id)
+                if period.comparative_reporting_period_id
+                else None
+            ),
         },
+        "restatement_history": restatement_history,
         "organisational_boundary": (
             {
                 "id": str(boundary.id),
                 "version": boundary.version,
-                "consolidation_approach": (
-                    boundary.consolidation_approach.value
-                ),
+                "consolidation_approach": (boundary.consolidation_approach.value),
                 "status": boundary.status.value,
                 "effective_from": boundary.effective_from.isoformat(),
                 "effective_to": boundary.effective_to.isoformat(),
@@ -1219,9 +1298,7 @@ async def _build_audit_report_payload(
             "requested_by": approval.requested_by,
             "reviewer_id": approval.reviewer_id,
             "decided_at": (
-                approval.decided_at.isoformat()
-                if approval.decided_at
-                else None
+                approval.decided_at.isoformat() if approval.decided_at else None
             ),
             "decision_reason": approval.decision_reason,
         },
@@ -1234,9 +1311,7 @@ async def _build_audit_report_payload(
             "result_count": run.result_count,
             "failed_count": run.failed_count,
             "completed_at": (
-                run.completed_at.isoformat()
-                if run.completed_at
-                else None
+                run.completed_at.isoformat() if run.completed_at else None
             ),
         },
         "totals": {
@@ -1246,13 +1321,12 @@ async def _build_audit_report_payload(
             "scope_2_market_based_kg_co2e": str(scope_2_market_kg),
             "scope_3_kg_co2e": str(scope_3_kg),
             "total_kg_co2e": str(total_kg),
-            "total_t_co2e": str(total_kg / Decimal("1000")),
+            "total_t_co2e": str(total_kg / Decimal(1000)),
             "dual_reporting_complete": (
                 scope_2_location_kg > zero and scope_2_market_kg > zero
             ),
             "by_scope_and_category": {
-                key: str(value)
-                for key, value in sorted(grouped.items())
+                key: str(value) for key, value in sorted(grouped.items())
             },
         },
         "calculation_comparisons": calculation_comparisons,

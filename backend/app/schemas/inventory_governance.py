@@ -1,17 +1,17 @@
 from __future__ import annotations
 
 from datetime import datetime
+from decimal import Decimal
 from uuid import UUID
-
-from pydantic import BaseModel, ConfigDict, Field, model_validator
-
-from app.schemas.calculation import Scope2HeadlineBasis
 
 from app.models.inventory_governance import (
     ApprovalStatus,
     ReportStatus,
     RestatementStatus,
+    RestatementTrigger,
 )
+from app.schemas.calculation import Scope2HeadlineBasis
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 class ApprovalRequestCreate(BaseModel):
@@ -27,7 +27,7 @@ class ApprovalDecision(BaseModel):
     decision_reason: str = Field(min_length=10, max_length=5000)
 
     @model_validator(mode="after")
-    def validate_decision(self) -> "ApprovalDecision":
+    def validate_decision(self) -> ApprovalDecision:
         if self.decision not in {
             ApprovalStatus.APPROVED,
             ApprovalStatus.REJECTED,
@@ -79,9 +79,39 @@ class InventoryLockResponse(BaseModel):
 
 
 class RestatementRequestCreate(BaseModel):
+    trigger: RestatementTrigger
     reason: str = Field(min_length=10, max_length=5000)
     materiality_assessment: str = Field(min_length=10, max_length=5000)
+    estimated_impact_percent: Decimal | None = Field(default=None, ge=0, le=1000)
+    qualitative_override: bool = False
+    qualitative_override_rationale: str | None = Field(default=None, max_length=5000)
+    boundary_change_summary: str | None = Field(default=None, max_length=5000)
     requested_changes: dict[str, object] = Field(default_factory=dict)
+
+    @model_validator(mode="after")
+    def validate_materiality_evidence(self) -> RestatementRequestCreate:
+        if self.qualitative_override and not (
+            self.qualitative_override_rationale
+            and len(self.qualitative_override_rationale.strip()) >= 10
+        ):
+            raise ValueError(
+                "qualitative_override_rationale is required for a qualitative override"
+            )
+        boundary_triggers = {
+            RestatementTrigger.ACQUISITION,
+            RestatementTrigger.DIVESTMENT,
+            RestatementTrigger.OUTSOURCING_INSOURCING,
+            RestatementTrigger.ORGANISATIONAL_BOUNDARY_CHANGE,
+            RestatementTrigger.OPERATIONAL_BOUNDARY_CHANGE,
+        }
+        if self.trigger in boundary_triggers and not (
+            self.boundary_change_summary
+            and len(self.boundary_change_summary.strip()) >= 10
+        ):
+            raise ValueError(
+                "boundary_change_summary is required for boundary-related triggers"
+            )
+        return self
 
 
 class RestatementDecision(BaseModel):
@@ -89,7 +119,7 @@ class RestatementDecision(BaseModel):
     decision_reason: str = Field(min_length=10, max_length=5000)
 
     @model_validator(mode="after")
-    def validate_decision(self) -> "RestatementDecision":
+    def validate_decision(self) -> RestatementDecision:
         if self.decision not in {
             RestatementStatus.APPROVED,
             RestatementStatus.REJECTED,
@@ -113,6 +143,13 @@ class InventoryRestatementResponse(BaseModel):
     completed_at: datetime | None
     reason: str
     materiality_assessment: str
+    trigger: RestatementTrigger
+    estimated_impact_percent: Decimal | None
+    significance_threshold_percent: Decimal
+    threshold_exceeded: bool
+    qualitative_override: bool
+    qualitative_override_rationale: str | None
+    boundary_change_summary: str | None
     decision_reason: str | None
     requested_changes: dict[str, object]
     created_at: datetime
