@@ -96,3 +96,18 @@ export function PlusIcon(props: IconProps) {
     </IconBase>
   );
 }
+
+
+export function UploadIcon(props: IconProps) {
+  return (
+    <IconBase {...props}>
+      <path
+        d="M12 16V4m0 0L7 9m5-5 5 5M5 14v6h14v-6"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="1.8"
+      />
+    </IconBase>
+  );
+}

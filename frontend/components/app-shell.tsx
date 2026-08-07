@@ -17,7 +17,8 @@ import {
   MenuIcon,
   OrganisationIcon,
   ReportIcon,
-  ReviewIcon
+  ReviewIcon,
+  UploadIcon
 } from "@/components/icons";
 
 interface NavigationItem {
@@ -42,6 +43,7 @@ const navigation: NavigationItem[] = [
   { href: "/organisations", label: "Organisations", icon: OrganisationIcon, isVisible: everyUser },
   { href: "/inventories", label: "Inventories", icon: InventoryIcon, isVisible: everyUser },
   { href: "/activities/new", label: "Activity entry", icon: ActivityIcon, isVisible: everyUser },
+  { href: "/data-imports", label: "Data imports", icon: UploadIcon, isVisible: everyUser },
   { href: "/scope-3-screening", label: "Scope 3 screening", icon: ReviewIcon, isVisible: everyUser },
   { href: "/data-reviews", label: "DATa review", icon: ReviewIcon, isVisible: everyUser },
   { href: "/approvals", label: "Approvals", icon: ApprovalIcon, isVisible: everyUser },

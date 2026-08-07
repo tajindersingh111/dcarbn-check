@@ -128,6 +128,76 @@ export async function installApiFixtures(page: Page): Promise<void> {
     if (path.endsWith("/activities") && method === "POST") {
       return route.fulfill({ status: 201, json: { id: "activity-1" } });
     }
+    if (
+      path === "/integrations/data/accounting/scope-3/template" &&
+      method === "GET"
+    ) {
+      return route.fulfill({ json: {
+        schema_version: "1.0",
+        supported_source_systems: ["csv", "quickbooks", "xero", "sage", "api"],
+        required_columns: [
+          "external_customer_id",
+          "external_transaction_id",
+          "source_system",
+          "transaction_date",
+          "supplier_name",
+          "description",
+          "scope_3_category",
+          "reported_kg_co2e",
+          "allocation_percentage",
+          "supplier_methodology",
+          "supplier_methodology_version",
+          "supplier_reporting_period_start",
+          "supplier_reporting_period_end",
+          "supplier_result_calculated_at",
+          "boundary_description",
+          "assurance_status",
+          "evidence_reference"
+        ],
+        optional_columns: [
+          "source_account_code",
+          "source_account_name",
+          "currency_code",
+          "net_amount",
+          "source_document_reference",
+          "source_record_version"
+        ],
+        governed_methods: {
+          "1": "scope3.category1.supplier_specific.reported_kgco2e.ghgp.v1",
+          "2": "scope3.category2.supplier_specific.reported_kgco2e.ghgp.v1",
+          "8": "scope3.category8.supplier_specific.reported_kgco2e.ghgp.v1",
+          "10": "scope3.category10.supplier_specific.reported_kgco2e.ghgp.v1",
+          "11": "scope3.category11.supplier_specific.reported_kgco2e.ghgp.v1",
+          "12": "scope3.category12.supplier_specific.reported_kgco2e.ghgp.v1",
+          "13": "scope3.category13.supplier_specific.reported_kgco2e.ghgp.v1",
+          "14": "scope3.category14.supplier_specific.reported_kgco2e.ghgp.v1",
+          "15": "scope3.category15.supplier_specific.reported_kgco2e.ghgp.v1"
+        }
+      } });
+    }
+    if (
+      path === "/integrations/data/accounting/scope-3/batch" &&
+      method === "POST"
+    ) {
+      const payload = request.postDataJSON() as { records: unknown[] };
+      return route.fulfill({ status: 202, json: {
+        id: "import-batch-1",
+        tenant_id: organisation.tenant_id,
+        schema_version: "1.0",
+        record_type: "operational_emission",
+        idempotency_key: "customer-import",
+        source_payload_sha256:
+          "9f1d1c2fdbb70f6ea4f620f48ed9cfbff648901a205a4c524935730fcfaf4382",
+        status: "completed",
+        records_received: payload.records.length,
+        records_imported: payload.records.length,
+        records_rejected: 0,
+        started_at: "2026-08-07T07:00:00Z",
+        completed_at: "2026-08-07T07:00:01Z",
+        requested_by: "e2e-user",
+        failure_message: null
+      } });
+    }
     if (path === "/integrations/data/reviews") {
       return route.fulfill({ json: { items: [{
         review: {

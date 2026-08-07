@@ -475,3 +475,49 @@ test("Scope 1 DcarbN comparator method preserves delivery-van selectors", async 
     }
   });
 });
+
+
+test("customer maps validates and reconciles an accounting import", async ({ page }) => {
+  await page.goto("/data-imports");
+  await expect(
+    page.getByRole("heading", { name: "Accounting and CSV import" })
+  ).toBeVisible();
+
+  await page.getByRole("button", { name: "Load example" }).click();
+  await expect(page.getByText("1 row detected. Confirm the column mapping.")).toBeVisible();
+  await page.getByRole("button", { name: "Build validation preview" }).click();
+
+  await expect(
+    page.getByRole("table", { name: "Scope 3 import validation preview" })
+  ).toBeVisible();
+  await expect(page.getByText("1 valid", { exact: true })).toBeVisible();
+  await expect(page.getByText("0 need attention", { exact: true })).toBeVisible();
+
+  const requestPromise = page.waitForRequest((request) =>
+    request.url().endsWith("/integrations/data/accounting/scope-3/batch") &&
+    request.method() === "POST"
+  );
+  await page.getByRole("button", { name: "Import 1 validated rows" }).click();
+  const request = await requestPromise;
+  const payload = request.postDataJSON() as {
+    schema_version: string;
+    records: Array<Record<string, unknown>>;
+  };
+
+  expect(payload.schema_version).toBe("1.0");
+  expect(payload.records).toHaveLength(1);
+  expect(payload.records[0]).toMatchObject({
+    source_system: "xero",
+    external_transaction_id: "txn-1-001",
+    scope_3_category: 1,
+    reported_kg_co2e: "1000",
+    allocation_percentage: "75",
+    evidence_reference: "supplier-assurance-2026.pdf"
+  });
+
+  await expect(
+    page.getByRole("heading", { name: "Import reconciliation" })
+  ).toBeVisible();
+  await expect(page.getByText("The accepted records entered the governed emissions review queue.")).toBeVisible();
+  await expect(page.getByText("9f1d1c2fdbb70f6ea4f620f48ed9cfbff648901a205a4c524935730fcfaf4382")).toBeVisible();
+});
