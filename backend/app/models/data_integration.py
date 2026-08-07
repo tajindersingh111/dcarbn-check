@@ -485,3 +485,134 @@ class DataCalculationComparison(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     comparison_unavailable_reason: Mapped[str | None] = mapped_column(Text)
     absolute_delta_kg_co2e: Mapped[Decimal | None] = mapped_column(Numeric(30, 15))
     percentage_delta: Mapped[Decimal | None] = mapped_column(Numeric(18, 8))
+
+
+
+class DataAccountingConnection(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    __tablename__ = "data_accounting_connections"
+    __table_args__ = (
+        UniqueConstraint(
+            "tenant_id",
+            "provider",
+            "external_company_id",
+            name="uq_data_accounting_connection_company",
+        ),
+    )
+
+    tenant_id: Mapped[UUID] = mapped_column(
+        Uuid(as_uuid=True),
+        ForeignKey("tenants.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    organisation_id: Mapped[UUID] = mapped_column(
+        Uuid(as_uuid=True),
+        ForeignKey("organisations.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    external_customer_id: Mapped[str] = mapped_column(String(200), nullable=False)
+    provider: Mapped[str] = mapped_column(String(50), nullable=False, index=True)
+    external_company_id: Mapped[str] = mapped_column(String(200), nullable=False)
+    display_name: Mapped[str] = mapped_column(String(300), nullable=False)
+    status: Mapped[str] = mapped_column(
+        String(50),
+        nullable=False,
+        default="draft",
+        index=True,
+    )
+    secret_reference: Mapped[str | None] = mapped_column(String(500))
+    mapping_profile_version: Mapped[str] = mapped_column(
+        String(100),
+        nullable=False,
+    )
+    mapping_json: Mapped[dict[str, str]] = mapped_column(
+        JSON,
+        nullable=False,
+        default=dict,
+    )
+    last_cursor: Mapped[str | None] = mapped_column(String(1000))
+    last_synced_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True)
+    )
+    failure_code: Mapped[str | None] = mapped_column(String(100))
+    failure_message: Mapped[str | None] = mapped_column(Text)
+
+    sync_jobs = relationship(
+        "DataAccountingSyncJob",
+        back_populates="connection",
+        cascade="all, delete-orphan",
+    )
+
+
+class DataAccountingSyncJob(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    __tablename__ = "data_accounting_sync_jobs"
+    __table_args__ = (
+        UniqueConstraint(
+            "tenant_id",
+            "sync_identity",
+            name="uq_data_accounting_sync_identity",
+        ),
+    )
+
+    tenant_id: Mapped[UUID] = mapped_column(
+        Uuid(as_uuid=True),
+        ForeignKey("tenants.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    connection_id: Mapped[UUID] = mapped_column(
+        Uuid(as_uuid=True),
+        ForeignKey("data_accounting_connections.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    sync_identity: Mapped[str] = mapped_column(String(64), nullable=False)
+    cursor_before: Mapped[str | None] = mapped_column(String(1000))
+    cursor_after: Mapped[str | None] = mapped_column(String(1000))
+    requested_from: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True)
+    )
+    requested_to: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True)
+    )
+    status: Mapped[str] = mapped_column(
+        String(50),
+        nullable=False,
+        default="queued",
+        index=True,
+    )
+    records_received: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+        default=0,
+    )
+    records_imported: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+        default=0,
+    )
+    records_rejected: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+        default=0,
+    )
+    requested_by: Mapped[str] = mapped_column(String(200), nullable=False)
+    started_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True)
+    )
+    completed_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True)
+    )
+    failure_code: Mapped[str | None] = mapped_column(String(100))
+    failure_message: Mapped[str | None] = mapped_column(Text)
+    diagnostics_json: Mapped[dict[str, Any]] = mapped_column(
+        JSON,
+        nullable=False,
+        default=dict,
+    )
+
+    connection = relationship(
+        "DataAccountingConnection",
+        back_populates="sync_jobs",
+    )

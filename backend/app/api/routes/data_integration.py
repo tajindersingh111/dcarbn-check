@@ -13,8 +13,12 @@ from app.integrations.data.accounting_scope3 import (
 )
 from app.models.data_integration import DataRecordType
 from app.schemas.data_integration import (
+    DataAccountingConnectionCreate,
+    DataAccountingConnectionResponse,
     DataAccountingScope3Payload,
     DataAccountingScope3TemplateResponse,
+    DataAccountingSyncCreate,
+    DataAccountingSyncResponse,
     DataBatchRequest,
     DataClassificationConfirmRequest,
     DataFuelPayload,
@@ -29,6 +33,11 @@ from app.schemas.data_integration import (
     DataReconciliationResponse,
     DataShipmentPayload,
     DataVehiclePayload,
+)
+from app.services.accounting_connections import (
+    create_accounting_sync,
+    list_accounting_connections,
+    upsert_accounting_connection,
 )
 from app.services.data_integration import (
     confirm_operational_emission,
@@ -67,6 +76,61 @@ async def upsert_mapping(
 ) -> DataOrganisationMappingResponse:
     mapping = await create_mapping(db, principal, payload)
     return DataOrganisationMappingResponse.model_validate(mapping)
+
+
+@router.post(
+    "/accounting/connections",
+    response_model=DataAccountingConnectionResponse,
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[integration_writer],
+)
+async def upsert_connection(
+    payload: DataAccountingConnectionCreate,
+    principal: CurrentPrincipal = Depends(get_current_principal),
+    db: AsyncSession = Depends(get_db),
+) -> DataAccountingConnectionResponse:
+    connection = await upsert_accounting_connection(
+        db,
+        principal,
+        payload,
+    )
+    return DataAccountingConnectionResponse.model_validate(connection)
+
+
+@router.get(
+    "/accounting/connections",
+    response_model=list[DataAccountingConnectionResponse],
+)
+async def get_connections(
+    principal: CurrentPrincipal = Depends(get_current_principal),
+    db: AsyncSession = Depends(get_db),
+) -> list[DataAccountingConnectionResponse]:
+    connections = await list_accounting_connections(db, principal.tenant_id)
+    return [
+        DataAccountingConnectionResponse.model_validate(item)
+        for item in connections
+    ]
+
+
+@router.post(
+    "/accounting/connections/{connection_id}/syncs",
+    response_model=DataAccountingSyncResponse,
+    status_code=status.HTTP_202_ACCEPTED,
+    dependencies=[integration_writer],
+)
+async def queue_connection_sync(
+    connection_id: UUID,
+    payload: DataAccountingSyncCreate,
+    principal: CurrentPrincipal = Depends(get_current_principal),
+    db: AsyncSession = Depends(get_db),
+) -> DataAccountingSyncResponse:
+    job = await create_accounting_sync(
+        db,
+        principal,
+        connection_id,
+        payload,
+    )
+    return DataAccountingSyncResponse.model_validate(job)
 
 
 @router.get(

@@ -6,7 +6,7 @@ from enum import StrEnum
 from typing import Generic, TypeVar
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from app.models.data_integration import (
     DataClassificationStatus,
@@ -331,3 +331,86 @@ class DataReconciliationResponse(BaseModel):
     operational_emissions: int
     unclassified_operational_emissions: int
     linked_activities: int
+
+
+
+class DataAccountingConnectionCreate(BaseModel):
+    organisation_id: UUID
+    external_customer_id: str = Field(min_length=1, max_length=200)
+    provider: AccountingSourceSystem
+    external_company_id: str = Field(min_length=1, max_length=200)
+    display_name: str = Field(min_length=1, max_length=300)
+    secret_reference: str | None = Field(default=None, max_length=500)
+    mapping_profile_version: str = Field(min_length=1, max_length=100)
+    mapping: dict[str, str]
+
+    @field_validator("secret_reference")
+    @classmethod
+    def validate_secret_reference(cls, value: str | None) -> str | None:
+        if value is not None and not value.startswith(("secret://", "vault://")):
+            raise ValueError(
+                "secret_reference must be a secret-manager reference, not a credential"
+            )
+        return value
+
+
+class DataAccountingConnectionResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    tenant_id: UUID
+    organisation_id: UUID
+    external_customer_id: str
+    provider: str
+    external_company_id: str
+    display_name: str
+    status: str
+    mapping_profile_version: str
+    mapping_json: dict[str, str]
+    last_cursor: str | None
+    last_synced_at: datetime | None
+    failure_code: str | None
+    failure_message: str | None
+    created_at: datetime
+    updated_at: datetime
+
+
+class DataAccountingSyncCreate(BaseModel):
+    cursor: str | None = Field(default=None, max_length=1000)
+    requested_from: datetime | None = None
+    requested_to: datetime | None = None
+
+    @model_validator(mode="after")
+    def validate_window(self) -> "DataAccountingSyncCreate":
+        if (
+            self.requested_from is not None
+            and self.requested_to is not None
+            and self.requested_to < self.requested_from
+        ):
+            raise ValueError("requested_to must not precede requested_from")
+        return self
+
+
+class DataAccountingSyncResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    tenant_id: UUID
+    connection_id: UUID
+    sync_identity: str
+    cursor_before: str | None
+    cursor_after: str | None
+    requested_from: datetime | None
+    requested_to: datetime | None
+    status: str
+    records_received: int
+    records_imported: int
+    records_rejected: int
+    requested_by: str
+    started_at: datetime | None
+    completed_at: datetime | None
+    failure_code: str | None
+    failure_message: str | None
+    diagnostics_json: dict[str, object]
+    created_at: datetime
+    updated_at: datetime
