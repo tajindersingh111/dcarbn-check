@@ -4,18 +4,23 @@ from datetime import UTC, datetime
 from decimal import Decimal
 from uuid import UUID
 
-from fastapi import HTTPException, status
-from sqlalchemy import func, select
-from sqlalchemy.ext.asyncio import AsyncSession
-
 from app.auth.dependencies import CurrentPrincipal
 from app.calculations.engine import calculate_activity_factor_emissions, kg_to_tonnes
+from app.calculations.governed_methods import (
+    METHODS,
+    GovernedCalculationMethod,
+)
 from app.factors.resolution import (
     FactorResolutionCriteria,
     ResolutionOutcome,
     resolve_factor,
 )
-from app.models.activity import ActivityRecord, ActivityStatus, EmissionScope, Scope2Method
+from app.models.activity import (
+    ActivityRecord,
+    ActivityStatus,
+    EmissionScope,
+    Scope2Method,
+)
 from app.models.calculation import (
     CalculationMethod,
     CalculationResult,
@@ -32,7 +37,7 @@ from app.models.factor_resolution import (
     FactorResolutionRecord,
     ResolutionSource,
 )
-from app.models.inventory import Inventory, InventoryStatus
+from app.models.inventory import InventoryStatus
 from app.schemas.calculation import (
     CalculationRunCreate,
     InventoryCalculationSummary,
@@ -42,6 +47,9 @@ from app.schemas.calculation import (
 from app.services.activities import get_inventory
 from app.services.audit import record_audit_event
 from app.units.registry import get_unit_registry
+from fastapi import HTTPException, status
+from sqlalchemy import func, select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 
 async def create_and_execute_calculation_run(
@@ -154,6 +162,20 @@ async def calculate_activity(
     allow_previous_year: bool,
     allow_geography_fallback: bool,
 ) -> CalculationResult:
+    raw_method = activity.metadata_json.get("calculation_method_id")
+    if isinstance(raw_method, str):
+        try:
+            governed_method = GovernedCalculationMethod(raw_method)
+        except ValueError:
+            governed_method = None
+        if (
+            governed_method is not None
+            and METHODS[governed_method].direct_reported_result
+        ):
+            return _record_supplier_specific_result(
+                db, principal, run, activity, governed_method
+            )
+
     factor_query = (
         select(EmissionFactor)
         .join(EmissionFactorSet)
@@ -290,6 +312,61 @@ async def calculate_activity(
     return result
 
 
+def _record_supplier_specific_result(
+    db: AsyncSession,
+    principal: CurrentPrincipal,
+    run: CalculationRun,
+    activity: ActivityRecord,
+    governed_method: GovernedCalculationMethod,
+) -> CalculationResult:
+    """Record an evidence-backed supplier result without inventing a generic factor."""
+    calculation = calculate_activity_factor_emissions(
+        factor_activity_value=activity.activity_value,
+        factor_value=Decimal(1),
+        allocation_percentage=activity.allocation_percentage,
+    )
+    metadata = activity.metadata_json
+    result = CalculationResult(
+        tenant_id=principal.tenant_id,
+        calculation_run_id=run.id,
+        activity_id=activity.id,
+        factor_resolution_record_id=None,
+        selected_factor_id=None,
+        method=CalculationMethod.SUPPLIER_SPECIFIC_RESULT,
+        scope=activity.scope,
+        scope_3_category=activity.scope_3_category,
+        scope_2_method=activity.scope_2_method,
+        original_activity_value=activity.activity_value,
+        original_activity_unit=activity.activity_unit,
+        factor_activity_value=calculation.factor_activity_value,
+        factor_activity_unit="kgCO2e",
+        factor_value=calculation.factor_value,
+        allocation_percentage=calculation.allocation_percentage,
+        allocation_multiplier=calculation.allocation_multiplier,
+        gross_kg_co2e=calculation.gross_kg_co2e,
+        allocated_kg_co2e=calculation.allocated_kg_co2e,
+        calculation_formula=("supplier_reported_kg_co2e × allocation_percentage / 100"),
+        intermediate_values={
+            "calculation_method_id": governed_method.value,
+            "supplier_name": metadata["supplier_name"],
+            "supplier_methodology": metadata["supplier_methodology"],
+            "supplier_methodology_version": metadata["supplier_methodology_version"],
+            "supplier_reporting_period": metadata["supplier_reporting_period"],
+            "boundary_description": metadata["boundary_description"],
+            "assurance_status": metadata["assurance_status"],
+            "evidence_reference": activity.evidence_reference,
+        },
+        warnings=(
+            []
+            if metadata["assurance_status"] == "third_party_verified"
+            else ["supplier_specific_result_requires_independent_review"]
+        ),
+        methodology_version=str(metadata["supplier_methodology_version"]),
+    )
+    db.add(result)
+    return result
+
+
 async def get_calculation_run(
     db: AsyncSession,
     tenant_id: UUID,
@@ -332,7 +409,7 @@ async def summarize_calculation_run(
     grouped: dict[tuple[EmissionScope, int | None, Scope2Method], Decimal] = {}
     for result in results:
         key = (result.scope, result.scope_3_category, result.scope_2_method)
-        grouped[key] = grouped.get(key, Decimal("0")) + result.allocated_kg_co2e
+        grouped[key] = grouped.get(key, Decimal(0)) + result.allocated_kg_co2e
 
     items = [
         InventoryScopeSummaryItem(
@@ -371,7 +448,7 @@ def calculate_inventory_totals(
     scope_2_headline_basis: Scope2HeadlineBasis,
 ) -> dict[str, Decimal]:
     """Return disclosed scope totals and one non-double-counted corporate total."""
-    zero = Decimal("0")
+    zero = Decimal(0)
     scope_1 = sum(
         (item.kg_co2e for item in items if item.scope == EmissionScope.SCOPE_1),
         zero,

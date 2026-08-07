@@ -398,6 +398,51 @@ test("Category 9 downstream freight preserves mode and accounting classification
 });
 
 
+test("remaining Scope 3 categories submit supplier-specific lineage", async ({ page }) => {
+  for (const category of [1, 2, 8, 10, 11, 12, 13, 14, 15]) {
+    await page.goto("/activities/new");
+    const method = `scope3.category${category}.supplier_specific.reported_kgco2e.ghgp.v1`;
+    await page.getByLabel("Governed calculation method").selectOption(method);
+    await page.getByLabel("Description", { exact: true }).fill(`Supplier result for category ${category}`);
+    await page.getByLabel("Activity value").fill("1250");
+    await page.getByLabel("Supplier or investee").fill("Example supplier");
+    await page.getByLabel("Methodology", { exact: true }).fill("GHG Protocol supplier-specific method");
+    await page.getByLabel("Methodology version").fill("2026.1");
+    await page.getByLabel("Supplier reporting period").fill("2026");
+    await page.getByLabel("Lifecycle boundary description").fill("Cradle-to-gate attributable emissions");
+    await page.getByLabel("Assurance status").selectOption("third_party_verified");
+    await page.getByLabel("Evidence reference").fill(`supplier-evidence-${category}.pdf`);
+    await page.getByLabel("Source record ID").fill(`supplier-result-${category}-2026`);
+
+    const requestPromise = page.waitForRequest((request) =>
+      request.url().includes("/activities") && request.method() === "POST"
+    );
+    await page.getByRole("button", { name: "Save and validate" }).click();
+    const payload = (await requestPromise).postDataJSON() as Record<string, unknown>;
+    expect(payload).toMatchObject({
+      activity_type: "value_chain_result",
+      scope: "scope_3",
+      scope_3_category: category,
+      activity_value: "1250",
+      activity_unit: "kgCO2e",
+      factor_level_1: "Supplier-specific lifecycle result",
+      factor_level_2: `Category ${category}`,
+      lifecycle_boundary: "indirect_value_chain",
+      evidence_reference: `supplier-evidence-${category}.pdf`,
+      metadata_json: {
+        calculation_method_id: method,
+        supplier_name: "Example supplier",
+        supplier_methodology: "GHG Protocol supplier-specific method",
+        supplier_methodology_version: "2026.1",
+        supplier_reporting_period: "2026",
+        boundary_description: "Cradle-to-gate attributable emissions",
+        assurance_status: "third_party_verified"
+      }
+    });
+  }
+});
+
+
 
 test("Scope 1 DcarbN comparator method preserves delivery-van selectors", async ({ page }) => {
   await page.goto("/activities/new");

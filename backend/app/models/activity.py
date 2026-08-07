@@ -6,14 +6,15 @@ from enum import StrEnum
 from typing import Any
 from uuid import UUID
 
+from app.db.base import Base, TimestampMixin, UUIDPrimaryKeyMixin
 from sqlalchemy import (
+    JSON,
     Boolean,
     CheckConstraint,
     Date,
     Enum,
     ForeignKey,
     Integer,
-    JSON,
     Numeric,
     String,
     Text,
@@ -21,8 +22,6 @@ from sqlalchemy import (
     Uuid,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
-
-from app.db.base import Base, TimestampMixin, UUIDPrimaryKeyMixin
 
 
 class ActivityStatus(StrEnum):
@@ -43,6 +42,7 @@ class ActivityType(StrEnum):
     BUSINESS_TRAVEL = "business_travel"
     EMPLOYEE_COMMUTING = "employee_commuting"
     WASTE_GENERATED = "waste_generated"
+    VALUE_CHAIN_RESULT = "value_chain_result"
 
 
 class EmissionScope(StrEnum):

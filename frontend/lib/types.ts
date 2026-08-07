@@ -173,6 +173,12 @@ export interface ActivityFormValues {
   scope2ValidFrom: string;
   scope2ValidTo: string;
   scope2QualityCriteriaAttested: boolean;
+  supplierName: string;
+  supplierMethodology: string;
+  supplierMethodologyVersion: string;
+  supplierReportingPeriod: string;
+  supplierBoundaryDescription: string;
+  supplierAssuranceStatus: string;
   activityUnit: string;
   geographyCode: string;
   factorLevel1: string;

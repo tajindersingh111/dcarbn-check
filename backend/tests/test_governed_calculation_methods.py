@@ -1,7 +1,6 @@
 from decimal import Decimal
 
 import pytest
-
 from app.calculations.engine import calculate_activity_factor_emissions
 from app.calculations.governed_methods import (
     GovernedCalculationMethod,
@@ -22,19 +21,16 @@ def test_scope1_stationary_diesel_contract_and_golden_result() -> None:
         factor_level_4=None,
         factor_column_text=None,
         metadata_json={
-            "calculation_method_id":
-                "scope1.stationary_diesel.litres.uk_2026.v1"
+            "calculation_method_id": "scope1.stationary_diesel.litres.uk_2026.v1"
         },
     )
     result = calculate_activity_factor_emissions(
-        factor_activity_value=Decimal("1000"),
+        factor_activity_value=Decimal(1000),
         factor_value=Decimal("2.58354"),
-        allocation_percentage=Decimal("100"),
+        allocation_percentage=Decimal(100),
     )
 
-    assert method == (
-        GovernedCalculationMethod.SCOPE1_STATIONARY_DIESEL_LITRES_2026
-    )
+    assert method == (GovernedCalculationMethod.SCOPE1_STATIONARY_DIESEL_LITRES_2026)
     assert result.allocated_kg_co2e == Decimal("2583.54000")
 
 
@@ -50,19 +46,17 @@ def test_scope3_category4_freight_contract_and_golden_result() -> None:
         factor_level_4=None,
         factor_column_text="Diesel",
         metadata_json={
-            "calculation_method_id":
-                "scope3.category4.diesel_van.tonne_km.uk_2026.v1"
+            "calculation_method_id": "scope3.category4.diesel_van.tonne_km.uk_2026.v1"
         },
     )
     result = calculate_activity_factor_emissions(
-        factor_activity_value=Decimal("1000"),
+        factor_activity_value=Decimal(1000),
         factor_value=Decimal("0.87948"),
-        allocation_percentage=Decimal("100"),
+        allocation_percentage=Decimal(100),
     )
 
     assert method == (
-        GovernedCalculationMethod
-        .SCOPE3_CATEGORY4_DIESEL_VAN_TONNE_KM_2026
+        GovernedCalculationMethod.SCOPE3_CATEGORY4_DIESEL_VAN_TONNE_KM_2026
     )
     assert result.allocated_kg_co2e == Decimal("879.48000")
 
@@ -79,19 +73,17 @@ def test_scope3_category6_air_contract_and_golden_result() -> None:
         factor_level_4="Average passenger",
         factor_column_text="With RF",
         metadata_json={
-            "calculation_method_id":
-                "scope3.category6.domestic_air.with_rf.passenger_km.uk_2026.v1"
+            "calculation_method_id": "scope3.category6.domestic_air.with_rf.passenger_km.uk_2026.v1"
         },
     )
     result = calculate_activity_factor_emissions(
-        factor_activity_value=Decimal("1000"),
+        factor_activity_value=Decimal(1000),
         factor_value=Decimal("0.22928"),
-        allocation_percentage=Decimal("100"),
+        allocation_percentage=Decimal(100),
     )
 
     assert method == (
-        GovernedCalculationMethod
-        .SCOPE3_CATEGORY6_DOMESTIC_AIR_WITH_RF_2026
+        GovernedCalculationMethod.SCOPE3_CATEGORY6_DOMESTIC_AIR_WITH_RF_2026
     )
     assert result.allocated_kg_co2e == Decimal("229.28000")
 
@@ -112,8 +104,7 @@ def test_governed_method_rejects_wrong_scope_3_category() -> None:
             factor_level_4=None,
             factor_column_text="Diesel",
             metadata_json={
-                "calculation_method_id":
-                    "scope3.category4.diesel_van.tonne_km.uk_2026.v1"
+                "calculation_method_id": "scope3.category4.diesel_van.tonne_km.uk_2026.v1"
             },
         )
 
@@ -150,8 +141,7 @@ def test_governed_method_rejects_non_matching_unit() -> None:
             factor_level_4="Average passenger",
             factor_column_text="With RF",
             metadata_json={
-                "calculation_method_id":
-                    "scope3.category6.domestic_air.with_rf.passenger_km.uk_2026.v1"
+                "calculation_method_id": "scope3.category6.domestic_air.with_rf.passenger_km.uk_2026.v1"
             },
         )
 
@@ -168,16 +158,15 @@ def test_scope2_location_electricity_contract_and_2026_golden_result() -> None:
         factor_level_4=None,
         factor_column_text=None,
         metadata_json={
-            "calculation_method_id":
-                "scope2.location_electricity.kwh.uk_2026.v1"
+            "calculation_method_id": "scope2.location_electricity.kwh.uk_2026.v1"
         },
-        activity_value=Decimal("1000"),
+        activity_value=Decimal(1000),
         scope_2_method=Scope2Method.LOCATION_BASED,
     )
     result = calculate_activity_factor_emissions(
-        factor_activity_value=Decimal("1000"),
+        factor_activity_value=Decimal(1000),
         factor_value=Decimal("0.13096"),
-        allocation_percentage=Decimal("100"),
+        allocation_percentage=Decimal(100),
     )
 
     assert method == GovernedCalculationMethod.SCOPE2_LOCATION_ELECTRICITY_KWH_2026
@@ -197,10 +186,9 @@ def test_scope2_location_method_rejects_market_based_classification() -> None:
             factor_level_4=None,
             factor_column_text=None,
             metadata_json={
-                "calculation_method_id":
-                    "scope2.location_electricity.kwh.uk_2026.v1"
+                "calculation_method_id": "scope2.location_electricity.kwh.uk_2026.v1"
             },
-            activity_value=Decimal("1000"),
+            activity_value=Decimal(1000),
             scope_2_method=Scope2Method.MARKET_BASED,
         )
 
@@ -217,23 +205,22 @@ def test_scope1_hfc134a_mass_balance_contract_and_2026_golden_result() -> None:
         factor_level_4=None,
         factor_column_text="Emissions including only Kyoto products",
         metadata_json={
-            "calculation_method_id":
-                "scope1.refrigerant.hfc134a.mass_balance.kg.uk_2026.v1",
+            "calculation_method_id": "scope1.refrigerant.hfc134a.mass_balance.kg.uk_2026.v1",
             "opening_stock_kg": "100",
             "purchases_kg": "25",
             "closing_stock_kg": "110",
             "recovered_kg": "5",
         },
-        activity_value=Decimal("10"),
+        activity_value=Decimal(10),
     )
     result = calculate_activity_factor_emissions(
-        factor_activity_value=Decimal("10"),
-        factor_value=Decimal("1300"),
-        allocation_percentage=Decimal("100"),
+        factor_activity_value=Decimal(10),
+        factor_value=Decimal(1300),
+        allocation_percentage=Decimal(100),
     )
 
     assert method == GovernedCalculationMethod.SCOPE1_HFC134A_MASS_BALANCE_KG_2026
-    assert result.allocated_kg_co2e == Decimal("13000")
+    assert result.allocated_kg_co2e == Decimal(13000)
 
 
 def test_refrigerant_mass_balance_rejects_activity_value_mismatch() -> None:
@@ -249,38 +236,69 @@ def test_refrigerant_mass_balance_rejects_activity_value_mismatch() -> None:
             factor_level_4=None,
             factor_column_text="Emissions including only Kyoto products",
             metadata_json={
-                "calculation_method_id":
-                    "scope1.refrigerant.hfc134a.mass_balance.kg.uk_2026.v1",
+                "calculation_method_id": "scope1.refrigerant.hfc134a.mass_balance.kg.uk_2026.v1",
                 "opening_stock_kg": "100",
                 "purchases_kg": "25",
                 "closing_stock_kg": "110",
                 "recovered_kg": "5",
             },
-            activity_value=Decimal("11"),
+            activity_value=Decimal(11),
         )
 
 
 @pytest.mark.parametrize(
-    ("method_id", "activity_type", "category", "unit", "level_1", "level_2",
-     "level_3", "column_text", "boundary", "factor", "expected"),
+    (
+        "method_id",
+        "activity_type",
+        "category",
+        "unit",
+        "level_1",
+        "level_2",
+        "level_3",
+        "column_text",
+        "boundary",
+        "factor",
+        "expected",
+    ),
     [
         (
             "scope3.category3.diesel_wtt.litres.uk_2026.v1",
-            ActivityType.STATIONARY_COMBUSTION, 3, "litres", "WTT- fuels",
-            "Liquid fuels", "Diesel (average biofuel blend)", None,
-            "well_to_tank", "0.61101", "611.01000",
+            ActivityType.STATIONARY_COMBUSTION,
+            3,
+            "litres",
+            "WTT- fuels",
+            "Liquid fuels",
+            "Diesel (average biofuel blend)",
+            None,
+            "well_to_tank",
+            "0.61101",
+            "611.01000",
         ),
         (
             "scope3.category5.commercial_waste.landfill.tonnes.uk_2026.v1",
-            ActivityType.WASTE_GENERATED, 5, "tonnes", "Waste disposal",
-            "Refuse", "Commercial and industrial waste", "Landfill",
-            "indirect_value_chain", "520.58023", "520580.23000",
+            ActivityType.WASTE_GENERATED,
+            5,
+            "tonnes",
+            "Waste disposal",
+            "Refuse",
+            "Commercial and industrial waste",
+            "Landfill",
+            "indirect_value_chain",
+            "520.58023",
+            "520580.23000",
         ),
         (
             "scope3.category7.average_car.unknown_fuel.km.uk_2026.v1",
-            ActivityType.EMPLOYEE_COMMUTING, 7, "km", "Business travel- land",
-            "Cars (by size)", "Average car", "Unknown",
-            "indirect_value_chain", "0.16591", "165.91000",
+            ActivityType.EMPLOYEE_COMMUTING,
+            7,
+            "km",
+            "Business travel- land",
+            "Cars (by size)",
+            "Average car",
+            "Unknown",
+            "indirect_value_chain",
+            "0.16591",
+            "165.91000",
         ),
     ],
 )
@@ -311,9 +329,9 @@ def test_scope3_2026_category_contracts_and_golden_results(
         lifecycle_boundary=boundary,
     )
     result = calculate_activity_factor_emissions(
-        factor_activity_value=Decimal("1000"),
+        factor_activity_value=Decimal(1000),
         factor_value=Decimal(factor),
-        allocation_percentage=Decimal("100"),
+        allocation_percentage=Decimal(100),
     )
 
     assert method.value == method_id
@@ -333,8 +351,7 @@ def test_scope3_governed_method_rejects_wrong_lifecycle_boundary() -> None:
             factor_level_4=None,
             factor_column_text=None,
             metadata_json={
-                "calculation_method_id":
-                    "scope3.category3.diesel_wtt.litres.uk_2026.v1"
+                "calculation_method_id": "scope3.category3.diesel_wtt.litres.uk_2026.v1"
             },
             lifecycle_boundary="direct",
         )
@@ -345,18 +362,27 @@ def test_scope3_governed_method_rejects_wrong_lifecycle_boundary() -> None:
     [
         (
             "scope3.category9.average_diesel_van.tonne_km.uk_2026.v1",
-            "Vans", "Average (up to 3.5 tonnes)", "Diesel",
-            "0.63511", "635.11000",
+            "Vans",
+            "Average (up to 3.5 tonnes)",
+            "Diesel",
+            "0.63511",
+            "635.11000",
         ),
         (
             "scope3.category9.average_non_refrigerated_hgv.average_laden.tonne_km.uk_2026.v1",
             "HGV (non-refrigerated, all diesel)",
-            "Average non-refrigerated HGVs", "Average laden",
-            "0.10356", "103.56000",
+            "Average non-refrigerated HGVs",
+            "Average laden",
+            "0.10356",
+            "103.56000",
         ),
         (
             "scope3.category9.rail_freight.tonne_km.uk_2026.v1",
-            "Rail", "Freight train", None, "0.02583", "25.83000",
+            "Rail",
+            "Freight train",
+            None,
+            "0.02583",
+            "25.83000",
         ),
     ],
 )
@@ -382,9 +408,9 @@ def test_scope3_category9_downstream_freight_golden_results(
         lifecycle_boundary="indirect_value_chain",
     )
     result = calculate_activity_factor_emissions(
-        factor_activity_value=Decimal("1000"),
+        factor_activity_value=Decimal(1000),
         factor_value=Decimal(factor),
-        allocation_percentage=Decimal("100"),
+        allocation_percentage=Decimal(100),
     )
 
     assert method.value == method_id
@@ -404,12 +430,82 @@ def test_scope3_category9_cannot_be_misclassified_as_upstream_freight() -> None:
             factor_level_4=None,
             factor_column_text=None,
             metadata_json={
-                "calculation_method_id":
-                    "scope3.category9.rail_freight.tonne_km.uk_2026.v1"
+                "calculation_method_id": "scope3.category9.rail_freight.tonne_km.uk_2026.v1"
             },
             lifecycle_boundary="indirect_value_chain",
         )
 
+
+@pytest.mark.parametrize("category", [1, 2, 8, 10, 11, 12, 13, 14, 15])
+def test_remaining_scope3_categories_accept_evidence_backed_supplier_results(
+    category: int,
+) -> None:
+    labels = {
+        1: "Purchased goods and services",
+        2: "Capital goods",
+        8: "Upstream leased assets",
+        10: "Processing of sold products",
+        11: "Use of sold products",
+        12: "End-of-life treatment of sold products",
+        13: "Downstream leased assets",
+        14: "Franchises",
+        15: "Investments",
+    }
+    method_id = f"scope3.category{category}.supplier_specific.reported_kgco2e.ghgp.v1"
+    method = validate_governed_method(
+        activity_type=ActivityType.VALUE_CHAIN_RESULT,
+        scope=EmissionScope.SCOPE_3,
+        scope_3_category=category,
+        activity_unit="kgCO2e",
+        factor_level_1="Supplier-specific lifecycle result",
+        factor_level_2=f"Category {category}",
+        factor_level_3=labels[category],
+        factor_level_4=None,
+        factor_column_text=None,
+        metadata_json={
+            "calculation_method_id": method_id,
+            "supplier_name": "Example supplier",
+            "supplier_methodology": "GHG Protocol Scope 3 supplier-specific method",
+            "supplier_methodology_version": "2026.1",
+            "supplier_reporting_period": "2026",
+            "boundary_description": "Cradle-to-gate emissions attributable to customer",
+            "assurance_status": "third_party_verified",
+        },
+        lifecycle_boundary="indirect_value_chain",
+        evidence_reference="supplier-inventory-2026.pdf",
+    )
+    result = calculate_activity_factor_emissions(
+        factor_activity_value=Decimal(1000),
+        factor_value=Decimal(1),
+        allocation_percentage=Decimal(75),
+    )
+
+    assert method.value == method_id
+    assert result.allocated_kg_co2e == Decimal("750.00000")
+
+
+def test_supplier_specific_scope3_result_rejects_missing_lineage() -> None:
+    with pytest.raises(ValueError, match="supplier_methodology_version"):
+        validate_governed_method(
+            activity_type=ActivityType.VALUE_CHAIN_RESULT,
+            scope=EmissionScope.SCOPE_3,
+            scope_3_category=1,
+            activity_unit="kgCO2e",
+            factor_level_1="Supplier-specific lifecycle result",
+            factor_level_2="Category 1",
+            factor_level_3="Purchased goods and services",
+            factor_level_4=None,
+            factor_column_text=None,
+            metadata_json={
+                "calculation_method_id": (
+                    "scope3.category1.supplier_specific.reported_kgco2e.ghgp.v1"
+                ),
+                "supplier_name": "Example supplier",
+                "supplier_methodology": "GHG Protocol supplier-specific method",
+            },
+            lifecycle_boundary="indirect_value_chain",
+            evidence_reference="supplier-inventory-2026.pdf",
+        )
 
 
 def test_scope1_class1_diesel_van_km_2026_golden_result() -> None:
@@ -424,14 +520,13 @@ def test_scope1_class1_diesel_van_km_2026_golden_result() -> None:
         factor_level_4=None,
         factor_column_text="Diesel",
         metadata_json={
-            "calculation_method_id":
-                "scope1.mobile_combustion.delivery_van.class1.diesel.km.uk_2026.v1"
+            "calculation_method_id": "scope1.mobile_combustion.delivery_van.class1.diesel.km.uk_2026.v1"
         },
     )
     result = calculate_activity_factor_emissions(
-        factor_activity_value=Decimal("1000"),
+        factor_activity_value=Decimal(1000),
         factor_value=Decimal("0.15833"),
-        allocation_percentage=Decimal("100"),
+        allocation_percentage=Decimal(100),
     )
 
     assert method == GovernedCalculationMethod.SCOPE1_CLASS1_DIESEL_VAN_KM_2026
@@ -451,7 +546,6 @@ def test_scope1_mobile_method_rejects_scope3_classification() -> None:
             factor_level_4=None,
             factor_column_text="Diesel",
             metadata_json={
-                "calculation_method_id":
-                    "scope1.mobile_combustion.delivery_van.class1.diesel.km.uk_2026.v1"
+                "calculation_method_id": "scope1.mobile_combustion.delivery_van.class1.diesel.km.uk_2026.v1"
             },
         )

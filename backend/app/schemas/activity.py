@@ -4,8 +4,6 @@ from datetime import date, datetime
 from decimal import Decimal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
-
 from app.calculations.governed_methods import validate_governed_method
 from app.calculations.scope2_reporting import validate_market_based_evidence
 from app.models.activity import (
@@ -15,6 +13,7 @@ from app.models.activity import (
     EmissionScope,
     Scope2Method,
 )
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 class ActivityCreate(BaseModel):
@@ -50,7 +49,7 @@ class ActivityCreate(BaseModel):
     metadata_json: dict[str, object] = Field(default_factory=dict)
 
     @model_validator(mode="after")
-    def validate_scope(self) -> "ActivityCreate":
+    def validate_scope(self) -> ActivityCreate:
         if self.scope == EmissionScope.SCOPE_3 and self.scope_3_category is None:
             raise ValueError("scope_3_category is required for Scope 3 activities")
         if self.scope != EmissionScope.SCOPE_3 and self.scope_3_category is not None:
@@ -83,6 +82,7 @@ class ActivityCreate(BaseModel):
             activity_value=self.activity_value,
             scope_2_method=self.scope_2_method,
             lifecycle_boundary=self.lifecycle_boundary,
+            evidence_reference=self.evidence_reference,
         )
         return self
 

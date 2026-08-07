@@ -27,6 +27,18 @@ interface GovernedMethodOption {
   lifecycleBoundary: string;
 }
 
+const supplierSpecificScope3Categories = [
+  [1, "Purchased goods and services"],
+  [2, "Capital goods"],
+  [8, "Upstream leased assets"],
+  [10, "Processing of sold products"],
+  [11, "Use of sold products"],
+  [12, "End-of-life treatment of sold products"],
+  [13, "Downstream leased assets"],
+  [14, "Franchises"],
+  [15, "Investments"],
+] as const;
+
 const governedMethods: GovernedMethodOption[] = [
   {
     id: "scope1.mobile_combustion.delivery_van.class1.diesel.km.uk_2026.v1",
@@ -196,6 +208,20 @@ const governedMethods: GovernedMethodOption[] = [
     factorColumnText: "With RF",
     lifecycleBoundary: "",
   },
+  ...supplierSpecificScope3Categories.map(([category, label]) => ({
+    id: `scope3.category${category}.supplier_specific.reported_kgco2e.ghgp.v1`,
+    label: `Scope 3 category ${category} · ${label} · supplier-specific kgCO₂e`,
+    activityType: "value_chain_result",
+    scope: "scope_3",
+    scope3Category: String(category),
+    activityUnit: "kgCO2e",
+    factorLevel1: "Supplier-specific lifecycle result",
+    factorLevel2: `Category ${category}`,
+    factorLevel3: label,
+    factorLevel4: "",
+    factorColumnText: "",
+    lifecycleBoundary: "indirect_value_chain",
+  })),
 ];
 
 const blankValues: ActivityFormValues = {
@@ -221,6 +247,12 @@ const blankValues: ActivityFormValues = {
   scope2ValidFrom: "",
   scope2ValidTo: "",
   scope2QualityCriteriaAttested: false,
+  supplierName: "",
+  supplierMethodology: "",
+  supplierMethodologyVersion: "",
+  supplierReportingPeriod: "",
+  supplierBoundaryDescription: "",
+  supplierAssuranceStatus: "not_assured",
   activityUnit: "litres",
   geographyCode: "GB",
   factorLevel1: "Fuels",
@@ -243,6 +275,9 @@ export function ActivityForm() {
   const [values, setValues] = useState(blankValues);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const isSupplierSpecificResult = values.calculationMethodId.includes(
+    ".supplier_specific.reported_kgco2e."
+  );
   const [submitting, setSubmitting] = useState(false);
 
   const filteredInventories = useMemo(
@@ -382,6 +417,16 @@ export function ActivityForm() {
                     quality_criteria_attested:
                       values.scope2QualityCriteriaAttested
                   }
+                : {}),
+              ...(isSupplierSpecificResult
+                ? {
+                    supplier_name: values.supplierName,
+                    supplier_methodology: values.supplierMethodology,
+                    supplier_methodology_version: values.supplierMethodologyVersion,
+                    supplier_reporting_period: values.supplierReportingPeriod,
+                    boundary_description: values.supplierBoundaryDescription,
+                    assurance_status: values.supplierAssuranceStatus
+                  }
                 : {})
             }
           })
@@ -514,6 +559,7 @@ export function ActivityForm() {
               <option value="business_travel">Business travel</option>
               <option value="employee_commuting">Employee commuting</option>
               <option value="waste_generated">Waste generated in operations</option>
+              <option value="value_chain_result">Supplier-specific value-chain result</option>
             </select>
           </label>
           <label>
@@ -598,6 +644,20 @@ export function ActivityForm() {
               </select>
             </label>
           ) : null}
+          {isSupplierSpecificResult ? (
+            <>
+              <div className="lineage-card field-span-2">
+                <strong>Supplier-specific lifecycle result</strong>
+                <p>Enter the reported kgCO₂e and retain the supplier methodology, boundary and evidence. The platform will not substitute a generic government factor.</p>
+              </div>
+              <label>Supplier or investee<input onChange={(event) => update("supplierName", event.target.value)} required value={values.supplierName} /></label>
+              <label>Methodology<input onChange={(event) => update("supplierMethodology", event.target.value)} required value={values.supplierMethodology} /></label>
+              <label>Methodology version<input onChange={(event) => update("supplierMethodologyVersion", event.target.value)} required value={values.supplierMethodologyVersion} /></label>
+              <label>Supplier reporting period<input onChange={(event) => update("supplierReportingPeriod", event.target.value)} required value={values.supplierReportingPeriod} /></label>
+              <label className="field-span-2">Lifecycle boundary description<input onChange={(event) => update("supplierBoundaryDescription", event.target.value)} required value={values.supplierBoundaryDescription} /></label>
+              <label>Assurance status<select onChange={(event) => update("supplierAssuranceStatus", event.target.value)} value={values.supplierAssuranceStatus}><option value="not_assured">Not assured</option><option value="limited_assurance">Limited assurance</option><option value="reasonable_assurance">Reasonable assurance</option><option value="third_party_verified">Third-party verified</option></select></label>
+            </>
+          ) : null}
         </div>
       </section>
 
@@ -661,6 +721,7 @@ export function ActivityForm() {
               <option value="passenger.km">Passenger-km</option>
               <option value="vehicle-km">Vehicle-km</option>
               <option value="kg">kg</option>
+              <option value="kgCO2e">kgCO₂e</option>
               <option value="tonnes">Tonnes</option>
               <option value="km">km</option>
             </select>

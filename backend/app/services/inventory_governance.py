@@ -5,16 +5,13 @@ from datetime import UTC, datetime
 from decimal import Decimal
 from uuid import UUID
 
-from fastapi import HTTPException, status
-from sqlalchemy import func, or_, select
-from sqlalchemy.ext.asyncio import AsyncSession
-
 from app.auth.dependencies import CurrentPrincipal
 from app.calculations.scope2_reporting import validate_market_based_evidence
 from app.integrations.data.hashing import canonical_json_sha256
 from app.models.activity import ActivityRecord, EmissionScope, Scope2Method
 from app.models.boundary import BoundaryStatus, OrganisationalBoundary
 from app.models.calculation import (
+    CalculationMethod,
     CalculationResult,
     CalculationRun,
     CalculationRunStatus,
@@ -43,6 +40,9 @@ from app.services.scope3_governance import (
     scope3_disposition_payload,
     scope3_dispositions_are_approved,
 )
+from fastapi import HTTPException, status
+from sqlalchemy import func, or_, select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 
 def _assess_assurance_readiness(
@@ -133,6 +133,8 @@ def _assess_assurance_readiness(
         "blockers": blockers,
         "external_assurance_required": True,
     }
+
+
 async def _get_inventory(
     db: AsyncSession,
     tenant_id: UUID,
@@ -1344,7 +1346,15 @@ async def _build_audit_report_payload(
         for result in results
     )
     result_lineage_complete = all(
-        result.selected_factor_id is not None
+        (
+            result.selected_factor_id is not None
+            or (
+                result.method == CalculationMethod.SUPPLIER_SPECIFIC_RESULT
+                and bool(result.intermediate_values.get("evidence_reference"))
+                and bool(result.intermediate_values.get("supplier_methodology"))
+                and bool(result.intermediate_values.get("boundary_description"))
+            )
+        )
         and result.factor_value is not None
         and bool(result.calculation_formula)
         and bool(result.methodology_version)

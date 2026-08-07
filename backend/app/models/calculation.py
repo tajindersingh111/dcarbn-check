@@ -6,12 +6,14 @@ from enum import StrEnum
 from typing import Any
 from uuid import UUID
 
+from app.db.base import Base, TimestampMixin, UUIDPrimaryKeyMixin
+from app.models.activity import EmissionScope, Scope2Method
 from sqlalchemy import (
+    JSON,
     DateTime,
     Enum,
     ForeignKey,
     Integer,
-    JSON,
     Numeric,
     String,
     Text,
@@ -19,9 +21,6 @@ from sqlalchemy import (
     Uuid,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
-
-from app.db.base import Base, TimestampMixin, UUIDPrimaryKeyMixin
-from app.models.activity import EmissionScope, Scope2Method
 
 
 class CalculationRunStatus(StrEnum):
@@ -36,6 +35,7 @@ class CalculationRunStatus(StrEnum):
 class CalculationMethod(StrEnum):
     ACTIVITY_FACTOR = "activity_factor"
     EXTERNAL_OPERATIONAL_RESULT = "external_operational_result"
+    SUPPLIER_SPECIFIC_RESULT = "supplier_specific_result"
 
 
 class CalculationRun(UUIDPrimaryKeyMixin, TimestampMixin, Base):
