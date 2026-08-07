@@ -128,6 +128,49 @@ export async function installApiFixtures(page: Page): Promise<void> {
     if (path.endsWith("/activities") && method === "POST") {
       return route.fulfill({ status: 201, json: { id: "activity-1" } });
     }
+    if (path === "/integrations/data/accounting/connections" && method === "GET") {
+      return route.fulfill({ json: [{
+        id: "77777777-7777-7777-7777-777777777777",
+        tenant_id: organisation.tenant_id,
+        organisation_id: organisation.id,
+        external_customer_id: "customer-1042",
+        provider: "xero",
+        external_company_id: "northstar-xero",
+        display_name: "Xero · UK entity",
+        status: "active",
+        mapping_profile_version: "2026.1",
+        mapping_json: {},
+        last_cursor: "cursor-12",
+        last_synced_at: "2026-08-07T08:00:00Z",
+        failure_code: null,
+        failure_message: null,
+        created_at: "2026-08-01T00:00:00Z",
+        updated_at: "2026-08-07T08:00:00Z"
+      }]});
+    }
+    if (path === "/integrations/data/accounting/connections" && method === "POST") {
+      const payload = request.postDataJSON() as Record<string, unknown>;
+      return route.fulfill({ status: 201, json: {
+        ...payload,
+        id: "88888888-8888-8888-8888-888888888888",
+        tenant_id: organisation.tenant_id,
+        status: "draft",
+        last_synced_at: null,
+        failure_code: null,
+        failure_message: null,
+        created_at: "2026-08-07T09:00:00Z",
+        updated_at: "2026-08-07T09:00:00Z"
+      }});
+    }
+    if (
+      path === "/integrations/data/accounting/connections/77777777-7777-7777-7777-777777777777/syncs" &&
+      method === "POST"
+    ) {
+      return route.fulfill({ status: 202, json: {
+        id: "99999999-9999-9999-9999-999999999999",
+        status: "queued"
+      }});
+    }
     if (
       path === "/integrations/data/accounting/scope-3/template" &&
       method === "GET"

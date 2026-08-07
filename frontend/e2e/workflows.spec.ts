@@ -521,3 +521,52 @@ test("customer maps validates and reconciles an accounting import", async ({ pag
   await expect(page.getByText("The accepted records entered the governed emissions review queue.")).toBeVisible();
   await expect(page.getByText("9f1d1c2fdbb70f6ea4f620f48ed9cfbff648901a205a4c524935730fcfaf4382")).toBeVisible();
 });
+
+
+test("connected systems register safe profiles and start authorised syncs", async ({ page }) => {
+  await page.goto("/connected-systems");
+
+  await expect(page.getByRole("heading", { name: "Connected systems" })).toBeVisible();
+  await expect(page.getByText("Xero · UK entity")).toBeVisible();
+  await expect(page.getByText("1", { exact: true }).first()).toBeVisible();
+
+  const syncRequest = page.waitForRequest((request) =>
+    request.url().endsWith(
+      "/integrations/data/accounting/connections/77777777-7777-7777-7777-777777777777/syncs"
+    ) && request.method() === "POST"
+  );
+  await page.getByRole("button", { name: "Sync now" }).click();
+  await syncRequest;
+  await expect(page.getByText(/Synchronisation job .* is queued/)).toBeVisible();
+
+  await page.getByRole("button", { name: "Set up" }).first().click();
+  await expect(page.getByRole("heading", { name: "Register QuickBooks" })).toBeVisible();
+  await page.getByLabel("Reporting organisation").selectOption("11111111-1111-1111-1111-111111111111");
+  await page.getByLabel("Connection name").fill("QuickBooks · UK entity");
+  await page.getByLabel("Customer reference").fill("customer-1042");
+  await page.getByLabel("External company ID").fill("northstar-qb");
+
+  const createRequest = page.waitForRequest((request) =>
+    request.url().endsWith("/integrations/data/accounting/connections") &&
+    request.method() === "POST"
+  );
+  await page.getByRole("button", { name: "Register connection" }).click();
+  const created = await createRequest;
+  const payload = created.postDataJSON() as Record<string, unknown>;
+
+  expect(payload).toMatchObject({
+    organisation_id: "11111111-1111-1111-1111-111111111111",
+    provider: "quickbooks",
+    external_company_id: "northstar-qb",
+    mapping_profile_version: "2026.1"
+  });
+  expect(payload).not.toHaveProperty("password");
+  expect(payload).not.toHaveProperty("access_token");
+  expect(payload).not.toHaveProperty("secret_reference");
+  await expect(page.getByText(/QuickBooks has been registered safely/)).toBeVisible();
+
+  await expect(page.getByRole("link", { name: "Open CSV import" })).toHaveAttribute(
+    "href",
+    "/data-imports"
+  );
+});

@@ -44,6 +44,7 @@ const navigation: NavigationItem[] = [
   { href: "/inventories", label: "Inventories", icon: InventoryIcon, isVisible: everyUser },
   { href: "/activities/new", label: "Activity entry", icon: ActivityIcon, isVisible: everyUser },
   { href: "/data-imports", label: "Data imports", icon: UploadIcon, isVisible: everyUser },
+  { href: "/connected-systems", label: "Connected systems", icon: UploadIcon, isVisible: everyUser },
   { href: "/scope-3-screening", label: "Scope 3 screening", icon: ReviewIcon, isVisible: everyUser },
   { href: "/data-reviews", label: "DATa review", icon: ReviewIcon, isVisible: everyUser },
   { href: "/approvals", label: "Approvals", icon: ApprovalIcon, isVisible: everyUser },
