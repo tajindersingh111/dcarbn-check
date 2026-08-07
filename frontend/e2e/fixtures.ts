@@ -128,6 +128,30 @@ export async function installApiFixtures(page: Page): Promise<void> {
     if (path.endsWith("/activities") && method === "POST") {
       return route.fulfill({ status: 201, json: { id: "activity-1" } });
     }
+    if (path === "/integrations/data/accounting/syncs" && method === "GET") {
+      return route.fulfill({ json: [{
+        id: "99999999-9999-9999-9999-999999999999",
+        tenant_id: organisation.tenant_id,
+        connection_id: "77777777-7777-7777-7777-777777777777",
+        sync_identity: "3768f943c6b5d642bd96dcdf346fb9673efc41073f80fd4129db3d5aacc9204a",
+        cursor_before: "cursor-11",
+        cursor_after: "cursor-12",
+        requested_from: "2026-01-01T00:00:00Z",
+        requested_to: "2026-06-30T23:59:59Z",
+        status: "completed",
+        records_received: 148,
+        records_imported: 143,
+        records_rejected: 5,
+        requested_by: "e2e-user",
+        started_at: "2026-08-07T07:58:00Z",
+        completed_at: "2026-08-07T08:00:00Z",
+        failure_code: null,
+        failure_message: null,
+        diagnostics_json: { mapping_profile_version: "2026.1" },
+        created_at: "2026-08-07T07:58:00Z",
+        updated_at: "2026-08-07T08:00:00Z"
+      }]});
+    }
     if (path === "/integrations/data/accounting/connections" && method === "GET") {
       return route.fulfill({ json: [{
         id: "77777777-7777-7777-7777-777777777777",

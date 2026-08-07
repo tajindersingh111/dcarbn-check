@@ -1750,3 +1750,43 @@ textarea {
   .connection-form { grid-template-columns: 1fr; }
   .connection-form-actions { align-items: stretch; flex-direction: column; gap: .75rem; }
 }
+
+
+/* Accounting synchronisation reconciliation */
+.sync-history-list { display: grid; gap: .75rem; }
+.sync-history-row {
+  align-items: center;
+  border: 1px solid var(--colour-border);
+  border-radius: .9rem;
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: minmax(12rem, 1fr) auto minmax(18rem, 1.4fr) auto;
+  padding: 1rem;
+}
+.sync-history-row > div:first-child,
+.sync-lineage {
+  display: flex;
+  flex-direction: column;
+  gap: .25rem;
+}
+.sync-history-row span { color: var(--colour-text-muted); font-size: .82rem; }
+.sync-counts { display: flex; gap: 1rem; justify-content: flex-end; }
+.sync-counts span { white-space: nowrap; }
+.sync-counts strong { color: var(--brand-primary); font-size: 1rem; }
+.sync-lineage code {
+  background: var(--colour-surface-muted);
+  border-radius: .35rem;
+  color: var(--brand-primary);
+  font-size: .75rem;
+  padding: .2rem .35rem;
+}
+.sync-history-row > .field-error { grid-column: 1 / -1; margin: 0; }
+@media (max-width: 980px) {
+  .sync-history-row { grid-template-columns: 1fr auto; }
+  .sync-counts,
+  .sync-lineage { grid-column: 1 / -1; justify-content: flex-start; }
+  .sync-lineage { align-items: flex-start; }
+}
+@media (max-width: 640px) {
+  .sync-counts { flex-direction: column; gap: .3rem; }
+}

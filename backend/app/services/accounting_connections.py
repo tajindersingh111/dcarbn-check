@@ -105,6 +105,24 @@ async def list_accounting_connections(
     return list(items)
 
 
+async def list_accounting_syncs(
+    db: AsyncSession,
+    tenant_id: UUID,
+    connection_id: UUID | None = None,
+) -> list[DataAccountingSyncJob]:
+    statement = select(DataAccountingSyncJob).where(
+        DataAccountingSyncJob.tenant_id == tenant_id
+    )
+    if connection_id is not None:
+        statement = statement.where(
+            DataAccountingSyncJob.connection_id == connection_id
+        )
+    items = await db.scalars(
+        statement.order_by(DataAccountingSyncJob.created_at.desc())
+    )
+    return list(items)
+
+
 async def create_accounting_sync(
     db: AsyncSession,
     principal: CurrentPrincipal,

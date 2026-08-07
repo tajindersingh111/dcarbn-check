@@ -24,7 +24,22 @@ interface Connection {
   failure_code: string | null;
   failure_message: string | null;
 }
-interface SyncJob { id: string; status: string; }
+interface SyncJob {
+  id: string;
+  connection_id: string;
+  sync_identity: string;
+  status: string;
+  records_received: number;
+  records_imported: number;
+  records_rejected: number;
+  requested_from: string | null;
+  requested_to: string | null;
+  started_at: string | null;
+  completed_at: string | null;
+  failure_code: string | null;
+  failure_message: string | null;
+  created_at: string;
+}
 
 const providers: Array<{ id: Provider | "csv"; name: string; description: string }> = [
   { id: "quickbooks", name: "QuickBooks", description: "Import governed purchase and supplier records." },
@@ -50,6 +65,7 @@ function providerName(value: string): string {
 
 export default function ConnectedSystemsPage() {
   const connections = useApiQuery<Connection[]>("/integrations/data/accounting/connections");
+  const syncs = useApiQuery<SyncJob[]>("/integrations/data/accounting/syncs");
   const organisations = useApiQuery<ListResponse<Organisation>>("/organisations?limit=200");
   const [selectedProvider, setSelectedProvider] = useState<Provider | null>(null);
   const [saving, setSaving] = useState(false);
@@ -104,7 +120,7 @@ export default function ConnectedSystemsPage() {
         { method: "POST", body: JSON.stringify({}) }
       );
       setMessage(`Synchronisation job ${job.id} is ${job.status}.`);
-      await connections.refresh();
+      await Promise.all([connections.refresh(), syncs.refresh()]);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Synchronisation could not be started.");
     } finally {
@@ -112,16 +128,17 @@ export default function ConnectedSystemsPage() {
     }
   }
 
-  if (connections.loading || organisations.loading) {
+  if (connections.loading || organisations.loading || syncs.loading) {
     return <LoadingState label="Loading connected systems" />;
   }
-  if (connections.error || organisations.error) {
+  if (connections.error || organisations.error || syncs.error) {
     return (
       <ErrorState
-        message={connections.error ?? organisations.error ?? "Connected systems could not be loaded."}
+        message={connections.error ?? organisations.error ?? syncs.error ?? "Connected systems could not be loaded."}
         onRetry={() => {
           void connections.refresh();
           void organisations.refresh();
+          void syncs.refresh();
         }}
       />
     );
@@ -269,6 +286,48 @@ export default function ConnectedSystemsPage() {
                 )}
               </article>
             ))}
+          </div>
+        )}
+      </section>
+
+      <section className="panel">
+        <div className="panel-heading">
+          <div><p className="eyebrow">Audit trail</p><h2>Synchronisation history</h2></div>
+          <span className="record-count">{syncs.data?.length ?? 0} jobs</span>
+        </div>
+        {(syncs.data ?? []).length === 0 ? (
+          <div className="empty-connection-state">
+            <h3>No synchronisations yet</h3>
+            <p>Completed and failed connector runs will appear here with reconciliation counts.</p>
+          </div>
+        ) : (
+          <div className="sync-history-list">
+            {(syncs.data ?? []).map((job) => {
+              const connection = (connections.data ?? []).find(
+                (item) => item.id === job.connection_id
+              );
+              return (
+                <article className="sync-history-row" key={job.id}>
+                  <div>
+                    <strong>{connection?.display_name ?? "Connected system"}</strong>
+                    <span>{new Date(job.created_at).toLocaleString("en-GB")}</span>
+                  </div>
+                  <StatusBadge status={job.status} />
+                  <div className="sync-counts" aria-label="Reconciliation counts">
+                    <span><strong>{job.records_received}</strong> received</span>
+                    <span><strong>{job.records_imported}</strong> imported</span>
+                    <span><strong>{job.records_rejected}</strong> rejected</span>
+                  </div>
+                  <div className="sync-lineage">
+                    <span>Identity</span>
+                    <code>{job.sync_identity.slice(0, 12)}…</code>
+                  </div>
+                  {job.failure_message ? (
+                    <p className="field-error">{job.failure_message}</p>
+                  ) : null}
+                </article>
+              );
+            })}
           </div>
         )}
       </section>

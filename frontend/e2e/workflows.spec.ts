@@ -527,8 +527,13 @@ test("connected systems register safe profiles and start authorised syncs", asyn
   await page.goto("/connected-systems");
 
   await expect(page.getByRole("heading", { name: "Connected systems" })).toBeVisible();
-  await expect(page.getByText("Xero · UK entity")).toBeVisible();
+  await expect(page.getByText("Xero · UK entity").first()).toBeVisible();
   await expect(page.getByText("1", { exact: true }).first()).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Synchronisation history" })).toBeVisible();
+  await expect(page.getByText("148 received")).toBeVisible();
+  await expect(page.getByText("143 imported")).toBeVisible();
+  await expect(page.getByText("5 rejected")).toBeVisible();
+  await expect(page.getByText("3768f943c6b5…")).toBeVisible();
 
   const syncRequest = page.waitForRequest((request) =>
     request.url().endsWith(

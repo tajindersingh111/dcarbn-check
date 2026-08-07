@@ -37,6 +37,7 @@ from app.schemas.data_integration import (
 from app.services.accounting_connections import (
     create_accounting_sync,
     list_accounting_connections,
+    list_accounting_syncs,
     upsert_accounting_connection,
 )
 from app.services.data_integration import (
@@ -110,6 +111,23 @@ async def get_connections(
         DataAccountingConnectionResponse.model_validate(item)
         for item in connections
     ]
+
+
+@router.get(
+    "/accounting/syncs",
+    response_model=list[DataAccountingSyncResponse],
+)
+async def get_accounting_syncs(
+    connection_id: UUID | None = None,
+    principal: CurrentPrincipal = Depends(get_current_principal),
+    db: AsyncSession = Depends(get_db),
+) -> list[DataAccountingSyncResponse]:
+    jobs = await list_accounting_syncs(
+        db,
+        principal.tenant_id,
+        connection_id,
+    )
+    return [DataAccountingSyncResponse.model_validate(item) for item in jobs]
 
 
 @router.post(
