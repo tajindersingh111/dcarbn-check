@@ -16,11 +16,26 @@ class ReportingPeriodCreate(BaseModel):
     start_date: date
     end_date: date
     is_base_year: bool = False
+    base_year_reason: str | None = Field(default=None, max_length=5000)
+    recalculation_policy: str | None = Field(default=None, max_length=10000)
+    recalculation_significance_threshold_percent: Decimal = Field(
+        default=Decimal("5.0"),
+        gt=0,
+        le=100,
+    )
+    comparative_reporting_period_id: UUID | None = None
 
     @model_validator(mode="after")
-    def validate_dates(self) -> "ReportingPeriodCreate":
+    def validate_dates(self) -> ReportingPeriodCreate:
         if self.end_date < self.start_date:
             raise ValueError("end_date must be on or after start_date")
+        if self.is_base_year:
+            if not self.base_year_reason or not self.base_year_reason.strip():
+                raise ValueError("base_year_reason is required for a base year")
+            if not self.recalculation_policy or not self.recalculation_policy.strip():
+                raise ValueError("recalculation_policy is required for a base year")
+            if self.comparative_reporting_period_id is not None:
+                raise ValueError("a base year cannot reference a comparative period")
         return self
 
 
@@ -34,6 +49,10 @@ class ReportingPeriodResponse(BaseModel):
     start_date: date
     end_date: date
     is_base_year: bool
+    base_year_reason: str | None
+    recalculation_policy: str | None
+    recalculation_significance_threshold_percent: Decimal
+    comparative_reporting_period_id: UUID | None
     created_at: datetime
     updated_at: datetime
 

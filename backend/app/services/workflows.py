@@ -42,6 +42,43 @@ async def create_reporting_period(
     if organisation is None:
         raise HTTPException(status_code=404, detail="Organisation not found.")
 
+    if payload.is_base_year:
+        existing_base_year = await db.scalar(
+            select(ReportingPeriod.id).where(
+                ReportingPeriod.tenant_id == principal.tenant_id,
+                ReportingPeriod.organisation_id == payload.organisation_id,
+                ReportingPeriod.is_base_year.is_(True),
+            )
+        )
+        if existing_base_year is not None:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=(
+                    "This organisation already has a base year. "
+                    "Use the governed restatement workflow to replace it."
+                ),
+            )
+
+    if payload.comparative_reporting_period_id is not None:
+        comparative_period = await db.scalar(
+            select(ReportingPeriod).where(
+                ReportingPeriod.id == payload.comparative_reporting_period_id,
+                ReportingPeriod.tenant_id == principal.tenant_id,
+            )
+        )
+        if comparative_period is None:
+            raise HTTPException(status_code=404, detail="Comparative period not found.")
+        if comparative_period.organisation_id != payload.organisation_id:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="Comparative period must belong to the same organisation.",
+            )
+        if comparative_period.end_date >= payload.start_date:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="Comparative period must end before the new reporting period starts.",
+            )
+
     period = ReportingPeriod(
         tenant_id=principal.tenant_id,
         **payload.model_dump(),

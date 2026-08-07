@@ -12,6 +12,13 @@ import { apiRequest } from "@/lib/api";
 import { useApiQuery } from "@/lib/use-api";
 import type { Inventory, ListResponse, Organisation, ReportingPeriod } from "@/lib/types";
 
+type GovernedReportingPeriod = ReportingPeriod & {
+  base_year_reason: string | null;
+  recalculation_policy: string | null;
+  recalculation_significance_threshold_percent: string;
+  comparative_reporting_period_id: string | null;
+};
+
 function tonnes(value: string | null): string {
   if (value === null) return "—";
   return (Number(value) / 1000).toLocaleString("en-GB", {
@@ -22,12 +29,14 @@ function tonnes(value: string | null): string {
 
 export default function InventoriesPage() {
   const inventories = useApiQuery<ListResponse<Inventory>>("/inventories?limit=200");
-  const periods = useApiQuery<ListResponse<ReportingPeriod>>("/reporting-periods");
+  const periods = useApiQuery<ListResponse<GovernedReportingPeriod>>("/reporting-periods");
   const organisations = useApiQuery<ListResponse<Organisation>>("/organisations?limit=200");
   const [inventoryModal, setInventoryModal] = useState(false);
   const [periodModal, setPeriodModal] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [periodOrganisationId, setPeriodOrganisationId] = useState("");
+  const [baseYear, setBaseYear] = useState(false);
 
   const organisationById = useMemo(
     () => new Map((organisations.data?.items ?? []).map((item) => [item.id, item.name])),
@@ -69,7 +78,13 @@ export default function InventoriesPage() {
           name: form.get("name"),
           start_date: form.get("start_date"),
           end_date: form.get("end_date"),
-          is_base_year: form.get("is_base_year") === "on"
+          is_base_year: baseYear,
+          base_year_reason: baseYear ? form.get("base_year_reason") : null,
+          recalculation_policy: baseYear ? form.get("recalculation_policy") : null,
+          recalculation_significance_threshold_percent: form.get("recalculation_significance_threshold_percent"),
+          comparative_reporting_period_id: baseYear || !form.get("comparative_reporting_period_id")
+            ? null
+            : form.get("comparative_reporting_period_id")
         })
       });
       setPeriodModal(false);
@@ -103,6 +118,27 @@ export default function InventoriesPage() {
           </>
         }
       />
+      <section className="panel">
+        <div className="panel-heading">
+          <div><p className="eyebrow">Reporting governance</p><h2>Base year and comparative register</h2></div>
+          <span className="record-count">{periods.data?.total ?? 0} periods</span>
+        </div>
+        <DataTable caption="Base year and comparative reporting-period register" headers={["Period", "Organisation", "Role", "Comparative", "Threshold", "Policy status"]}>
+          {(periods.data?.items ?? []).map((period) => {
+            const comparative = (periods.data?.items ?? []).find((item) => item.id === period.comparative_reporting_period_id);
+            return (
+              <tr key={period.id}>
+                <td><div className="stacked-cell"><strong>{period.name}</strong><span>{period.start_date} to {period.end_date}</span></div></td>
+                <td>{organisationById.get(period.organisation_id) ?? "Organisation"}</td>
+                <td>{period.is_base_year ? <StatusBadge status="base year" /> : "Reporting year"}</td>
+                <td>{comparative?.name ?? "—"}</td>
+                <td>{Number(period.recalculation_significance_threshold_percent).toLocaleString("en-GB", { maximumFractionDigits: 4 })}%</td>
+                <td>{period.is_base_year && period.recalculation_policy ? "Recorded" : period.is_base_year ? "Required" : "Inherited from base year"}</td>
+              </tr>
+            );
+          })}
+        </DataTable>
+      </section>
       <section className="panel">
         <div className="panel-heading">
           <div><p className="eyebrow">Inventory register</p><h2>Reporting inventories</h2></div>
@@ -140,11 +176,20 @@ export default function InventoriesPage() {
 
       <Modal open={periodModal} onClose={() => setPeriodModal(false)} title="Add reporting period" description="Define the dates used by organisational boundaries and inventories.">
         <form className="modal-form" onSubmit={createPeriod}>
-          <label>Organisation<select name="organisation_id" required><option value="">Select organisation</option>{(organisations.data?.items ?? []).map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
+          <label>Organisation<select name="organisation_id" onChange={(event) => setPeriodOrganisationId(event.target.value)} required value={periodOrganisationId}><option value="">Select organisation</option>{(organisations.data?.items ?? []).map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
           <label>Period name<input name="name" placeholder="Calendar year 2026" required /></label>
           <label>Start date<input name="start_date" required type="date" /></label>
           <label>End date<input name="end_date" required type="date" /></label>
-          <label className="checkbox-field"><input name="is_base_year" type="checkbox" /> Base year</label>
+          <label className="checkbox-field"><input checked={baseYear} name="is_base_year" onChange={(event) => setBaseYear(event.target.checked)} type="checkbox" /> Base year</label>
+          {baseYear ? (
+            <>
+              <label>Reason for selecting this base year<textarea name="base_year_reason" placeholder="Explain why this is a representative and complete base year." required /></label>
+              <label>Base-year recalculation policy<textarea name="recalculation_policy" placeholder="Describe structural-change, methodology-change and material-error triggers." required /></label>
+            </>
+          ) : (
+            <label>Comparative period<select name="comparative_reporting_period_id"><option value="">No comparative selected yet</option>{(periods.data?.items ?? []).filter((period) => period.organisation_id === periodOrganisationId).map((period) => <option key={period.id} value={period.id}>{period.name}</option>)}</select></label>
+          )}
+          <label>Significance threshold (%)<input defaultValue="5" max="100" min="0.0001" name="recalculation_significance_threshold_percent" required step="0.0001" type="number" /></label>
           <MutationMessage error={error} />
           <div className="button-row modal-actions"><button className="button button-secondary" onClick={() => setPeriodModal(false)} type="button">Cancel</button><button className="button button-primary" disabled={saving} type="submit">{saving ? "Creating…" : "Create reporting period"}</button></div>
         </form>
