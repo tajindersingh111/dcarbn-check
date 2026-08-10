@@ -79,6 +79,27 @@ FAILOVER_REGION_STATE = Gauge(
     "Region database role: 1 primary, 0 standby, -1 unknown.",
     ["region"],
 )
+WORKLOAD_QUEUE_DEPTH = Gauge(
+    "dcarbn_workload_queue_depth",
+    "Durable workload count by type and status. Tenant identifiers are never labels.",
+    ["workload_type", "status"],
+)
+WORKLOAD_OLDEST_QUEUED_AGE = Gauge(
+    "dcarbn_workload_oldest_queued_age_seconds",
+    "Age of the oldest queued workload by type.",
+    ["workload_type"],
+)
+WORKLOAD_TRANSITIONS = Counter(
+    "dcarbn_workload_transitions_total",
+    "Durable workload state transitions by type and resulting status.",
+    ["workload_type", "status"],
+)
+WORKLOAD_DURATION = Histogram(
+    "dcarbn_workload_duration_seconds",
+    "Durable workload execution duration by type and terminal status.",
+    ["workload_type", "status"],
+    buckets=(0.1, 0.5, 1, 2.5, 5, 10, 30, 60, 300, 900, 3600),
+)
 
 
 def configure_observability(app: FastAPI, engine: AsyncEngine) -> None:

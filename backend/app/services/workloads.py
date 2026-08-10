@@ -1,20 +1,36 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
-from typing import Any
+from typing import Any, cast
 from uuid import UUID
 
-from sqlalchemy import func, or_, select
+from sqlalchemy import and_, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.observability import (
+    WORKLOAD_DURATION,
+    WORKLOAD_OLDEST_QUEUED_AGE,
+    WORKLOAD_QUEUE_DEPTH,
+    WORKLOAD_TRANSITIONS,
+)
 from app.models.workload import DurableWorkload, WorkloadStatus, WorkloadType
 
 _REDACTED = "[REDACTED]"
 _SENSITIVE_KEYS = ("authorization", "password", "secret", "token", "credential", "api_key")
+_TERMINAL_STATUSES = (
+    WorkloadStatus.SUCCEEDED,
+    WorkloadStatus.FAILED,
+    WorkloadStatus.CANCELLED,
+    WorkloadStatus.DEAD_LETTERED,
+)
 
 
 def _now() -> datetime:
     return datetime.now(UTC)
+
+
+def _utc(value: datetime) -> datetime:
+    return value.replace(tzinfo=UTC) if value.tzinfo is None else value.astimezone(UTC)
 
 
 def redact_diagnostics(value: Any) -> Any:
@@ -32,6 +48,25 @@ def redact_diagnostics(value: Any) -> Any:
     if isinstance(value, tuple):
         return [redact_diagnostics(item) for item in value]
     return value
+
+
+def _record_transition(workload: DurableWorkload) -> None:
+    WORKLOAD_TRANSITIONS.labels(
+        workload_type=workload.workload_type.value,
+        status=workload.status.value,
+    ).inc()
+
+
+def _record_duration(workload: DurableWorkload) -> None:
+    if workload.started_at is None or workload.completed_at is None:
+        return
+    elapsed = (
+        _utc(workload.completed_at) - _utc(workload.started_at)
+    ).total_seconds()
+    WORKLOAD_DURATION.labels(
+        workload_type=workload.workload_type.value,
+        status=workload.status.value,
+    ).observe(max(elapsed, 0))
 
 
 async def enqueue_workload(
@@ -72,7 +107,141 @@ async def enqueue_workload(
     db.add(workload)
     await db.commit()
     await db.refresh(workload)
+    _record_transition(workload)
     return workload, True
+
+
+async def get_workload(
+    db: AsyncSession,
+    *,
+    tenant_id: UUID,
+    workload_id: UUID,
+) -> DurableWorkload | None:
+    return cast(
+        DurableWorkload | None,
+        await db.scalar(
+            select(DurableWorkload).where(
+                DurableWorkload.id == workload_id,
+                DurableWorkload.tenant_id == tenant_id,
+            )
+        ),
+    )
+
+
+async def list_workloads(
+    db: AsyncSession,
+    *,
+    tenant_id: UUID,
+    limit: int = 50,
+    cursor: UUID | None = None,
+    status_filter: WorkloadStatus | None = None,
+    workload_type: WorkloadType | None = None,
+) -> tuple[list[DurableWorkload], UUID | None]:
+    conditions: list[Any] = [DurableWorkload.tenant_id == tenant_id]
+    if status_filter is not None:
+        conditions.append(DurableWorkload.status == status_filter)
+    if workload_type is not None:
+        conditions.append(DurableWorkload.workload_type == workload_type)
+    if cursor is not None:
+        cursor_row = await db.scalar(
+            select(DurableWorkload).where(
+                DurableWorkload.id == cursor,
+                DurableWorkload.tenant_id == tenant_id,
+            )
+        )
+        if cursor_row is None:
+            return [], None
+        conditions.append(
+            or_(
+                DurableWorkload.created_at < cursor_row.created_at,
+                and_(
+                    DurableWorkload.created_at == cursor_row.created_at,
+                    DurableWorkload.id < cursor_row.id,
+                ),
+            )
+        )
+    rows = list(
+        (
+            await db.scalars(
+                select(DurableWorkload)
+                .where(*conditions)
+                .order_by(
+                    DurableWorkload.created_at.desc(),
+                    DurableWorkload.id.desc(),
+                )
+                .limit(limit + 1)
+            )
+        ).all()
+    )
+    has_more = len(rows) > limit
+    items = rows[:limit]
+    return items, items[-1].id if has_more and items else None
+
+
+async def tenant_queue_snapshot(
+    db: AsyncSession,
+    *,
+    tenant_id: UUID,
+) -> tuple[dict[str, int], float]:
+    rows = (
+        await db.execute(
+            select(DurableWorkload.status, func.count(DurableWorkload.id))
+            .where(DurableWorkload.tenant_id == tenant_id)
+            .group_by(DurableWorkload.status)
+        )
+    ).all()
+    counts = {status.value: int(count) for status, count in rows}
+    oldest = await db.scalar(
+        select(func.min(DurableWorkload.created_at)).where(
+            DurableWorkload.tenant_id == tenant_id,
+            DurableWorkload.status == WorkloadStatus.QUEUED,
+        )
+    )
+    age = max((_now() - _utc(oldest)).total_seconds(), 0) if oldest else 0.0
+    return counts, age
+
+
+async def refresh_workload_metrics(db: AsyncSession) -> None:
+    for workload_type in WorkloadType:
+        for status in WorkloadStatus:
+            WORKLOAD_QUEUE_DEPTH.labels(
+                workload_type=workload_type.value,
+                status=status.value,
+            ).set(0)
+        WORKLOAD_OLDEST_QUEUED_AGE.labels(
+            workload_type=workload_type.value
+        ).set(0)
+
+    grouped = (
+        await db.execute(
+            select(
+                DurableWorkload.workload_type,
+                DurableWorkload.status,
+                func.count(DurableWorkload.id),
+            ).group_by(DurableWorkload.workload_type, DurableWorkload.status)
+        )
+    ).all()
+    for workload_type, status, count in grouped:
+        WORKLOAD_QUEUE_DEPTH.labels(
+            workload_type=workload_type.value,
+            status=status.value,
+        ).set(int(count))
+
+    oldest_rows = (
+        await db.execute(
+            select(
+                DurableWorkload.workload_type,
+                func.min(DurableWorkload.created_at),
+            )
+            .where(DurableWorkload.status == WorkloadStatus.QUEUED)
+            .group_by(DurableWorkload.workload_type)
+        )
+    ).all()
+    now = _now()
+    for workload_type, oldest in oldest_rows:
+        WORKLOAD_OLDEST_QUEUED_AGE.labels(
+            workload_type=workload_type.value
+        ).set(max((now - _utc(oldest)).total_seconds(), 0))
 
 
 async def recover_expired_leases(db: AsyncSession, *, now: datetime | None = None) -> int:
@@ -80,12 +249,14 @@ async def recover_expired_leases(db: AsyncSession, *, now: datetime | None = Non
     rows = list(
         (
             await db.scalars(
-                select(DurableWorkload).where(
+                select(DurableWorkload)
+                .where(
                     DurableWorkload.status.in_(
                         (WorkloadStatus.LEASED, WorkloadStatus.RUNNING)
                     ),
                     DurableWorkload.lease_expires_at < current,
                 )
+                .with_for_update(skip_locked=True)
             )
         ).all()
     )
@@ -97,9 +268,11 @@ async def recover_expired_leases(db: AsyncSession, *, now: datetime | None = Non
             workload.status = WorkloadStatus.DEAD_LETTERED
             workload.completed_at = current
             workload.error_code = "lease_expired"
+            _record_duration(workload)
         else:
             workload.status = WorkloadStatus.QUEUED
             workload.scheduled_at = current
+        _record_transition(workload)
     await db.commit()
     return len(rows)
 
@@ -153,15 +326,34 @@ async def lease_next_workload(
         workload.attempts += 1
         await db.commit()
         await db.refresh(workload)
+        _record_transition(workload)
         return workload
     return None
 
 
-def _assert_lease(workload: DurableWorkload, worker_id: str) -> None:
-    if workload.lease_owner != worker_id:
+async def _lock_current_lease(
+    db: AsyncSession,
+    workload: DurableWorkload,
+    worker_id: str,
+) -> DurableWorkload:
+    current = await db.scalar(
+        select(DurableWorkload)
+        .where(DurableWorkload.id == workload.id)
+        .with_for_update()
+        .execution_options(populate_existing=True)
+    )
+    if current is None:
+        raise ValueError("Workload no longer exists.")
+    if current.lease_owner != worker_id:
         raise ValueError("Workload is not leased by this worker.")
-    if workload.status not in (WorkloadStatus.LEASED, WorkloadStatus.RUNNING):
+    if current.status not in (WorkloadStatus.LEASED, WorkloadStatus.RUNNING):
         raise ValueError("Workload is not executable.")
+    if (
+        current.lease_expires_at is None
+        or _utc(current.lease_expires_at) <= _now()
+    ):
+        raise ValueError("Workload lease has expired.")
+    return current
 
 
 async def mark_running(
@@ -170,12 +362,13 @@ async def mark_running(
     *,
     worker_id: str,
 ) -> DurableWorkload:
-    _assert_lease(workload, worker_id)
-    workload.status = WorkloadStatus.RUNNING
-    workload.started_at = workload.started_at or _now()
+    current = await _lock_current_lease(db, workload, worker_id)
+    current.status = WorkloadStatus.RUNNING
+    current.started_at = current.started_at or _now()
     await db.commit()
-    await db.refresh(workload)
-    return workload
+    await db.refresh(current)
+    _record_transition(current)
+    return current
 
 
 async def heartbeat(
@@ -187,14 +380,14 @@ async def heartbeat(
     progress_current: int | None = None,
     progress_total: int | None = None,
 ) -> None:
-    _assert_lease(workload, worker_id)
+    current_workload = await _lock_current_lease(db, workload, worker_id)
     current = _now()
-    workload.heartbeat_at = current
-    workload.lease_expires_at = current + timedelta(seconds=lease_seconds)
+    current_workload.heartbeat_at = current
+    current_workload.lease_expires_at = current + timedelta(seconds=lease_seconds)
     if progress_current is not None:
-        workload.progress_current = progress_current
+        current_workload.progress_current = progress_current
     if progress_total is not None:
-        workload.progress_total = progress_total
+        current_workload.progress_total = progress_total
     await db.commit()
 
 
@@ -205,12 +398,14 @@ async def succeed_workload(
     worker_id: str,
     result: dict[str, Any],
 ) -> None:
-    _assert_lease(workload, worker_id)
-    workload.status = WorkloadStatus.SUCCEEDED
-    workload.result_json = redact_diagnostics(result)
-    workload.completed_at = _now()
-    workload.lease_owner = None
-    workload.lease_expires_at = None
+    current = await _lock_current_lease(db, workload, worker_id)
+    current.status = WorkloadStatus.SUCCEEDED
+    current.result_json = redact_diagnostics(result)
+    current.completed_at = _now()
+    current.lease_owner = None
+    current.lease_expires_at = None
+    _record_transition(current)
+    _record_duration(current)
     await db.commit()
 
 
@@ -225,23 +420,25 @@ async def fail_workload(
     diagnostics: dict[str, Any] | None = None,
     retry_delay_seconds: int = 30,
 ) -> None:
-    _assert_lease(workload, worker_id)
+    current_workload = await _lock_current_lease(db, workload, worker_id)
     current = _now()
-    workload.error_code = error_code[:100]
-    workload.error_message = error_message[:2000]
-    workload.diagnostics_json = redact_diagnostics(diagnostics or {})
-    workload.lease_owner = None
-    workload.lease_expires_at = None
-    if retryable and workload.attempts < workload.max_attempts:
-        workload.status = WorkloadStatus.QUEUED
-        workload.scheduled_at = current + timedelta(seconds=retry_delay_seconds)
+    current_workload.error_code = error_code[:100]
+    current_workload.error_message = error_message[:2000]
+    current_workload.diagnostics_json = redact_diagnostics(diagnostics or {})
+    current_workload.lease_owner = None
+    current_workload.lease_expires_at = None
+    if retryable and current_workload.attempts < current_workload.max_attempts:
+        current_workload.status = WorkloadStatus.QUEUED
+        current_workload.scheduled_at = current + timedelta(seconds=retry_delay_seconds)
     else:
-        workload.status = (
+        current_workload.status = (
             WorkloadStatus.FAILED
             if not retryable
             else WorkloadStatus.DEAD_LETTERED
         )
-        workload.completed_at = current
+        current_workload.completed_at = current
+        _record_duration(current_workload)
+    _record_transition(current_workload)
     await db.commit()
 
 
@@ -253,23 +450,21 @@ async def cancel_workload(
     cancelled_by: str,
 ) -> bool:
     workload = await db.scalar(
-        select(DurableWorkload).where(
+        select(DurableWorkload)
+        .where(
             DurableWorkload.id == workload_id,
             DurableWorkload.tenant_id == tenant_id,
         )
+        .with_for_update()
     )
-    if workload is None:
-        return False
-    if workload.status in (
-        WorkloadStatus.SUCCEEDED,
-        WorkloadStatus.CANCELLED,
-        WorkloadStatus.DEAD_LETTERED,
-    ):
+    if workload is None or workload.status in _TERMINAL_STATUSES:
         return False
     workload.status = WorkloadStatus.CANCELLED
     workload.cancelled_by = cancelled_by
     workload.completed_at = _now()
     workload.lease_owner = None
     workload.lease_expires_at = None
+    _record_transition(workload)
+    _record_duration(workload)
     await db.commit()
     return True

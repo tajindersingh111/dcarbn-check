@@ -12,6 +12,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.calculations.engine import calculate_activity_factor_emissions
 from app.calculations.operators import execute_operator
 from app.methodology_packs.uk_2026 import GOVERNED_METHOD_TO_PACK_KEY
+from app.models.emission_factor import (
+    EmissionFactor,
+    EmissionFactorSet,
+    FactorSetStatus,
+)
 from app.models.methodology_pack import MethodologyPack, MethodologyPackStatus
 from app.models.workload import DurableWorkload, WorkloadType
 from app.services.workloads import enqueue_workload
@@ -94,6 +99,31 @@ def _uuid(payload: dict[str, Any], field: str) -> UUID:
         raise NonRetryableWorkloadError(f"{field} must be a valid UUID.") from exc
 
 
+async def _load_factor_snapshot(
+    db: AsyncSession,
+    *,
+    emission_factor_id: UUID,
+    require_approved: bool,
+) -> tuple[EmissionFactor, EmissionFactorSet]:
+    conditions: list[Any] = [
+        EmissionFactor.id == emission_factor_id,
+        EmissionFactor.is_active.is_(True),
+        EmissionFactorSet.id == EmissionFactor.factor_set_id,
+    ]
+    if require_approved:
+        conditions.append(EmissionFactorSet.status == FactorSetStatus.APPROVED)
+    row = (
+        await db.execute(
+            select(EmissionFactor, EmissionFactorSet).where(*conditions)
+        )
+    ).one_or_none()
+    if row is None:
+        raise NonRetryableWorkloadError(
+            "An active emission factor from an approved factor set was not found."
+        )
+    return row[0], row[1]
+
+
 async def handle_methodology_dual_run(
     db: AsyncSession,
     workload: DurableWorkload,
@@ -129,6 +159,23 @@ async def handle_methodology_dual_run(
             "Methodology pack does not match the governed calculation method."
         )
 
+    factor, factor_set = await _load_factor_snapshot(
+        db,
+        emission_factor_id=_uuid(payload, "emission_factor_id"),
+        require_approved=False,
+    )
+    expected = {
+        "factor_set_id": str(factor_set.id),
+        "factor_set_version": factor_set.dataset_version,
+        "factor_set_source_sha256": factor_set.source_sha256,
+        "factor_reporting_year": factor.reporting_year,
+        "factor_value": str(factor.factor_value),
+    }
+    if any(str(payload.get(key)) != str(value) for key, value in expected.items()):
+        raise NonRetryableWorkloadError(
+            "Emission-factor lineage no longer matches the immutable queued snapshot."
+        )
+
     comparison = compare_activity_factor_method(
         pack,
         activity_value=_decimal(payload, "activity_value"),
@@ -143,6 +190,14 @@ async def handle_methodology_dual_run(
         "methodology_pack_version": pack.semantic_version,
         "operator_identifier": pack.operator_identifier,
         "source_reference": str(payload.get("source_reference", ""))[:200],
+        "emission_factor_lineage": {
+            "emission_factor_id": str(factor.id),
+            "factor_set_id": str(factor_set.id),
+            "dataset_version": factor_set.dataset_version,
+            "source_sha256": factor_set.source_sha256,
+            "reporting_year": factor.reporting_year,
+            "factor_value": str(factor.factor_value),
+        },
         "comparison": comparison.serializable(),
     }
 
@@ -154,13 +209,30 @@ async def enqueue_methodology_dual_run(
     requested_by: str,
     governed_method_id: str,
     methodology_pack_id: UUID,
+    emission_factor_id: UUID,
     activity_value: Decimal,
-    factor_value: Decimal,
     allocation_percentage: Decimal,
     source_reference: str,
     inventory_id: UUID | None = None,
 ) -> tuple[DurableWorkload, bool]:
-    """Enqueue one idempotent evidence-only comparison."""
+    """Enqueue one idempotent comparison with an immutable factor snapshot."""
+    if governed_method_id not in GOVERNED_METHOD_TO_PACK_KEY:
+        raise NonRetryableWorkloadError(
+            "governed_method_id is not registered for methodology dual-run validation."
+        )
+    factor, factor_set = await _load_factor_snapshot(
+        db,
+        emission_factor_id=emission_factor_id,
+        require_approved=True,
+    )
+    snapshot = {
+        "emission_factor_id": str(factor.id),
+        "factor_set_id": str(factor_set.id),
+        "factor_set_version": factor_set.dataset_version,
+        "factor_set_source_sha256": factor_set.source_sha256,
+        "factor_reporting_year": factor.reporting_year,
+        "factor_value": str(factor.factor_value),
+    }
     identity = "|".join(
         (
             str(tenant_id),
@@ -168,8 +240,8 @@ async def enqueue_methodology_dual_run(
             str(methodology_pack_id),
             source_reference,
             str(activity_value),
-            str(factor_value),
             str(allocation_percentage),
+            *[str(snapshot[key]) for key in sorted(snapshot)],
         )
     )
     digest = hashlib.sha256(identity.encode("utf-8")).hexdigest()
@@ -185,8 +257,8 @@ async def enqueue_methodology_dual_run(
             "governed_method_id": governed_method_id,
             "methodology_pack_id": str(methodology_pack_id),
             "activity_value": str(activity_value),
-            "factor_value": str(factor_value),
             "allocation_percentage": str(allocation_percentage),
             "source_reference": source_reference[:200],
+            **snapshot,
         },
     )

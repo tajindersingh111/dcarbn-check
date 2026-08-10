@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from collections.abc import Awaitable, Callable
 from typing import Any
 
@@ -11,10 +12,12 @@ from app.services.workloads import (
     fail_workload,
     lease_next_workload,
     mark_running,
+    refresh_workload_metrics,
     succeed_workload,
 )
 from app.workers.errors import NonRetryableWorkloadError
 
+logger = logging.getLogger(__name__)
 WorkloadHandler = Callable[[AsyncSession, DurableWorkload], Awaitable[dict[str, Any]]]
 
 
@@ -45,6 +48,13 @@ def build_default_registry() -> WorkloadRegistry:
     return registry
 
 
+async def _refresh_metrics_best_effort(db: AsyncSession) -> None:
+    try:
+        await refresh_workload_metrics(db)
+    except Exception:
+        logger.exception("Unable to refresh durable workload metrics.")
+
+
 async def run_one(
     db: AsyncSession,
     *,
@@ -60,6 +70,7 @@ async def run_one(
         per_tenant_limit=per_tenant_limit,
     )
     if workload is None:
+        await _refresh_metrics_best_effort(db)
         return False
 
     await mark_running(db, workload, worker_id=worker_id)
@@ -96,4 +107,5 @@ async def run_one(
         )
     else:
         await succeed_workload(db, workload, worker_id=worker_id, result=result)
+    await _refresh_metrics_best_effort(db)
     return True
