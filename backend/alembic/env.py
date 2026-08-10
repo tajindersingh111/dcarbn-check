@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import async_engine_from_config
 
 from app.core.config import get_settings
 from app.db.base import Base
-from app.models import activity, audit, boundary, calculation, data_integration, data_review, emission_factor, factor_resolution, identity, inventory, inventory_governance, organisation, security, tenant  # noqa: F401
+from app.models import activity, audit, boundary, calculation, data_integration, data_review, emission_factor, factor_resolution, identity, inventory, inventory_governance, methodology, methodology_pack, organisation, security, tenant, workload  # noqa: F401
 
 config = context.config
 settings = get_settings()

@@ -60,6 +60,10 @@ class Settings(BaseSettings):
     database_url: str = ""
     redis_url: str = "redis://localhost:6379/0"
     redis_required: bool = False
+    async_workloads_enabled: bool = False
+    methodology_packs_enabled: bool = False
+    worker_lease_seconds: int = Field(default=60, ge=15, le=3600)
+    worker_per_tenant_limit: int = Field(default=2, ge=1, le=100)
     rate_limit_enabled: bool = True
     rate_limit_fail_open: bool = True
     rate_limit_general_requests: int = Field(default=300, ge=10)
