@@ -6,12 +6,14 @@ from typing import Any
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.workload import DurableWorkload, WorkloadType
+from app.services.methodology_dual_run import handle_methodology_dual_run
 from app.services.workloads import (
     fail_workload,
     lease_next_workload,
     mark_running,
     succeed_workload,
 )
+from app.workers.errors import NonRetryableWorkloadError
 
 WorkloadHandler = Callable[[AsyncSession, DurableWorkload], Awaitable[dict[str, Any]]]
 
@@ -36,6 +38,13 @@ class WorkloadRegistry:
             ) from exc
 
 
+def build_default_registry() -> WorkloadRegistry:
+    """Return only handlers that have completed code review and equivalence tests."""
+    registry = WorkloadRegistry()
+    registry.register(WorkloadType.CALCULATION, handle_methodology_dual_run)
+    return registry
+
+
 async def run_one(
     db: AsyncSession,
     *,
@@ -57,13 +66,22 @@ async def run_one(
     try:
         handler = registry.resolve(workload.workload_type)
         result = await handler(db, workload)
-    except LookupError as exc:
+    except LookupError:
         await fail_workload(
             db,
             workload,
             worker_id=worker_id,
             error_code="handler_not_registered",
-            error_message=str(exc),
+            error_message="No approved handler is registered for this workload type.",
+            retryable=False,
+        )
+    except NonRetryableWorkloadError:
+        await fail_workload(
+            db,
+            workload,
+            worker_id=worker_id,
+            error_code="workload_validation_failed",
+            error_message="The workload payload failed governed validation.",
             retryable=False,
         )
     except Exception:

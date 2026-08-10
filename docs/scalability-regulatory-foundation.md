@@ -44,11 +44,26 @@ A pack-enabled calculation must snapshot:
 
 A newer pack never alters an approved or locked historical result. Restatement is an explicit governed action.
 
+## First controlled integration
+
+The first registered calculation handler supports only `methodology_dual_run`. It compares the existing synchronous activity-factor engine with the approved `uk.scope1.stationary_diesel.litres` pack using identical activity, factor and allocation inputs.
+
+The handler:
+
+- accepts only the reviewed governed-method-to-pack mapping;
+- loads an approved platform or tenant-owned pack;
+- performs exact Decimal comparison;
+- returns pack ID, version, operator, source reference and both results;
+- never writes or replaces customer calculation results;
+- treats invalid payloads as non-retryable and persists only a generic safe error.
+
+`ASYNC_WORKLOADS_ENABLED` and `METHODOLOGY_PACKS_ENABLED` remain false. The integration is evidence-only until representative tenant dual runs, queue metrics and operational acceptance are complete.
+
 ## Next increments
 
-- Register handlers for the four initial workloads.
 - Add role-controlled enqueue/status/cancel APIs.
 - Add Prometheus queue and worker metrics.
-- Convert current governed methods into equivalent packs and prove output equality.
-- Add dual-run impact reports before pack approval.
+- Capture the approved factor-set ID/version in every dual-run request.
+- Convert further governed methods only after stationary-diesel equivalence evidence is accepted.
+- Register import, report-export and connector-sync handlers after workload-specific recovery tests.
 - Run concurrency, termination-recovery, adversarial tenant and load tests.
