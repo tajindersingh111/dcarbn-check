@@ -24,7 +24,9 @@ Data import, report export, connector synchronisation and additional calculation
 
 ## Mandatory engineering gate
 
-Do not enable either feature flag until the application enforces the rollout scope in code.
+Status: implemented and merged in PR #60 at commit `53447ca`. The controls remain disabled by default.
+
+Do not enable either feature flag unless the release commit contains this enforcement and all exact-release checks pass.
 
 The implementation must:
 
@@ -61,7 +63,7 @@ Do not place tenant UUIDs, credentials, access tokens or personal contact detail
 
 ### Code and evidence
 
-- [ ] The tenant/workload rollout enforcement described above is merged.
+- [x] The tenant/workload rollout enforcement described above is merged in PR #60.
 - [ ] CI passes on the exact release commit.
 - [ ] Supply-chain security passes on the exact release commit.
 - [ ] The representative PostgreSQL capacity workflow passes.
@@ -73,7 +75,7 @@ Do not place tenant UUIDs, credentials, access tokens or personal contact detail
 
 ### Infrastructure and operations
 
-- [ ] Henry's hosting environment is available, but hosting access remains separated from application approval.
+- [ ] Henry's hosting environment is available. Henry's initial responsibility is hosting readiness only; application approval and activation remain separate.
 - [ ] Database backup and point-in-time recovery evidence is current.
 - [ ] Database connection budgets and worker concurrency are documented.
 - [ ] Prometheus workload rules are installed.
@@ -175,6 +177,6 @@ The pilot succeeds only when:
 
 Success authorises assessment of a later rollout proposal. It does not automatically authorise additional tenants, workload types, methodology packs or production-result authority.
 
-## Next implementation tranche
+## Next staging tranche
 
-Implement the mandatory tenant/workload rollout gate behind disabled defaults, add adversarial tests, and submit it as a separate reviewed pull request. After that PR passes validation, populate the named approvals and run the plan against the staging environment.
+Use `deploy/staging/workload-pilot.env.example` to prepare the protected disabled configuration and complete `docs/operations/workload-pilot-staging-checklist.md`. Populate named approvals outside source control, retain exact-release evidence and run the GO/NO-GO procedure only after Henry's hosting handover is complete.
