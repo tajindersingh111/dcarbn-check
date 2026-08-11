@@ -80,7 +80,18 @@ def upgrade() -> None:
     _execute("GRANT USAGE ON SCHEMA public TO dcarbn_app, dcarbn_worker")
     _execute(
         "GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public "
-        "TO dcarbn_app, dcarbn_worker"
+        "TO dcarbn_app"
+    )
+    _execute(
+        "GRANT SELECT, INSERT, UPDATE, DELETE ON "
+        "durable_workloads, calculation_runs, calculation_results, "
+        "activity_records, inventories, reporting_periods, "
+        "factor_resolution_records, audit_events "
+        "TO dcarbn_worker"
+    )
+    _execute(
+        "GRANT SELECT ON emission_factor_sets, emission_factors, "
+        "methodology_versions, methodology_packs TO dcarbn_worker"
     )
     _execute(
         "GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public "
