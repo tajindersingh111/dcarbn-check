@@ -80,6 +80,40 @@ async def test_workload_listing_is_tenant_scoped_and_paginated(
 
 
 @pytest.mark.asyncio
+async def test_workload_paging_has_no_gaps_for_equal_timestamps(
+    db_session: AsyncSession,
+) -> None:
+    shared_timestamp = datetime(2026, 8, 11, 12, 0, tzinfo=UTC)
+    workloads = [
+        _workload(TENANT_A, f"equal-timestamp-{index}")
+        for index in range(3)
+    ]
+    for workload in workloads:
+        workload.created_at = shared_timestamp
+        workload.updated_at = shared_timestamp
+    db_session.add_all(workloads)
+    await db_session.commit()
+
+    seen_ids: list[UUID] = []
+    cursor = None
+    while True:
+        page, next_cursor = await list_workloads(
+            db_session,
+            tenant_id=TENANT_A,
+            limit=1,
+            cursor=cursor,
+        )
+        seen_ids.extend(item.id for item in page)
+        if next_cursor is None:
+            break
+        cursor = next_cursor
+
+    assert len(seen_ids) == 3
+    assert len(set(seen_ids)) == 3
+    assert set(seen_ids) == {item.id for item in workloads}
+
+
+@pytest.mark.asyncio
 async def test_workload_role_policy_rejects_viewer() -> None:
     reader = require_roles(
         "tenant_admin",
