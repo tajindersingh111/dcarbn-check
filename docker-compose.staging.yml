@@ -41,6 +41,45 @@ services:
     security_opt:
       - no-new-privileges:true
 
+  migration:
+    image: dcarbn-backend:staging-current
+    build:
+      context: ./backend
+      target: runtime
+    profiles:
+      - operations
+    restart: "no"
+    environment:
+      DATABASE_URL_FILE: /run/secrets/database_url
+      RELEASE_SHA: ${RELEASE_SHA:?Set RELEASE_SHA}
+      MIGRATION_TARGET: ${MIGRATION_TARGET:?Set MIGRATION_TARGET}
+      MIGRATION_PHASE: ${MIGRATION_PHASE:?Set MIGRATION_PHASE}
+      MIGRATION_TIMEOUT_SECONDS: ${MIGRATION_TIMEOUT_SECONDS:-600}
+      MIGRATION_LOCK_TIMEOUT_SECONDS: ${MIGRATION_LOCK_TIMEOUT_SECONDS:-30}
+      OLD_REPLICAS_RETIRED: ${OLD_REPLICAS_RETIRED:-false}
+      MIGRATION_EVIDENCE_FILE: /var/run/dcarbn-evidence/migration.json
+      BACKUP_STATUS_FILE: /var/run/dcarbn-evidence/backup-status.json
+      PITR_STATUS_FILE: /var/run/dcarbn-evidence/pitr-status.json
+    secrets:
+      - database_url
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command:
+      - python
+      - scripts/run_controlled_migrations.py
+    volumes:
+      - ./deploy/evidence:/var/run/dcarbn-evidence
+    read_only: true
+    tmpfs:
+      - /tmp:size=64m,mode=1777
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - data
+
   backend:
     image: dcarbn-backend:staging-current
     build:
@@ -85,11 +124,16 @@ services:
       redis:
         condition: service_healthy
     command:
-      - /bin/sh
-      - -ec
-      - |
-        alembic upgrade head
-        exec python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --proxy-headers --forwarded-allow-ips="*"
+      - python
+      - -m
+      - uvicorn
+      - app.main:app
+      - --host
+      - 0.0.0.0
+      - --port
+      - "8000"
+      - --proxy-headers
+      - --forwarded-allow-ips=*
     read_only: true
     tmpfs:
       - /tmp:size=64m,mode=1777
