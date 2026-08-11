@@ -49,7 +49,7 @@ class WorkloadResponse(BaseModel):
 
 class WorkloadListResponse(BaseModel):
     items: list[WorkloadResponse]
-    next_cursor: UUID | None = None
+    next_cursor: str | None = None
 
 
 class WorkloadQueueSnapshotResponse(BaseModel):

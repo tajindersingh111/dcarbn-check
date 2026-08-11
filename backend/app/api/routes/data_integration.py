@@ -2,10 +2,16 @@ from __future__ import annotations
 
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.pagination import (
+    InvalidCursorError,
+    decode_cursor,
+    encode_cursor,
+)
 from app.auth.dependencies import CurrentPrincipal, get_current_principal, require_roles
+from app.core.config import Settings, get_settings
 from app.db.session import get_db
 from app.integrations.data.accounting_scope3 import (
     accounting_scope3_template,
@@ -18,6 +24,7 @@ from app.schemas.data_integration import (
     DataAccountingScope3Payload,
     DataAccountingScope3TemplateResponse,
     DataAccountingSyncCreate,
+    DataAccountingSyncListResponse,
     DataAccountingSyncResponse,
     DataBatchRequest,
     DataClassificationConfirmRequest,
@@ -105,8 +112,13 @@ async def upsert_connection(
 async def get_connections(
     principal: CurrentPrincipal = Depends(get_current_principal),
     db: AsyncSession = Depends(get_db),
+    limit: int = Query(default=50, ge=1, le=100),
 ) -> list[DataAccountingConnectionResponse]:
-    connections = await list_accounting_connections(db, principal.tenant_id)
+    connections = await list_accounting_connections(
+        db,
+        principal.tenant_id,
+        limit=limit,
+    )
     return [
         DataAccountingConnectionResponse.model_validate(item)
         for item in connections
@@ -115,19 +127,55 @@ async def get_connections(
 
 @router.get(
     "/accounting/syncs",
-    response_model=list[DataAccountingSyncResponse],
+    response_model=DataAccountingSyncListResponse,
 )
 async def get_accounting_syncs(
     connection_id: UUID | None = None,
+    limit: int = Query(default=50, ge=1, le=100),
+    cursor: str | None = Query(default=None, max_length=2048),
     principal: CurrentPrincipal = Depends(get_current_principal),
     db: AsyncSession = Depends(get_db),
-) -> list[DataAccountingSyncResponse]:
-    jobs = await list_accounting_syncs(
+    settings: Settings = Depends(get_settings),
+) -> DataAccountingSyncListResponse:
+    try:
+        cursor_position = (
+            decode_cursor(
+                cursor,
+                tenant_id=principal.tenant_id,
+                secret_key=settings.secret_key,
+            )
+            if cursor
+            else None
+        )
+    except InvalidCursorError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail=str(exc),
+        ) from exc
+
+    jobs, next_position = await list_accounting_syncs(
         db,
         principal.tenant_id,
         connection_id,
+        limit=limit,
+        cursor=cursor_position,
     )
-    return [DataAccountingSyncResponse.model_validate(item) for item in jobs]
+    next_cursor = (
+        encode_cursor(
+            next_position,
+            tenant_id=principal.tenant_id,
+            secret_key=settings.secret_key,
+        )
+        if next_position
+        else None
+    )
+    return DataAccountingSyncListResponse(
+        items=[
+            DataAccountingSyncResponse.model_validate(item)
+            for item in jobs
+        ],
+        next_cursor=next_cursor,
+    )
 
 
 @router.post(
@@ -344,8 +392,14 @@ async def get_import_errors(
     batch_id: UUID,
     principal: CurrentPrincipal = Depends(get_current_principal),
     db: AsyncSession = Depends(get_db),
+    limit: int = Query(default=50, ge=1, le=100),
 ) -> list[DataImportErrorResponse]:
-    errors = await list_batch_errors(db, principal.tenant_id, batch_id)
+    errors = await list_batch_errors(
+        db,
+        principal.tenant_id,
+        batch_id,
+        limit=limit,
+    )
     return [DataImportErrorResponse.model_validate(item) for item in errors]
 
 

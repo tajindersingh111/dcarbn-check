@@ -152,3 +152,20 @@ classification or inventory boundary.
 Categories 3-7 and 9 continue to use their governed activity-data routes where
 published factors or transport-specific methods apply. They are deliberately
 rejected by this supplier-result accounting contract.
+
+
+## Accounting synchronisation pagination
+
+`GET /api/v1/integrations/data/accounting/syncs` is a cursor-paginated tenant history. It accepts:
+
+- `connection_id` to narrow the history to one tenant-owned connection;
+- `limit` from 1 to 100, default 50;
+- opaque `cursor` returned by the preceding page.
+
+The response contains `items` and `next_cursor`. Ordering is newest first using
+`created_at` and the unique record ID. A cursor is cryptographically bound to
+the authenticated tenant; modified or cross-tenant cursors are rejected with
+HTTP 422. Clients must not decode the token or derive tenant context from it.
+
+Accounting connection registers and import-error reads retain their existing
+array response for compatibility, with a server-enforced maximum of 100 records.

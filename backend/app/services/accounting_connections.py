@@ -4,9 +4,10 @@ from datetime import UTC, datetime
 from uuid import UUID
 
 from fastapi import HTTPException, status
-from sqlalchemy import select
+from sqlalchemy import and_, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.pagination import CursorPosition
 from app.auth.dependencies import CurrentPrincipal
 from app.integrations.data.accounting_connectors import (
     AccountingProvider,
@@ -96,11 +97,17 @@ async def upsert_accounting_connection(
 async def list_accounting_connections(
     db: AsyncSession,
     tenant_id: UUID,
+    *,
+    limit: int = 50,
 ) -> list[DataAccountingConnection]:
     items = await db.scalars(
         select(DataAccountingConnection)
         .where(DataAccountingConnection.tenant_id == tenant_id)
-        .order_by(DataAccountingConnection.created_at.desc())
+        .order_by(
+            DataAccountingConnection.created_at.desc(),
+            DataAccountingConnection.id.desc(),
+        )
+        .limit(limit)
     )
     return list(items)
 
@@ -109,7 +116,10 @@ async def list_accounting_syncs(
     db: AsyncSession,
     tenant_id: UUID,
     connection_id: UUID | None = None,
-) -> list[DataAccountingSyncJob]:
+    *,
+    limit: int = 50,
+    cursor: CursorPosition | None = None,
+) -> tuple[list[DataAccountingSyncJob], CursorPosition | None]:
     statement = select(DataAccountingSyncJob).where(
         DataAccountingSyncJob.tenant_id == tenant_id
     )
@@ -117,10 +127,35 @@ async def list_accounting_syncs(
         statement = statement.where(
             DataAccountingSyncJob.connection_id == connection_id
         )
-    items = await db.scalars(
-        statement.order_by(DataAccountingSyncJob.created_at.desc())
+    if cursor is not None:
+        statement = statement.where(
+            or_(
+                DataAccountingSyncJob.created_at < cursor.created_at,
+                and_(
+                    DataAccountingSyncJob.created_at == cursor.created_at,
+                    DataAccountingSyncJob.id < cursor.id,
+                ),
+            )
+        )
+
+    rows = list(
+        (
+            await db.scalars(
+                statement.order_by(
+                    DataAccountingSyncJob.created_at.desc(),
+                    DataAccountingSyncJob.id.desc(),
+                ).limit(limit + 1)
+            )
+        ).all()
     )
-    return list(items)
+    has_more = len(rows) > limit
+    items = rows[:limit]
+    next_cursor = (
+        CursorPosition(created_at=items[-1].created_at, id=items[-1].id)
+        if has_more and items
+        else None
+    )
+    return items, next_cursor
 
 
 async def create_accounting_sync(

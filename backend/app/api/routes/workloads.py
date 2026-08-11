@@ -5,6 +5,11 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.pagination import (
+    InvalidCursorError,
+    decode_cursor,
+    encode_cursor,
+)
 from app.auth.dependencies import CurrentPrincipal, get_current_principal, require_roles
 from app.core.config import Settings, get_settings
 from app.db.session import get_db
@@ -97,18 +102,44 @@ async def create_methodology_dual_run(
 async def get_workloads(
     principal: CurrentPrincipal = Depends(get_current_principal),
     db: AsyncSession = Depends(get_db),
+    settings: Settings = Depends(get_settings),
     limit: int = Query(default=50, ge=1, le=100),
-    cursor: UUID | None = Query(default=None),
+    cursor: str | None = Query(default=None, max_length=2048),
     status_filter: WorkloadStatus | None = Query(default=None, alias="status"),
     workload_type: WorkloadType | None = Query(default=None),
 ) -> WorkloadListResponse:
-    items, next_cursor = await list_workloads(
+    try:
+        cursor_position = (
+            decode_cursor(
+                cursor,
+                tenant_id=principal.tenant_id,
+                secret_key=settings.secret_key,
+            )
+            if cursor
+            else None
+        )
+    except InvalidCursorError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail=str(exc),
+        ) from exc
+
+    items, next_position = await list_workloads(
         db,
         tenant_id=principal.tenant_id,
         limit=limit,
-        cursor=cursor,
+        cursor=cursor_position,
         status_filter=status_filter,
         workload_type=workload_type,
+    )
+    next_cursor = (
+        encode_cursor(
+            next_position,
+            tenant_id=principal.tenant_id,
+            secret_key=settings.secret_key,
+        )
+        if next_position
+        else None
     )
     return WorkloadListResponse(
         items=[WorkloadResponse.model_validate(item) for item in items],

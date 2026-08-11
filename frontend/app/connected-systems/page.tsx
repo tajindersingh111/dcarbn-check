@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { ErrorState, LoadingState, MutationMessage } from "@/components/api-state";
 import { PageHeader } from "@/components/page-header";
@@ -23,6 +23,10 @@ interface Connection {
   last_synced_at: string | null;
   failure_code: string | null;
   failure_message: string | null;
+}
+interface CursorPage<T> {
+  items: T[];
+  next_cursor: string | null;
 }
 interface SyncJob {
   id: string;
@@ -65,13 +69,23 @@ function providerName(value: string): string {
 
 export default function ConnectedSystemsPage() {
   const connections = useApiQuery<Connection[]>("/integrations/data/accounting/connections");
-  const syncs = useApiQuery<SyncJob[]>("/integrations/data/accounting/syncs");
+  const syncs = useApiQuery<CursorPage<SyncJob>>("/integrations/data/accounting/syncs?limit=50");
   const organisations = useApiQuery<ListResponse<Organisation>>("/organisations?limit=200");
   const [selectedProvider, setSelectedProvider] = useState<Provider | null>(null);
   const [saving, setSaving] = useState(false);
   const [syncingId, setSyncingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  const [syncHistory, setSyncHistory] = useState<SyncJob[]>([]);
+  const [nextSyncCursor, setNextSyncCursor] = useState<string | null>(null);
+  const [loadingMoreSyncs, setLoadingMoreSyncs] = useState(false);
+
+  useEffect(() => {
+    if (!syncs.data) return;
+    setSyncHistory(syncs.data.items);
+    setNextSyncCursor(syncs.data.next_cursor);
+  }, [syncs.data]);
+
 
   const activeCount = useMemo(
     () => (connections.data ?? []).filter((connection) => connection.status === "active").length,
@@ -107,6 +121,23 @@ export default function ConnectedSystemsPage() {
       setError(caught instanceof Error ? caught.message : "The connection could not be registered.");
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function loadMoreSyncs() {
+    if (!nextSyncCursor) return;
+    setLoadingMoreSyncs(true);
+    setError(null);
+    try {
+      const page = await apiRequest<CursorPage<SyncJob>>(
+        `/integrations/data/accounting/syncs?limit=50&cursor=${encodeURIComponent(nextSyncCursor)}`
+      );
+      setSyncHistory((current) => [...current, ...page.items]);
+      setNextSyncCursor(page.next_cursor);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "More synchronisation history could not be loaded.");
+    } finally {
+      setLoadingMoreSyncs(false);
     }
   }
 
@@ -293,16 +324,16 @@ export default function ConnectedSystemsPage() {
       <section className="panel">
         <div className="panel-heading">
           <div><p className="eyebrow">Audit trail</p><h2>Synchronisation history</h2></div>
-          <span className="record-count">{syncs.data?.length ?? 0} jobs</span>
+          <span className="record-count">{syncHistory.length} jobs</span>
         </div>
-        {(syncs.data ?? []).length === 0 ? (
+        {syncHistory.length === 0 ? (
           <div className="empty-connection-state">
             <h3>No synchronisations yet</h3>
             <p>Completed and failed connector runs will appear here with reconciliation counts.</p>
           </div>
         ) : (
           <div className="sync-history-list">
-            {(syncs.data ?? []).map((job) => {
+            {syncHistory.map((job) => {
               const connection = (connections.data ?? []).find(
                 (item) => item.id === job.connection_id
               );
@@ -330,6 +361,19 @@ export default function ConnectedSystemsPage() {
             })}
           </div>
         )}
+        {nextSyncCursor ? (
+          <div className="connection-form-actions">
+            <span>Showing {syncHistory.length} jobs in deterministic order</span>
+            <button
+              className="button button-secondary"
+              disabled={loadingMoreSyncs}
+              onClick={() => void loadMoreSyncs()}
+              type="button"
+            >
+              {loadingMoreSyncs ? "Loading…" : "Load older jobs"}
+            </button>
+          </div>
+        ) : null}
       </section>
 
       <section className="connection-safety">
