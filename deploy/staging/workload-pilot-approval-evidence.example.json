@@ -1,0 +1,11 @@
+{
+  "hosting_ready": false,
+  "business_scope_approved": false,
+  "application_release_approved": false,
+  "security_controls_approved": false,
+  "monitoring_ready": false,
+  "rollback_ready": false,
+  "activation_window_recorded": false,
+  "methodology_pack_evidence_recorded": false,
+  "factor_set_evidence_recorded": false
+}

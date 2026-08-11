@@ -113,7 +113,30 @@ Keep both feature flags false while completing this section.
 - [ ] Pack, factor and source hashes are recorded in the protected change record.
 - [ ] The pilot input contains no unnecessary personal data or live credentials.
 
-## 9. GO/NO-GO decision
+## 9. Automated redacted preflight
+
+Run the preflight against the exact dark staging configuration after the protected approvals are recorded. The evidence file contains booleans only; tenant UUIDs, names, contacts, pack IDs, factor IDs and secrets remain in their protected systems.
+
+```bash
+cd backend
+python scripts/pilot_staging_preflight.py \
+  --evidence-file /protected/path/workload-pilot-approval-evidence.json \
+  --release-sha <exact-40-character-release-sha> \
+  --output /protected/path/pilot-preflight-report.json
+```
+
+Start from `deploy/staging/workload-pilot-approval-evidence.example.json` outside the repository and change an item to `true` only when its protected evidence is complete.
+
+- [ ] The command exits successfully.
+- [ ] The report decision is `READY_FOR_GO_REVIEW`.
+- [ ] The report records one tenant without exposing its identifier.
+- [ ] The report records only the `calculation` workload type.
+- [ ] Both feature flags remain false during the check.
+- [ ] The redacted report is retained with the protected change record.
+
+A successful automated preflight is necessary but does not replace the named human GO decisions.
+
+## 10. GO/NO-GO decision
 
 Every approver must record GO before activation.
 
@@ -128,7 +151,7 @@ Every approver must record GO before activation.
 
 Any blank or NO-GO entry means both flags remain false.
 
-## 10. Controlled activation
+## 11. Controlled activation
 
 Apply one reviewed protected-configuration change during the approved window:
 
@@ -148,7 +171,7 @@ Do not change the approved tenant or workload-type allow-lists in the same windo
 - [ ] Confirm the synchronous result remains authoritative.
 - [ ] Confirm comparison result and lineage are complete and immutable.
 
-## 11. Observation window
+## 12. Observation window
 
 Record measurements at the agreed interval.
 
@@ -162,7 +185,7 @@ Record measurements at the agreed interval.
 - [ ] Governed comparison delta is zero or has a separately approved explanation.
 - [ ] Audit, factor and methodology lineage remain complete.
 
-## 12. Immediate stop conditions
+## 13. Immediate stop conditions
 
 Set both flags to false immediately for any:
 
@@ -175,7 +198,7 @@ Set both flags to false immediately for any:
 - synchronous-path degradation or result mutation;
 - loss of monitoring, audit evidence, secret control or rollback access.
 
-## 13. Rollback checklist
+## 14. Rollback checklist
 
 - [ ] Set `ASYNC_WORKLOADS_ENABLED=false`.
 - [ ] Set `METHODOLOGY_PACKS_ENABLED=false`.
@@ -189,7 +212,7 @@ Set both flags to false immediately for any:
 - [ ] Record decision owner, cause, impact and corrective action.
 - [ ] Require a new GO decision before reactivation.
 
-## 14. Closeout
+## 15. Closeout
 
 - [ ] Both flags are returned to false at the end of the window unless a separate continuation approval exists.
 - [ ] All approved workloads reached the expected terminal state.
