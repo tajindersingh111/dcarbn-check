@@ -1,0 +1,103 @@
+{
+  "schema_version": 1,
+  "environment": "staging",
+  "target_alias": "ionos-staging",
+  "approved_hosts": [
+    "staging.example.com"
+  ],
+  "users": 25,
+  "duration_seconds": 300,
+  "request_timeout_seconds": 10,
+  "mutations_enabled": false,
+  "thresholds": {
+    "minimum_requests": 1000,
+    "maximum_error_rate": 0.01,
+    "maximum_timeout_rate": 0.005,
+    "maximum_p95_ms": 1000,
+    "maximum_p99_ms": 2000,
+    "maximum_tenant_p95_ratio": 1.5
+  },
+  "scenarios": [
+    {
+      "name": "readiness",
+      "method": "GET",
+      "path": "/api/v1/health/ready",
+      "weight": 1,
+      "tenant_alias": "public",
+      "expected_statuses": [200]
+    },
+    {
+      "name": "dashboard-tenant-a",
+      "method": "GET",
+      "path": "/api/v1/dashboard",
+      "weight": 5,
+      "tenant_alias": "tenant-a",
+      "token_env": "DCARBN_LOAD_TOKEN_TENANT_A",
+      "expected_statuses": [200]
+    },
+    {
+      "name": "dashboard-tenant-b",
+      "method": "GET",
+      "path": "/api/v1/dashboard",
+      "weight": 5,
+      "tenant_alias": "tenant-b",
+      "token_env": "DCARBN_LOAD_TOKEN_TENANT_B",
+      "expected_statuses": [200]
+    },
+    {
+      "name": "activities-tenant-a",
+      "method": "GET",
+      "path": "/api/v1/inventories/${DCARBN_LOAD_INVENTORY_A}/activities?limit=100&offset=0",
+      "weight": 4,
+      "tenant_alias": "tenant-a",
+      "token_env": "DCARBN_LOAD_TOKEN_TENANT_A",
+      "expected_statuses": [200]
+    },
+    {
+      "name": "activities-tenant-b",
+      "method": "GET",
+      "path": "/api/v1/inventories/${DCARBN_LOAD_INVENTORY_B}/activities?limit=100&offset=0",
+      "weight": 4,
+      "tenant_alias": "tenant-b",
+      "token_env": "DCARBN_LOAD_TOKEN_TENANT_B",
+      "expected_statuses": [200]
+    },
+    {
+      "name": "accounting-sync-history-tenant-a",
+      "method": "GET",
+      "path": "/api/v1/integrations/data/accounting/syncs?limit=100",
+      "weight": 2,
+      "tenant_alias": "tenant-a",
+      "token_env": "DCARBN_LOAD_TOKEN_TENANT_A",
+      "expected_statuses": [200]
+    },
+    {
+      "name": "workload-history-tenant-b",
+      "method": "GET",
+      "path": "/api/v1/workloads?limit=100",
+      "weight": 2,
+      "tenant_alias": "tenant-b",
+      "token_env": "DCARBN_LOAD_TOKEN_TENANT_B",
+      "expected_statuses": [200]
+    },
+    {
+      "name": "pdf-report-tenant-a",
+      "method": "GET",
+      "path": "/api/v1/audit-reports/${DCARBN_LOAD_REPORT_A}/export.pdf",
+      "weight": 1,
+      "tenant_alias": "tenant-a",
+      "token_env": "DCARBN_LOAD_TOKEN_TENANT_A",
+      "expected_statuses": [200]
+    },
+    {
+      "name": "csv-report-tenant-b",
+      "method": "GET",
+      "path": "/api/v1/audit-reports/${DCARBN_LOAD_REPORT_B}/export.csv",
+      "weight": 1,
+      "tenant_alias": "tenant-b",
+      "token_env": "DCARBN_LOAD_TOKEN_TENANT_B",
+      "expected_statuses": [200]
+    }
+  ]
+}
+
