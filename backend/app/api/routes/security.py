@@ -22,6 +22,7 @@ from app.auth.security import generate_opaque_token, hash_opaque_token, hash_pas
 from app.core.client_ip import get_client_ip
 from app.core.config import get_settings
 from app.db.session import get_db
+from app.db.tenant_context import bootstrap_auth_tenant, set_tenant_context
 from app.models.identity import User
 from app.models.security import MfaChallenge, PasswordResetStatus, PasswordResetToken
 from app.models.security import SecurityEventSeverity
@@ -148,6 +149,8 @@ async def request_password_reset(
     user = await db.scalar(
         select(User).where(User.email_normalized == normalize_email(str(payload.email)))
     )
+    if tenant is not None:
+        await set_tenant_context(db, tenant.id)
     if tenant and user:
         membership = await db.scalar(
             select(TenantMembership).where(
@@ -193,9 +196,15 @@ async def confirm_password_reset(
     request: Request,
     db: AsyncSession = Depends(get_db),
 ) -> None:
+    reset_hash = hash_opaque_token(payload.token)
+    await bootstrap_auth_tenant(
+        db,
+        purpose="password_reset",
+        token_hash=reset_hash,
+    )
     reset = await db.scalar(
         select(PasswordResetToken).where(
-            PasswordResetToken.token_hash == hash_opaque_token(payload.token)
+            PasswordResetToken.token_hash == reset_hash
         )
     )
     now = datetime.now(UTC)
