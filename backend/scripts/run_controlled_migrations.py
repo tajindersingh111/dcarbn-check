@@ -146,7 +146,7 @@ async def run() -> int:
         return 0
     except Exception as exc:
         evidence["error_type"] = type(exc).__name__
-        evidence["error"] = str(exc)
+        evidence["error"] = "Controlled migration failed; inspect protected workflow logs."
         print(f"Controlled migration failed: {exc}", file=sys.stderr)
         return 1
     finally:
