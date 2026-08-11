@@ -12,6 +12,7 @@ from app.core.config import get_settings
 from app.core.logging import configure_logging
 from app.core.observability import configure_observability, metrics_middleware
 from app.core.redis import close_redis
+from app.db.schema_compatibility import assert_runtime_schema_compatible
 from app.db.session import engine
 from app.middleware.correlation import CorrelationIdMiddleware
 from app.middleware.rate_limit import RateLimitMiddleware
@@ -21,6 +22,8 @@ from app.middleware.security_headers import SecurityHeadersMiddleware
 @asynccontextmanager
 async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     configure_logging()
+    if settings.app_env in {"staging", "production"}:
+        await assert_runtime_schema_compatible(engine)
     yield
     await close_redis()
 
