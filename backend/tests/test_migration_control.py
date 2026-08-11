@@ -10,6 +10,7 @@ import pytest
 from app.db.migration_control import (
     MigrationLockUnavailable,
     MigrationPolicyError,
+    SUPPORTED_RUNTIME_REVISIONS,
     assert_supported_schema_version,
     load_release_manifest,
     migration_lock,
@@ -20,6 +21,14 @@ from app.db.migration_control import (
 
 def _manifest_path() -> Path:
     return Path(__file__).resolve().parents[1] / "app" / "db" / "migration_releases.json"
+
+
+def test_manifest_schema_contract_matches_runtime_guard() -> None:
+    payload = json.loads(_manifest_path().read_text(encoding="utf-8"))
+
+    assert set(payload["schema_contract"]["runtime_compatible_revisions"]) == set(
+        SUPPORTED_RUNTIME_REVISIONS
+    )
 
 
 def test_manifest_classifies_rls_as_contract_release() -> None:
