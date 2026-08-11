@@ -38,19 +38,20 @@ def test_percentile_uses_nearest_rank() -> None:
 def test_capacity_summary_passes_with_fair_tenants() -> None:
     samples = [sample(100 + index, tenant="tenant-a") for index in range(50)]
     samples += [sample(110 + index, tenant="tenant-b") for index in range(50)]
+    samples += [sample(1, tenant="public") for _ in range(10)]
 
     result = summarize_samples(
         samples,
         duration_seconds=10,
         thresholds=LoadThresholds(
-            minimum_requests=100,
+            minimum_requests=110,
             maximum_p95_ms=250,
             maximum_p99_ms=300,
         ),
     )
 
     assert result["passed"] is True
-    assert result["requests_per_second"] == 10
+    assert result["requests_per_second"] == 11
     assert set(result["tenant_aliases"]) == {"tenant-a", "tenant-b"}
 
 
@@ -80,4 +81,3 @@ def test_capacity_summary_fails_closed_on_errors_timeouts_and_unfairness() -> No
 def test_unknown_threshold_is_rejected() -> None:
     with pytest.raises(ValueError, match="Unknown load threshold"):
         LoadThresholds.from_mapping({"maximum_average_ms": 100})
-
