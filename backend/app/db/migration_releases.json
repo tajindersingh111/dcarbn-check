@@ -1,0 +1,15 @@
+{
+  "schema_contract": {
+    "runtime_compatible_revisions": [
+      "0022"
+    ]
+  },
+  "releases": {
+    "0022": {
+      "phase": "contract",
+      "requires_old_replicas_retired": true,
+      "requires_recovery_evidence": true,
+      "description": "Enable and force PostgreSQL tenant row-level security after old replicas are retired."
+    }
+  }
+}
