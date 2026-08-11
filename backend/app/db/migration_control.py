@@ -9,7 +9,9 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 
-import asyncpg
+from sqlalchemy import text
+from sqlalchemy.ext.asyncio import AsyncConnection, create_async_engine
+from sqlalchemy.pool import NullPool
 
 MIGRATION_LOCK_ID = 4_444_227_701
 SUPPORTED_RUNTIME_REVISIONS = frozenset({"0022"})
@@ -133,52 +135,56 @@ async def migration_lock(
     database_url: str,
     *,
     timeout_seconds: float,
-) -> AsyncIterator[asyncpg.Connection]:
-    connection = await asyncpg.connect(_asyncpg_dsn(database_url), timeout=10)
+) -> AsyncIterator[AsyncConnection]:
+    if not database_url.startswith("postgresql+asyncpg://"):
+        raise MigrationPolicyError("Controlled migrations require PostgreSQL.")
+    engine = create_async_engine(database_url, poolclass=NullPool, pool_pre_ping=True)
     deadline = time.monotonic() + timeout_seconds
     acquired = False
     try:
-        while True:
-            acquired = bool(
-                await connection.fetchval(
-                    "SELECT pg_try_advisory_lock($1)",
-                    MIGRATION_LOCK_ID,
+        async with engine.connect() as connection:
+            while True:
+                acquired = bool(
+                    await connection.scalar(
+                        text("SELECT pg_try_advisory_lock(:lock_id)"),
+                        {"lock_id": MIGRATION_LOCK_ID},
+                    )
                 )
-            )
-            if acquired:
-                break
-            if time.monotonic() >= deadline:
-                raise MigrationLockUnavailable(
-                    "Another controlled migration job owns the database lock."
+                await connection.commit()
+                if acquired:
+                    break
+                if time.monotonic() >= deadline:
+                    raise MigrationLockUnavailable(
+                        "Another controlled migration job owns the database lock."
+                    )
+                await asyncio.sleep(
+                    min(1.0, max(deadline - time.monotonic(), 0.0))
                 )
-            await asyncio.sleep(min(1.0, max(deadline - time.monotonic(), 0.0)))
-        yield connection
+            try:
+                yield connection
+            finally:
+                if acquired:
+                    await connection.execute(
+                        text("SELECT pg_advisory_unlock(:lock_id)"),
+                        {"lock_id": MIGRATION_LOCK_ID},
+                    )
+                    await connection.commit()
     finally:
-        if acquired:
-            await connection.execute(
-                "SELECT pg_advisory_unlock($1)",
-                MIGRATION_LOCK_ID,
-            )
-        await connection.close()
+        await engine.dispose()
 
 
-async def current_schema_revision(connection: asyncpg.Connection) -> str | None:
-    exists = await connection.fetchval(
-        "SELECT to_regclass('public.alembic_version') IS NOT NULL"
+async def current_schema_revision(connection: AsyncConnection) -> str | None:
+    exists = await connection.scalar(
+        text("SELECT to_regclass('public.alembic_version') IS NOT NULL")
     )
     if not exists:
+        await connection.commit()
         return None
-    value = await connection.fetchval("SELECT version_num FROM alembic_version LIMIT 1")
+    value = await connection.scalar(
+        text("SELECT version_num FROM alembic_version LIMIT 1")
+    )
+    await connection.commit()
     return str(value) if value is not None else None
-
-
-def _asyncpg_dsn(database_url: str) -> str:
-    prefix = "postgresql+asyncpg://"
-    if database_url.startswith(prefix):
-        return "postgresql://" + database_url[len(prefix) :]
-    if database_url.startswith("postgresql://"):
-        return database_url
-    raise MigrationPolicyError("Controlled migrations require PostgreSQL.")
 
 
 def _read_evidence(path: Path, label: str) -> dict[str, object]:
