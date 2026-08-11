@@ -20,6 +20,16 @@ jobs:
     defaults:
       run:
         working-directory: backend
+    env:
+      APP_ENV: test
+      SECRET_KEY: "00000000000000000000000000000000"
+      MFA_ENCRYPTION_KEY: "11111111111111111111111111111111"
+      DATABASE_URL: sqlite+aiosqlite://
+      REDIS_URL: redis://localhost:6379/15
+      CORS_ORIGINS: http://localhost:3000
+      TRUSTED_HOSTS: localhost,127.0.0.1,testserver
+      FRONTEND_BASE_URL: http://localhost:3000
+      EMAIL_PROVIDER: console
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -104,4 +114,3 @@ jobs:
           path: backend/artifacts/platform-capacity.*
           if-no-files-found: error
           retention-days: 90
-
