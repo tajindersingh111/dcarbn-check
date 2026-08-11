@@ -26,7 +26,7 @@ Platform-global tables are tenants, users, emission_factor_sets, emission_factor
 ## Database roles
 
 - dcarbn_app: normal API traffic, NOLOGIN and NOBYPASSRLS.
-- dcarbn_worker: allowlisted background processing, NOLOGIN and NOBYPASSRLS.
+- dcarbn_worker: allowlisted background processing, NOLOGIN and NOBYPASSRLS. Its grants are limited to workload, calculation, inventory and audit records plus read-only governed factors and methodologies; it has no user, membership, session or credential-table access.
 - migration owner: separate deployment credential that owns schema changes. It is never mounted into API or worker containers.
 - break-glass operator: temporary, individually authenticated operational access. It is not created by application migrations and must be time-limited, ticketed and audited.
 
