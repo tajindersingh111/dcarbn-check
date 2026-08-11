@@ -60,7 +60,7 @@ def summarize_samples(
     by_tenant: dict[str, list[RequestSample]] = defaultdict(list)
     for sample in samples:
         by_scenario[sample.scenario].append(sample)
-        if sample.tenant_alias:
+        if sample.tenant_alias and sample.tenant_alias != "public":
             by_tenant[sample.tenant_alias].append(sample)
 
     scenario_metrics = {
@@ -122,4 +122,3 @@ def _group_summary(samples: list[RequestSample]) -> dict[str, int | float]:
         "latency_p95_ms": round(percentile(latencies, 0.95), 3),
         "latency_p99_ms": round(percentile(latencies, 0.99), 3),
     }
-
