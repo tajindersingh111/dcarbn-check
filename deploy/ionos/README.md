@@ -39,7 +39,7 @@ mkdir -p secrets
 chmod 700 secrets
 ```
 
-Edit `deploy/ionos/staging.env` and create these root-only secret files:
+Edit `deploy/ionos/staging.env`, set the exact reviewed migration target and phase, and leave `MIGRATION_APPROVED=false` until the protected change is approved. Create these root-only secret files:
 
 | File | Purpose |
 |---|---|
@@ -51,7 +51,7 @@ Edit `deploy/ionos/staging.env` and create these root-only secret files:
 | `secrets/redis_url` | Complete Redis connection URL |
 | `secrets/smtp_password` | SMTP credential |
 
-Generate cryptographic secrets with `openssl rand -hex 32`. URL-encode database and Redis passwords when embedding them in connection URLs. Do not commit `staging.env` or anything under `secrets/`.
+Generate cryptographic secrets with `openssl rand -hex 32`. URL-encode database and Redis passwords when embedding them in connection URLs. Do not commit `staging.env` or anything under `secrets/`. Before a contract migration, place fresh verified `backup-status.json` and `pitr-status.json` records in `deploy/evidence/`, then set `MIGRATION_APPROVED=true` for the approved window.
 
 ## 3. Deploy and verify
 
@@ -61,7 +61,7 @@ bash deploy/ionos/health-check.sh
 docker compose --env-file deploy/ionos/staging.env -f docker-compose.staging.yml ps
 ```
 
-The deployment builds images on the server, retains the preceding application images as `staging-previous`, runs database migrations, starts the stack, and verifies HTTPS.
+The deployment builds images on the server, retains the preceding application images as `staging-previous`, retires old backend replicas for a contract release, runs exactly one reviewed migration under a PostgreSQL advisory lock, verifies its evidence, starts the stack, and verifies HTTPS. Application replicas never run Alembic.
 
 ## 4. Automated deployment
 
@@ -83,13 +83,14 @@ Run **Deploy IONOS staging** from GitHub Actions and set `deploy=true`. Runtime 
 bash deploy/ionos/rollback.sh
 ```
 
-Rollback restores the preceding backend and frontend images. It does not reverse database migrations. Schema changes must remain backwards compatible or have an independently reviewed restore plan.
+Rollback restores the preceding backend and frontend images. It does not reverse database migrations. Confirm that the previous image supports the current revision before rollback; otherwise use the forward-fix or independently reviewed restore path in `docs/operations/controlled-database-migrations.md`.
 
 ## Operational gates before stakeholder UAT
 
 - DNS and automatic TLS confirmed
 - SMTP delivery tested with a staging-only sender
-- Database backup and restore rehearsal completed
+- Database backup and PITR evidence is fresh and verified
+- Representative migration rehearsal duration and lock impact recorded
 - IONOS snapshot schedule enabled
 - Logs and disk utilisation monitored
 - No production personal data copied into staging
