@@ -36,7 +36,7 @@ jobs:
           for name in secret_key mfa_encryption_key database_url redis_url smtp_password postgres_password redis_password; do
             printf 'validation-only\n' > "secrets/$name"
           done
-          docker compose --env-file deploy/ionos/staging.env -f docker-compose.staging.yml config --quiet
+          docker compose --env-file deploy/ionos/staging.env -f docker-compose.staging.yml --profile operations config --quiet
 
   deploy:
     name: Deploy to IONOS
@@ -75,9 +75,29 @@ jobs:
           SSH_HOST: ${{ secrets.IONOS_SSH_HOST }}
           SSH_USER: ${{ secrets.IONOS_SSH_USER }}
           STAGING_PATH: ${{ vars.IONOS_STAGING_PATH }}
+          RELEASE_SHA: ${{ github.sha }}
         run: |
           STAGING_PATH="${STAGING_PATH:-/opt/dcarbn-staging}"
           ssh -i ~/.ssh/ionos_staging "$SSH_USER@$SSH_HOST" "mkdir -p '$STAGING_PATH'"
           scp -i ~/.ssh/ionos_staging /tmp/dcarbn-staging.tgz "$SSH_USER@$SSH_HOST:/tmp/dcarbn-staging.tgz"
           ssh -i ~/.ssh/ionos_staging "$SSH_USER@$SSH_HOST" \
-            "tar -xzf /tmp/dcarbn-staging.tgz -C '$STAGING_PATH' && cd '$STAGING_PATH' && bash deploy/ionos/deploy.sh"
+            "tar -xzf /tmp/dcarbn-staging.tgz -C '$STAGING_PATH' && cd '$STAGING_PATH' && RELEASE_SHA='$RELEASE_SHA' bash deploy/ionos/deploy.sh"
+      - name: Retrieve migration release evidence
+        if: always()
+        env:
+          SSH_HOST: ${{ secrets.IONOS_SSH_HOST }}
+          SSH_USER: ${{ secrets.IONOS_SSH_USER }}
+          STAGING_PATH: ${{ vars.IONOS_STAGING_PATH }}
+        run: |
+          STAGING_PATH="${STAGING_PATH:-/opt/dcarbn-staging}"
+          scp -i ~/.ssh/ionos_staging \
+            "$SSH_USER@$SSH_HOST:$STAGING_PATH/deploy/evidence/migration.json" \
+            /tmp/migration-evidence.json || true
+      - name: Retain migration release evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: staging-migration-evidence-${{ github.sha }}
+          path: /tmp/migration-evidence.json
+          if-no-files-found: warn
+          retention-days: 90
