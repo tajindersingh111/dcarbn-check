@@ -58,12 +58,12 @@ class DurableWorkload(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         index=True,
     )
     workload_type: Mapped[WorkloadType] = mapped_column(
-        Enum(WorkloadType, name="durable_workload_type"),
+        Enum(WorkloadType, name="durable_workload_type", native_enum=False, length=50),
         nullable=False,
         index=True,
     )
     status: Mapped[WorkloadStatus] = mapped_column(
-        Enum(WorkloadStatus, name="durable_workload_status"),
+        Enum(WorkloadStatus, name="durable_workload_status", native_enum=False, length=50),
         nullable=False,
         default=WorkloadStatus.QUEUED,
         index=True,

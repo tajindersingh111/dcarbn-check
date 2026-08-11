@@ -1,0 +1,79 @@
+groups:
+  - name: dcarbn.workloads
+    interval: 30s
+    rules:
+      - alert: DcarbnWorkloadQueueAgeWarning
+        expr: max by (workload_type) (dcarbn_workload_oldest_queued_age_seconds) > 60
+        for: 10m
+        labels:
+          severity: warning
+          service: dcarbn-workers
+        annotations:
+          summary: "D-carbN workload queue age is elevated"
+          description: "The oldest queued {{ $labels.workload_type }} workload has exceeded 60 seconds for 10 minutes."
+          runbook_url: "https://github.com/Leonardfraser/Dcarbn-Scope-1-2/blob/main/docs/operations/workload-pilot-runbook.md#queue-age"
+
+      - alert: DcarbnWorkloadQueueAgeCritical
+        expr: max by (workload_type) (dcarbn_workload_oldest_queued_age_seconds) > 300
+        for: 5m
+        labels:
+          severity: critical
+          service: dcarbn-workers
+        annotations:
+          summary: "D-carbN workload queue age is critical"
+          description: "The oldest queued {{ $labels.workload_type }} workload has exceeded five minutes."
+          runbook_url: "https://github.com/Leonardfraser/Dcarbn-Scope-1-2/blob/main/docs/operations/workload-pilot-runbook.md#queue-age"
+
+      - alert: DcarbnWorkloadDeadLetterGrowth
+        expr: sum by (workload_type) (increase(dcarbn_workload_transitions_total{status="dead_lettered"}[15m])) > 0
+        for: 1m
+        labels:
+          severity: critical
+          service: dcarbn-workers
+        annotations:
+          summary: "D-carbN workload entered the dead-letter state"
+          description: "At least one {{ $labels.workload_type }} workload was dead-lettered in the last 15 minutes."
+          runbook_url: "https://github.com/Leonardfraser/Dcarbn-Scope-1-2/blob/main/docs/operations/workload-pilot-runbook.md#dead-letter-growth"
+
+      - alert: DcarbnWorkloadFailureRate
+        expr: |
+          (
+            sum by (workload_type) (
+              increase(dcarbn_workload_transitions_total{status=~"failed|dead_lettered"}[15m])
+            )
+            /
+            clamp_min(
+              sum by (workload_type) (
+                increase(dcarbn_workload_transitions_total{status=~"succeeded|failed|dead_lettered"}[15m])
+              ),
+              1
+            )
+          ) > 0.05
+          and
+          sum by (workload_type) (
+            increase(dcarbn_workload_transitions_total{status=~"succeeded|failed|dead_lettered"}[15m])
+          ) >= 20
+        for: 5m
+        labels:
+          severity: warning
+          service: dcarbn-workers
+        annotations:
+          summary: "D-carbN workload failure rate exceeds five percent"
+          description: "The {{ $labels.workload_type }} terminal failure ratio exceeded 5% with at least 20 completions."
+          runbook_url: "https://github.com/Leonardfraser/Dcarbn-Scope-1-2/blob/main/docs/operations/workload-pilot-runbook.md#failure-rate"
+
+      - alert: DcarbnWorkloadStalled
+        expr: |
+          sum by (workload_type) (dcarbn_workload_queue_depth{status="queued"}) > 0
+          unless on (workload_type)
+          sum by (workload_type) (
+            increase(dcarbn_workload_transitions_total{status="succeeded"}[10m])
+          ) > 0
+        for: 10m
+        labels:
+          severity: critical
+          service: dcarbn-workers
+        annotations:
+          summary: "D-carbN workload processing appears stalled"
+          description: "Queued {{ $labels.workload_type }} work exists but no successful transition was recorded for 10 minutes."
+          runbook_url: "https://github.com/Leonardfraser/Dcarbn-Scope-1-2/blob/main/docs/operations/workload-pilot-runbook.md#stalled-processing"

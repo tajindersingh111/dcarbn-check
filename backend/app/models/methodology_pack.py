@@ -50,7 +50,12 @@ class MethodologyPack(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     effective_from: Mapped[date] = mapped_column(Date, nullable=False)
     effective_to: Mapped[date | None] = mapped_column(Date)
     status: Mapped[MethodologyPackStatus] = mapped_column(
-        Enum(MethodologyPackStatus, name="methodology_pack_status"),
+        Enum(
+            MethodologyPackStatus,
+            name="methodology_pack_status",
+            native_enum=False,
+            length=50,
+        ),
         nullable=False,
         default=MethodologyPackStatus.DRAFT,
         index=True,

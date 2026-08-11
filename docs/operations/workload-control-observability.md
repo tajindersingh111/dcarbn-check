@@ -41,12 +41,32 @@ Prometheus metrics expose workload type and state only; tenant identifiers are d
 
 The authenticated `/api/v1/workloads/metrics` endpoint provides each tenant with its own queue snapshot.
 
+The governed rule set is stored in `deploy/monitoring/workload-alerts.yml`. Initial thresholds are:
+
+| Condition | Threshold | Severity |
+|---|---:|---|
+| Oldest queued age | >60 seconds for 10 minutes | warning |
+| Oldest queued age | >300 seconds for five minutes | critical |
+| Dead-letter transition | any in 15 minutes | critical |
+| Terminal failure ratio | >5% with at least 20 completions | warning |
+| Queued work without success | 10 minutes | critical |
+
+Operational response and rollback instructions are in `docs/operations/workload-pilot-runbook.md`.
+
+## Capacity validation
+
+The `Workload capacity validation` GitHub Actions workflow runs against a disposable PostgreSQL service. Its guarded harness creates isolated test tenants, enqueues representative durable workloads, runs concurrent worker loops, verifies tenant concurrency limits and records throughput and latency as a retained JSON artifact.
+
+The default pull-request profile is deliberately small and repeatable: four tenants, 25 jobs per tenant, eight workers and a per-tenant active limit of four. A manual run can supply the agreed pilot shape. Results establish an initial capacity envelope only; production sizing still requires representative infrastructure and traffic.
+
 ## Pilot activation gate
 
 Before enabling a worker feature flag:
 
 1. CI and supply-chain security must pass.
-2. Alert thresholds must be configured for oldest queued age and dead-letter growth.
-3. Representative load tests must confirm the per-tenant limit and lease duration.
-4. An operator must verify retry, cancellation and dead-letter runbook steps.
-5. Pilot approval must identify the tenant, workload types and rollback owner.
+2. Alert rules must be installed in the selected monitoring platform and routed to a named operator.
+3. A representative capacity workflow run must pass and its JSON artifact must be retained.
+4. An operator must verify retry, cancellation, dead-letter and rollback steps in the runbook.
+5. Pilot approval must identify the tenant, allowed workload types, start time and rollback owner.
+
+Passing this gate does not itself change `ASYNC_WORKLOADS_ENABLED` or `METHODOLOGY_PACKS_ENABLED`; both remain disabled until an explicit activation change is reviewed.
