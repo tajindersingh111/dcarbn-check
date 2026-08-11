@@ -20,6 +20,7 @@ from app.auth.security import (
     verify_password,
 )
 from app.core.config import get_settings
+from app.db.tenant_context import bootstrap_auth_tenant, set_tenant_context
 from app.models.identity import (
     MembershipRole,
     RefreshSession,
@@ -68,6 +69,9 @@ async def authenticate_for_cookie_session(
             User.email_normalized == normalize_email(str(payload.email))
         )
     )
+    if tenant is not None:
+        await set_tenant_context(db, tenant.id)
+
     now = datetime.now(UTC)
     if user is not None and user.locked_until is not None and user.locked_until > now:
         await record_security_event(
@@ -253,10 +257,16 @@ async def complete_mfa_login(
     user_agent: str | None,
     correlation_id: str | None,
 ) -> IssuedSession:
+    challenge_hash = hash_opaque_token(challenge_token)
+    await bootstrap_auth_tenant(
+        db,
+        purpose="mfa_challenge",
+        token_hash=challenge_hash,
+    )
     now = datetime.now(UTC)
     challenge = await db.scalar(
         select(MfaChallenge).where(
-            MfaChallenge.token_hash == hash_opaque_token(challenge_token)
+            MfaChallenge.token_hash == challenge_hash
         )
     )
     if (
@@ -338,11 +348,17 @@ async def rotate_cookie_session(
     ip_address: str | None,
     correlation_id: str | None,
 ) -> IssuedSession:
+    refresh_hash = hash_opaque_token(refresh_token)
+    await bootstrap_auth_tenant(
+        db,
+        purpose="refresh_session",
+        token_hash=refresh_hash,
+    )
     now = datetime.now(UTC)
     session = await db.scalar(
         select(RefreshSession)
         .options(selectinload(RefreshSession.user))
-        .where(RefreshSession.token_hash == hash_opaque_token(refresh_token))
+        .where(RefreshSession.token_hash == refresh_hash)
     )
     if session is None:
         raise HTTPException(status_code=401, detail="Invalid refresh session.")
@@ -481,9 +497,15 @@ async def revoke_refresh_cookie_session(
 ) -> None:
     if not refresh_token:
         return
+    refresh_hash = hash_opaque_token(refresh_token)
+    await bootstrap_auth_tenant(
+        db,
+        purpose="refresh_session",
+        token_hash=refresh_hash,
+    )
     row = await db.scalar(
         select(RefreshSession).where(
-            RefreshSession.token_hash == hash_opaque_token(refresh_token)
+            RefreshSession.token_hash == refresh_hash
         )
     )
     if row and row.revoked_at is None:

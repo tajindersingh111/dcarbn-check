@@ -19,6 +19,7 @@ from app.auth.security import (
     verify_password,
 )
 from app.core.config import get_settings
+from app.db.tenant_context import bootstrap_auth_tenant, set_tenant_context
 from app.models.identity import (
     InvitationStatus,
     MembershipRole,
@@ -96,6 +97,8 @@ async def authenticate(
             User.email_normalized == normalize_email(str(payload.email))
         )
     )
+    if tenant is not None:
+        await set_tenant_context(db, tenant.id)
     if tenant is None or user is None or not verify_password(user.password_hash, payload.password):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -158,11 +161,17 @@ async def rotate_refresh_token(
     user_agent: str | None,
     ip_address: str | None,
 ) -> TokenResponse:
+    refresh_hash = hash_opaque_token(refresh_token)
+    await bootstrap_auth_tenant(
+        db,
+        purpose="refresh_session",
+        token_hash=refresh_hash,
+    )
     now = datetime.now(UTC)
     session = await db.scalar(
         select(RefreshSession)
         .options(selectinload(RefreshSession.user))
-        .where(RefreshSession.token_hash == hash_opaque_token(refresh_token))
+        .where(RefreshSession.token_hash == refresh_hash)
     )
     if session is None or session.revoked_at is not None or session.expires_at <= now:
         raise HTTPException(status_code=401, detail="Invalid or expired refresh token.")
@@ -225,9 +234,15 @@ async def rotate_refresh_token(
 
 
 async def revoke_refresh_token(db: AsyncSession, refresh_token: str) -> None:
+    refresh_hash = hash_opaque_token(refresh_token)
+    await bootstrap_auth_tenant(
+        db,
+        purpose="refresh_session",
+        token_hash=refresh_hash,
+    )
     session = await db.scalar(
         select(RefreshSession).where(
-            RefreshSession.token_hash == hash_opaque_token(refresh_token)
+            RefreshSession.token_hash == refresh_hash
         )
     )
     if session is not None and session.revoked_at is None:
@@ -313,10 +328,16 @@ async def accept_invitation(
     db: AsyncSession,
     payload: InvitationAccept,
 ) -> User:
+    invitation_hash = hash_opaque_token(payload.token)
+    await bootstrap_auth_tenant(
+        db,
+        purpose="user_invitation",
+        token_hash=invitation_hash,
+    )
     now = datetime.now(UTC)
     invitation = await db.scalar(
         select(UserInvitation).where(
-            UserInvitation.token_hash == hash_opaque_token(payload.token)
+            UserInvitation.token_hash == invitation_hash
         )
     )
     if (
@@ -576,6 +597,7 @@ async def onboard_tenant(
     tenant = Tenant(name=payload.tenant_name, slug=payload.tenant_slug, is_active=True)
     db.add(tenant)
     await db.flush()
+    await set_tenant_context(db, tenant.id)
     await ensure_system_roles(db, tenant.id)
 
     token = generate_opaque_token()
@@ -591,9 +613,15 @@ async def onboard_tenant(
         expires_at=datetime.now(UTC) + timedelta(hours=get_settings().invitation_hours),
     )
     db.add(invitation)
+    tenant_principal = CurrentPrincipal(
+        subject=principal.subject,
+        tenant_id=tenant.id,
+        roles=principal.roles,
+        is_platform_admin=True,
+    )
     await record_audit_event(
         db,
-        principal,
+        tenant_principal,
         action="tenant.onboarded",
         entity_type="tenant",
         entity_id=tenant.id,

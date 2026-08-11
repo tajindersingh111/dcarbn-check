@@ -15,6 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
 from app.db.session import get_db
+from app.db.tenant_context import set_tenant_context
 from app.models.identity import TenantMembership, User, UserStatus
 from app.models.tenant import Tenant
 
@@ -80,6 +81,8 @@ async def get_current_principal(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid or expired access token.",
         ) from exc
+
+    await set_tenant_context(db, claims.tenant_id)
 
     user = await db.scalar(
         select(User).where(

@@ -59,6 +59,7 @@ class Settings(BaseSettings):
     expose_tokens_in_api: bool = False
 
     database_url: str = ""
+    database_application_role: str = "dcarbn_app"
     redis_url: str = "redis://localhost:6379/0"
     redis_required: bool = False
     async_workloads_enabled: bool = False
