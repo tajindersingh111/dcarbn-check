@@ -6,8 +6,13 @@ from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import get_settings
 from app.models.workload import DurableWorkload, WorkloadType
 from app.services.methodology_dual_run import handle_methodology_dual_run
+from app.services.workload_rollout import (
+    allowed_tenant_ids,
+    allowed_workload_types,
+)
 from app.services.workloads import (
     fail_workload,
     lease_next_workload,
@@ -63,11 +68,18 @@ async def run_one(
     lease_seconds: int = 60,
     per_tenant_limit: int = 2,
 ) -> bool:
+    settings = get_settings()
+    if not settings.async_workloads_enabled:
+        await _refresh_metrics_best_effort(db)
+        return False
+
     workload = await lease_next_workload(
         db,
         worker_id=worker_id,
         lease_seconds=lease_seconds,
         per_tenant_limit=per_tenant_limit,
+        allowed_tenant_ids=allowed_tenant_ids(settings),
+        allowed_workload_types=allowed_workload_types(settings),
     )
     if workload is None:
         await _refresh_metrics_best_effort(db)

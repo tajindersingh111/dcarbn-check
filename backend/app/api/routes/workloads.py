@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.dependencies import CurrentPrincipal, get_current_principal, require_roles
+from app.core.config import Settings, get_settings
 from app.db.session import get_db
 from app.models.workload import WorkloadStatus, WorkloadType
 from app.schemas.workload import (
@@ -15,6 +16,11 @@ from app.schemas.workload import (
     WorkloadResponse,
 )
 from app.services.methodology_dual_run import enqueue_methodology_dual_run
+from app.services.workload_rollout import (
+    WorkloadRolloutDisabled,
+    WorkloadRolloutNotAllowed,
+    require_workload_rollout,
+)
 from app.services.workloads import (
     cancel_workload,
     get_workload,
@@ -42,7 +48,26 @@ async def create_methodology_dual_run(
     payload: MethodologyDualRunCreate,
     principal: CurrentPrincipal = Depends(get_current_principal),
     db: AsyncSession = Depends(get_db),
+    settings: Settings = Depends(get_settings),
 ) -> WorkloadResponse:
+    try:
+        require_workload_rollout(
+            settings,
+            tenant_id=principal.tenant_id,
+            workload_type=WorkloadType.CALCULATION,
+            require_methodology_packs=True,
+        )
+    except WorkloadRolloutDisabled as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=str(exc),
+        ) from exc
+    except WorkloadRolloutNotAllowed as exc:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=str(exc),
+        ) from exc
+
     try:
         workload, _ = await enqueue_methodology_dual_run(
             db,

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Sequence
 from datetime import UTC, datetime, timedelta
 from typing import Any, cast
 from uuid import UUID
@@ -244,18 +245,31 @@ async def refresh_workload_metrics(db: AsyncSession) -> None:
         ).set(max((now - _utc(oldest)).total_seconds(), 0))
 
 
-async def recover_expired_leases(db: AsyncSession, *, now: datetime | None = None) -> int:
+async def recover_expired_leases(
+    db: AsyncSession,
+    *,
+    allowed_tenant_ids: Sequence[UUID] | None = None,
+    allowed_workload_types: Sequence[WorkloadType] | None = None,
+    now: datetime | None = None,
+) -> int:
     current = now or _now()
+    conditions: list[Any] = [
+        DurableWorkload.status.in_(
+            (WorkloadStatus.LEASED, WorkloadStatus.RUNNING)
+        ),
+        DurableWorkload.lease_expires_at < current,
+    ]
+    if allowed_tenant_ids is not None:
+        conditions.append(DurableWorkload.tenant_id.in_(allowed_tenant_ids))
+    if allowed_workload_types is not None:
+        conditions.append(
+            DurableWorkload.workload_type.in_(allowed_workload_types)
+        )
     rows = list(
         (
             await db.scalars(
                 select(DurableWorkload)
-                .where(
-                    DurableWorkload.status.in_(
-                        (WorkloadStatus.LEASED, WorkloadStatus.RUNNING)
-                    ),
-                    DurableWorkload.lease_expires_at < current,
-                )
+                .where(*conditions)
                 .with_for_update(skip_locked=True)
             )
         ).all()
@@ -283,18 +297,32 @@ async def lease_next_workload(
     worker_id: str,
     lease_seconds: int = 60,
     per_tenant_limit: int = 2,
+    allowed_tenant_ids: Sequence[UUID] | None = None,
+    allowed_workload_types: Sequence[WorkloadType] | None = None,
     now: datetime | None = None,
 ) -> DurableWorkload | None:
     current = now or _now()
-    await recover_expired_leases(db, now=current)
+    await recover_expired_leases(
+        db,
+        allowed_tenant_ids=allowed_tenant_ids,
+        allowed_workload_types=allowed_workload_types,
+        now=current,
+    )
+    conditions: list[Any] = [
+        DurableWorkload.status == WorkloadStatus.QUEUED,
+        DurableWorkload.scheduled_at <= current,
+    ]
+    if allowed_tenant_ids is not None:
+        conditions.append(DurableWorkload.tenant_id.in_(allowed_tenant_ids))
+    if allowed_workload_types is not None:
+        conditions.append(
+            DurableWorkload.workload_type.in_(allowed_workload_types)
+        )
     candidates = list(
         (
             await db.scalars(
                 select(DurableWorkload)
-                .where(
-                    DurableWorkload.status == WorkloadStatus.QUEUED,
-                    DurableWorkload.scheduled_at <= current,
-                )
+                .where(*conditions)
                 .order_by(
                     DurableWorkload.priority.desc(),
                     DurableWorkload.created_at.asc(),

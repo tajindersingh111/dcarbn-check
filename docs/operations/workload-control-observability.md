@@ -59,6 +59,19 @@ The `Workload capacity validation` GitHub Actions workflow runs against a dispos
 
 The default pull-request profile is deliberately small and repeatable: four tenants, 25 jobs per tenant, eight workers and a per-tenant active limit of four. A manual run can supply the agreed pilot shape. Results establish an initial capacity envelope only; production sizing still requires representative infrastructure and traffic.
 
+## Fail-closed rollout scope
+
+Workload submission and leasing are independently guarded. Setting a global flag is not sufficient.
+
+- `ASYNC_WORKLOADS_ENABLED` must be true before the dual-run submission route accepts work or a worker leases work.
+- `METHODOLOGY_PACKS_ENABLED` must also be true for the approved calculation pilot.
+- `ASYNC_WORKLOAD_ALLOWED_TENANT_IDS` is a protected comma-separated allow-list of pilot tenant UUIDs.
+- `ASYNC_WORKLOAD_ALLOWED_TYPES` is a comma-separated allow-list. The only currently reviewed value is `calculation`.
+- Enabling asynchronous workloads with an empty tenant/type allow-list or without methodology packs causes configuration validation to fail.
+- Read, status, queue metrics and cancellation remain available after rollback so authorised operators can inspect and safely close retained work.
+
+The worker applies the same tenant/type scope in its database lease query. A disallowed tenant's queued work is neither selected nor made visible through another tenant's API.
+
 ## Pilot activation gate
 
 Before enabling a worker feature flag:

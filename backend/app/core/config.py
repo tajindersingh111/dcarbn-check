@@ -4,6 +4,7 @@ import os
 from functools import lru_cache
 from pathlib import Path
 from typing import Annotated, Literal
+from uuid import UUID
 
 from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
@@ -62,6 +63,10 @@ class Settings(BaseSettings):
     redis_required: bool = False
     async_workloads_enabled: bool = False
     methodology_packs_enabled: bool = False
+    async_workload_allowed_tenant_ids: Annotated[list[UUID], NoDecode] = []
+    async_workload_allowed_types: Annotated[
+        list[Literal["calculation"]], NoDecode
+    ] = []
     worker_lease_seconds: int = Field(default=60, ge=15, le=3600)
     worker_per_tenant_limit: int = Field(default=2, ge=1, le=100)
     rate_limit_enabled: bool = True
@@ -129,6 +134,8 @@ class Settings(BaseSettings):
         "cors_origins",
         "trusted_hosts",
         "trusted_proxy_ips",
+        "async_workload_allowed_tenant_ids",
+        "async_workload_allowed_types",
         mode="before",
     )
     @classmethod
@@ -155,6 +162,26 @@ class Settings(BaseSettings):
             )
         if not self.database_url:
             raise ValueError("DATABASE_URL is required.")
+
+        if self.async_workloads_enabled:
+            rollout_errors: list[str] = []
+            if not self.async_workload_allowed_tenant_ids:
+                rollout_errors.append(
+                    "ASYNC_WORKLOAD_ALLOWED_TENANT_IDS must contain at least one tenant"
+                )
+            if not self.async_workload_allowed_types:
+                rollout_errors.append(
+                    "ASYNC_WORKLOAD_ALLOWED_TYPES must contain at least one workload type"
+                )
+            if not self.methodology_packs_enabled:
+                rollout_errors.append(
+                    "METHODOLOGY_PACKS_ENABLED must be true for the approved calculation pilot"
+                )
+            if rollout_errors:
+                raise ValueError(
+                    "Unsafe asynchronous workload rollout: "
+                    + "; ".join(rollout_errors)
+                )
 
         if self.app_env in {"staging", "production"}:
             errors: list[str] = []
