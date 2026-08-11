@@ -8,6 +8,7 @@ from uuid import UUID
 from sqlalchemy import and_, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.pagination import CursorPosition
 from app.core.observability import (
     WORKLOAD_DURATION,
     WORKLOAD_OLDEST_QUEUED_AGE,
@@ -134,30 +135,22 @@ async def list_workloads(
     *,
     tenant_id: UUID,
     limit: int = 50,
-    cursor: UUID | None = None,
+    cursor: CursorPosition | None = None,
     status_filter: WorkloadStatus | None = None,
     workload_type: WorkloadType | None = None,
-) -> tuple[list[DurableWorkload], UUID | None]:
+) -> tuple[list[DurableWorkload], CursorPosition | None]:
     conditions: list[Any] = [DurableWorkload.tenant_id == tenant_id]
     if status_filter is not None:
         conditions.append(DurableWorkload.status == status_filter)
     if workload_type is not None:
         conditions.append(DurableWorkload.workload_type == workload_type)
     if cursor is not None:
-        cursor_row = await db.scalar(
-            select(DurableWorkload).where(
-                DurableWorkload.id == cursor,
-                DurableWorkload.tenant_id == tenant_id,
-            )
-        )
-        if cursor_row is None:
-            return [], None
         conditions.append(
             or_(
-                DurableWorkload.created_at < cursor_row.created_at,
+                DurableWorkload.created_at < cursor.created_at,
                 and_(
-                    DurableWorkload.created_at == cursor_row.created_at,
-                    DurableWorkload.id < cursor_row.id,
+                    DurableWorkload.created_at == cursor.created_at,
+                    DurableWorkload.id < cursor.id,
                 ),
             )
         )
@@ -176,7 +169,12 @@ async def list_workloads(
     )
     has_more = len(rows) > limit
     items = rows[:limit]
-    return items, items[-1].id if has_more and items else None
+    next_cursor = (
+        CursorPosition(created_at=items[-1].created_at, id=items[-1].id)
+        if has_more and items
+        else None
+    )
+    return items, next_cursor
 
 
 async def tenant_queue_snapshot(

@@ -78,14 +78,6 @@ async def test_workload_listing_is_tenant_scoped_and_paginated(
     assert second_page[0].tenant_id == TENANT_A
     assert second_page[0].id != first_page[0].id
 
-    hidden, next_cursor = await list_workloads(
-        db_session,
-        tenant_id=TENANT_A,
-        cursor=foreign.id,
-    )
-    assert hidden == []
-    assert next_cursor is None
-
 
 @pytest.mark.asyncio
 async def test_workload_role_policy_rejects_viewer() -> None:

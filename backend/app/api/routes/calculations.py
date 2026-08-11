@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.dependencies import CurrentPrincipal, get_current_principal, require_roles
@@ -16,6 +16,7 @@ from app.schemas.calculation import (
     Scope2HeadlineBasis,
 )
 from app.services.calculations import (
+    count_calculation_results,
     create_and_execute_calculation_run,
     get_calculation_run,
     list_calculation_results,
@@ -70,14 +71,27 @@ async def get_results(
     run_id: UUID,
     principal: CurrentPrincipal = Depends(get_current_principal),
     db: AsyncSession = Depends(get_db),
+    limit: int = Query(default=100, ge=1, le=500),
+    offset: int = Query(default=0, ge=0),
 ) -> CalculationResultListResponse:
     run = await get_calculation_run(db, principal.tenant_id, run_id)
     if run is None:
         raise HTTPException(status_code=404, detail="Calculation run not found.")
-    items = await list_calculation_results(db, principal.tenant_id, run_id)
+    items = await list_calculation_results(
+        db,
+        principal.tenant_id,
+        run_id,
+        limit=limit,
+        offset=offset,
+    )
+    total = await count_calculation_results(
+        db,
+        principal.tenant_id,
+        run_id,
+    )
     return CalculationResultListResponse(
         items=[CalculationResultResponse.model_validate(item) for item in items],
-        total=len(items),
+        total=total,
     )
 
 

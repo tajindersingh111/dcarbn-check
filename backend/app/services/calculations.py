@@ -383,6 +383,9 @@ async def list_calculation_results(
     db: AsyncSession,
     tenant_id: UUID,
     run_id: UUID,
+    *,
+    limit: int | None = None,
+    offset: int = 0,
 ) -> list[CalculationResult]:
     query = (
         select(CalculationResult)
@@ -390,9 +393,29 @@ async def list_calculation_results(
             CalculationResult.calculation_run_id == run_id,
             CalculationResult.tenant_id == tenant_id,
         )
-        .order_by(CalculationResult.created_at)
+        .order_by(
+            CalculationResult.created_at,
+            CalculationResult.id,
+        )
+        .offset(offset)
     )
+    if limit is not None:
+        query = query.limit(limit)
     return list((await db.scalars(query)).all())
+
+
+async def count_calculation_results(
+    db: AsyncSession,
+    tenant_id: UUID,
+    run_id: UUID,
+) -> int:
+    count = await db.scalar(
+        select(func.count(CalculationResult.id)).where(
+            CalculationResult.calculation_run_id == run_id,
+            CalculationResult.tenant_id == tenant_id,
+        )
+    )
+    return int(count or 0)
 
 
 async def summarize_calculation_run(

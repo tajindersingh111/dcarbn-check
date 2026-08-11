@@ -585,6 +585,8 @@ async def list_batch_errors(
     db: AsyncSession,
     tenant_id: UUID,
     batch_id: UUID,
+    *,
+    limit: int = 50,
 ) -> list[DataImportError]:
     batch = await get_batch(db, tenant_id, batch_id)
     if batch is None:
@@ -594,7 +596,11 @@ async def list_batch_errors(
             await db.scalars(
                 select(DataImportError)
                 .where(DataImportError.batch_id == batch_id)
-                .order_by(DataImportError.record_index)
+                .order_by(
+                    DataImportError.created_at.desc(),
+                    DataImportError.id.desc(),
+                )
+                .limit(limit)
             )
         ).all()
     )

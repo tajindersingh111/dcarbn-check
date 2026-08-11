@@ -414,3 +414,8 @@ class DataAccountingSyncResponse(BaseModel):
     diagnostics_json: dict[str, object]
     created_at: datetime
     updated_at: datetime
+
+
+class DataAccountingSyncListResponse(BaseModel):
+    items: list[DataAccountingSyncResponse]
+    next_cursor: str | None = None

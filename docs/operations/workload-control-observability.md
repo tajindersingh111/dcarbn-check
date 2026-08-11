@@ -83,3 +83,12 @@ Before enabling a worker feature flag:
 5. Pilot approval must identify the tenant, allowed workload types, start time and rollback owner.
 
 Passing this gate does not itself change `ASYNC_WORKLOADS_ENABLED` or `METHODOLOGY_PACKS_ENABLED`; both remain disabled until an explicit activation change is reviewed.
+
+
+## Workload history pagination
+
+`GET /api/v1/workloads` returns at most 100 records and uses the shared opaque
+`(created_at, id)` cursor contract. Status and workload-type filters remain
+tenant-scoped and align with composite database indexes. A modified cursor or a
+cursor issued for another tenant is rejected with HTTP 422; an empty page is not
+used to conceal an invalid token.

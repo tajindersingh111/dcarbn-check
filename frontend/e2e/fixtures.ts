@@ -129,7 +129,7 @@ export async function installApiFixtures(page: Page): Promise<void> {
       return route.fulfill({ status: 201, json: { id: "activity-1" } });
     }
     if (path === "/integrations/data/accounting/syncs" && method === "GET") {
-      return route.fulfill({ json: [{
+      return route.fulfill({ json: { items: [{
         id: "99999999-9999-9999-9999-999999999999",
         tenant_id: organisation.tenant_id,
         connection_id: "77777777-7777-7777-7777-777777777777",
@@ -150,7 +150,7 @@ export async function installApiFixtures(page: Page): Promise<void> {
         diagnostics_json: { mapping_profile_version: "2026.1" },
         created_at: "2026-08-07T07:58:00Z",
         updated_at: "2026-08-07T08:00:00Z"
-      }]});
+      }], next_cursor: null }});
     }
     if (path === "/integrations/data/accounting/connections" && method === "GET") {
       return route.fulfill({ json: [{
