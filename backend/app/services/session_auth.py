@@ -518,7 +518,7 @@ async def _membership(
     user_id: UUID,
     tenant_id: UUID,
 ) -> TenantMembership | None:
-    return await db.scalar(
+    membership: TenantMembership | None = await db.scalar(
         select(TenantMembership)
         .options(
             selectinload(TenantMembership.roles).selectinload(MembershipRole.role)
@@ -529,3 +529,4 @@ async def _membership(
             TenantMembership.is_active.is_(True),
         )
     )
+    return membership

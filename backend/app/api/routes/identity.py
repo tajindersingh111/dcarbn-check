@@ -43,6 +43,7 @@ from app.services.identity import (
     unlock_membership_account,
 )
 from app.services.session_auth import (
+    IssuedSession,
     authenticate_for_cookie_session,
     complete_mfa_login,
     revoke_refresh_cookie_session,
@@ -53,7 +54,7 @@ router = APIRouter()
 tenant_admin = Depends(require_roles("tenant_admin"))
 
 
-def _set_session_cookies(response: Response, session: object) -> None:
+def _set_session_cookies(response: Response, session: IssuedSession) -> None:
     settings = get_settings()
     secure = settings.cookie_secure
     response.set_cookie(

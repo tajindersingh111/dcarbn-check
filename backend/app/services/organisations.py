@@ -68,7 +68,8 @@ async def get_organisation(
         Organisation.id == organisation_id,
         Organisation.tenant_id == tenant_id,
     )
-    return await db.scalar(query)
+    organisation: Organisation | None = await db.scalar(query)
+    return organisation
 
 
 async def update_organisation(

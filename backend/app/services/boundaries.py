@@ -84,7 +84,8 @@ async def get_boundary(
         OrganisationalBoundary.id == boundary_id,
         OrganisationalBoundary.tenant_id == tenant_id,
     )
-    return await db.scalar(query)
+    boundary: OrganisationalBoundary | None = await db.scalar(query)
+    return boundary
 
 
 async def create_boundary(
@@ -253,7 +254,8 @@ async def get_membership(
         BoundaryMembership.boundary_id == boundary_id,
         BoundaryMembership.tenant_id == tenant_id,
     )
-    return await db.scalar(query)
+    membership: BoundaryMembership | None = await db.scalar(query)
+    return membership
 
 
 async def create_membership(

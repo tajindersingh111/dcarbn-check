@@ -137,7 +137,8 @@ async def _linked_id(
     )
     if item is None:
         raise ValueError(f"Referenced DATa record was not found: {external_value}.")
-    return item.id
+    linked_id: UUID = item.id
+    return linked_id
 
 
 async def process_batch(
@@ -573,12 +574,13 @@ async def get_batch(
     tenant_id: UUID,
     batch_id: UUID,
 ) -> DataImportBatch | None:
-    return await db.scalar(
+    batch: DataImportBatch | None = await db.scalar(
         select(DataImportBatch).where(
             DataImportBatch.id == batch_id,
             DataImportBatch.tenant_id == tenant_id,
         )
     )
+    return batch
 
 
 async def list_batch_errors(

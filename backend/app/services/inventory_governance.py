@@ -778,12 +778,13 @@ async def get_approval(
     tenant_id: UUID,
     approval_id: UUID,
 ) -> InventoryApproval | None:
-    return await db.scalar(
+    approval: InventoryApproval | None = await db.scalar(
         select(InventoryApproval).where(
             InventoryApproval.id == approval_id,
             InventoryApproval.tenant_id == tenant_id,
         )
     )
+    return approval
 
 
 async def get_restatement(
@@ -791,12 +792,13 @@ async def get_restatement(
     tenant_id: UUID,
     restatement_id: UUID,
 ) -> InventoryRestatement | None:
-    return await db.scalar(
+    restatement: InventoryRestatement | None = await db.scalar(
         select(InventoryRestatement).where(
             InventoryRestatement.id == restatement_id,
             InventoryRestatement.tenant_id == tenant_id,
         )
     )
+    return restatement
 
 
 async def get_audit_report(
@@ -804,12 +806,13 @@ async def get_audit_report(
     tenant_id: UUID,
     report_id: UUID,
 ) -> AuditReport | None:
-    return await db.scalar(
+    report: AuditReport | None = await db.scalar(
         select(AuditReport).where(
             AuditReport.id == report_id,
             AuditReport.tenant_id == tenant_id,
         )
     )
+    return report
 
 
 async def _approval_checks(
@@ -1215,8 +1218,16 @@ async def _build_audit_report_payload(
         comparisons,
         key=lambda item: item.comparison_group_key,
     ):
-        dcarbn_result = comparison_result_by_id.get(comparison.dcarbn_result_id)
-        government_result = comparison_result_by_id.get(comparison.government_result_id)
+        dcarbn_result = (
+            comparison_result_by_id.get(comparison.dcarbn_result_id)
+            if comparison.dcarbn_result_id is not None
+            else None
+        )
+        government_result = (
+            comparison_result_by_id.get(comparison.government_result_id)
+            if comparison.government_result_id is not None
+            else None
+        )
         calculation_comparisons.append(
             {
                 "comparison_id": str(comparison.id),

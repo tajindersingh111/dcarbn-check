@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 import time
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
 
 from fastapi import FastAPI, Request, Response
 from opentelemetry import metrics, trace
@@ -149,7 +149,7 @@ def configure_observability(app: FastAPI, engine: AsyncEngine) -> None:
 
 async def metrics_middleware(
     request: Request,
-    call_next: Callable[[Request], object],
+    call_next: Callable[[Request], Awaitable[Response]],
 ) -> Response:
     route = _route_name(request)
     method = request.method

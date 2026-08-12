@@ -171,7 +171,8 @@ async def get_activity(
         ActivityRecord.id == activity_id,
         ActivityRecord.tenant_id == tenant_id,
     )
-    return await db.scalar(query)
+    activity: ActivityRecord | None = await db.scalar(query)
+    return activity
 
 
 async def list_activities(

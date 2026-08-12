@@ -610,12 +610,13 @@ async def get_review(
     tenant_id: UUID,
     review_id: UUID,
 ) -> DataOperationalEmissionReview | None:
-    return await db.scalar(
+    review: DataOperationalEmissionReview | None = await db.scalar(
         select(DataOperationalEmissionReview).where(
             DataOperationalEmissionReview.id == review_id,
             DataOperationalEmissionReview.tenant_id == tenant_id,
         )
     )
+    return review
 
 
 async def list_reviews(
@@ -657,7 +658,7 @@ async def list_reviews(
         .select_from(DataOperationalEmissionReview)
         .where(*conditions)
     )
-    items = list((await db.execute(query)).all())
+    items = list((await db.execute(query)).tuples().all())
     total = int((await db.scalar(count_query)) or 0)
     return items, total
 
@@ -789,11 +790,12 @@ async def _external_journey_id(
         return None
     from app.models.data_integration import DataJourney
 
-    return await db.scalar(
+    external_id: str | None = await db.scalar(
         select(DataJourney.external_journey_id).where(
             DataJourney.id == emission.journey_id
         )
     )
+    return external_id
 
 
 async def _external_shipment_id(
@@ -804,11 +806,12 @@ async def _external_shipment_id(
         return None
     from app.models.data_integration import DataShipment
 
-    return await db.scalar(
+    external_id: str | None = await db.scalar(
         select(DataShipment.external_shipment_id).where(
             DataShipment.id == emission.shipment_id
         )
     )
+    return external_id
 
 
 async def _external_vehicle_id(
@@ -819,8 +822,9 @@ async def _external_vehicle_id(
         return None
     from app.models.data_integration import DataVehicle
 
-    return await db.scalar(
+    external_id: str | None = await db.scalar(
         select(DataVehicle.external_vehicle_id).where(
             DataVehicle.id == emission.vehicle_id
         )
     )
+    return external_id

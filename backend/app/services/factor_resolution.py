@@ -12,6 +12,7 @@ from app.factors.resolution import (
     FactorResolutionCriteria,
     FactorResolutionResult,
     ResolutionOutcome,
+    ScoredFactor,
     resolve_factor,
 )
 from app.models.emission_factor import (
@@ -102,8 +103,7 @@ def build_criteria(request: FactorResolutionRequest) -> FactorResolutionCriteria
     )
 
 
-def candidate_response(candidate: object) -> FactorCandidateResponse:
-    scored = candidate
+def candidate_response(scored: ScoredFactor) -> FactorCandidateResponse:
     resulting_kg_co2e = (
         scored.converted_activity_value * scored.factor.factor_value
     )
@@ -268,4 +268,5 @@ async def get_resolution_record(
         FactorResolutionRecord.id == resolution_record_id,
         FactorResolutionRecord.tenant_id == tenant_id,
     )
-    return await db.scalar(query)
+    record: FactorResolutionRecord | None = await db.scalar(query)
+    return record

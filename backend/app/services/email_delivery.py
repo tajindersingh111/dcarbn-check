@@ -67,7 +67,12 @@ class SmtpEmailProvider:
 
             try:
                 if settings.smtp_username:
-                    client.login(settings.smtp_username, settings.smtp_password)
+                    password = settings.smtp_password
+                    if password is None:
+                        raise RuntimeError(
+                            "SMTP_PASSWORD is required when SMTP_USERNAME is configured."
+                        )
+                    client.login(settings.smtp_username, password)
                 client.send_message(email)
             finally:
                 client.quit()

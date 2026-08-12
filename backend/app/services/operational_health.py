@@ -251,7 +251,9 @@ def _age_seconds(timestamp: datetime) -> int:
 
 
 def _optional_int(value: object) -> int | None:
+    if not isinstance(value, (str, bytes, bytearray, int, float)):
+        return None
     try:
-        return int(value) if value is not None else None
-    except (TypeError, ValueError):
+        return int(value)
+    except ValueError:
         return None

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import secrets
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from uuid import UUID
 
@@ -118,7 +118,9 @@ async def get_current_principal(
     )
 
 
-def require_roles(*required_roles: str) -> Callable[[CurrentPrincipal], CurrentPrincipal]:
+def require_roles(
+    *required_roles: str,
+) -> Callable[[CurrentPrincipal], Awaitable[CurrentPrincipal]]:
     async def dependency(
         principal: CurrentPrincipal = Depends(get_current_principal),
     ) -> CurrentPrincipal:

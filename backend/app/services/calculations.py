@@ -376,7 +376,8 @@ async def get_calculation_run(
         CalculationRun.id == run_id,
         CalculationRun.tenant_id == tenant_id,
     )
-    return await db.scalar(query)
+    run: CalculationRun | None = await db.scalar(query)
+    return run
 
 
 async def list_calculation_results(

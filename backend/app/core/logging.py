@@ -3,11 +3,16 @@ import sys
 
 import structlog
 from opentelemetry import trace
+from structlog.typing import EventDict, WrappedLogger
 
 from app.core.config import get_settings
 
 
-def add_trace_context(_, __, event_dict: dict[str, object]) -> dict[str, object]:
+def add_trace_context(
+    logger: WrappedLogger,
+    method_name: str,
+    event_dict: EventDict,
+) -> EventDict:
     span = trace.get_current_span()
     context = span.get_span_context()
     if context.is_valid:
