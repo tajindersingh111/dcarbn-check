@@ -16,6 +16,8 @@ from app.core.redis import get_redis
 
 logger = logging.getLogger(__name__)
 
+_RATE_LIMIT_EXEMPT_SUFFIXES = ("/health/live", "/health/database-pool")
+
 FIXED_WINDOW_SCRIPT = """
 local current = redis.call('INCR', KEYS[1])
 if current == 1 then
@@ -40,7 +42,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         call_next: RequestResponseEndpoint,
     ) -> Response:
         settings = get_settings()
-        if request.url.path.endswith('/health/live'):
+        if request.url.path.endswith(_RATE_LIMIT_EXEMPT_SUFFIXES):
             return await call_next(request)
         if not settings.rate_limit_enabled:
             return await call_next(request)

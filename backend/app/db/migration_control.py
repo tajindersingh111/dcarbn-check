@@ -135,6 +135,9 @@ async def migration_lock(
     database_url: str,
     *,
     timeout_seconds: float,
+    statement_timeout_ms: int = 600_000,
+    idle_transaction_timeout_ms: int = 60_000,
+    lock_timeout_ms: int = 30_000,
 ) -> AsyncIterator[AsyncConnection]:
     if not database_url.startswith("postgresql+asyncpg://"):
         raise MigrationPolicyError("Controlled migrations require PostgreSQL.")
@@ -143,6 +146,22 @@ async def migration_lock(
     acquired = False
     try:
         async with engine.connect() as connection:
+            await connection.execute(
+                text(
+                    "SELECT "
+                    "set_config('statement_timeout', :statement_timeout, false), "
+                    "set_config("
+                    "'idle_in_transaction_session_timeout', :idle_timeout, false"
+                    "), "
+                    "set_config('lock_timeout', :lock_timeout, false)"
+                ),
+                {
+                    "statement_timeout": f"{statement_timeout_ms}ms",
+                    "idle_timeout": f"{idle_transaction_timeout_ms}ms",
+                    "lock_timeout": f"{lock_timeout_ms}ms",
+                },
+            )
+            await connection.commit()
             while True:
                 acquired = bool(
                     await connection.scalar(

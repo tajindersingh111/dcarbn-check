@@ -11,7 +11,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.security import hash_password, normalize_email
-from app.db.session import AsyncSessionFactory
+from app.db.session import OperatorSessionFactory
 from app.models.identity import MembershipRole, TenantMembership, User, UserStatus
 from app.models.tenant import Tenant
 from app.services.identity import ensure_system_roles
@@ -85,7 +85,7 @@ def _read_password(path: str | None) -> str:
 
 async def _run(args: argparse.Namespace) -> None:
     password = _read_password(args.password_file)
-    async with AsyncSessionFactory() as db:
+    async with OperatorSessionFactory() as db:
         user = await bootstrap_platform_admin(
             db,
             tenant_name=args.tenant_name,

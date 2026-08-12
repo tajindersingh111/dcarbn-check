@@ -23,6 +23,7 @@ def _settings(**overrides: object) -> Settings:
         "secret_key": "s" * 32,
         "mfa_encryption_key": "m" * 32,
         "database_url": "sqlite+aiosqlite://",
+        "database_connection_limit": 50,
         "redis_required": True,
         "cookie_secure": True,
         "hsts_enabled": True,

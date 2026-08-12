@@ -32,6 +32,11 @@ def test_alert_rules_reference_runbooks() -> None:
     assert "runbook_url:" in rules
     assert "DCarbnBackupStale" in rules
     assert "DCarbnRefreshTokenReuse" in rules
+    assert "DCarbnDatabasePoolSaturated" in rules
+    assert "DCarbnDatabasePoolWaitHigh" in rules
+    assert "DCarbnDatabasePoolExhausted" in rules
+    assert "process_role" in rules
+    assert "tenant_id" not in rules
 
 
 def test_backup_scripts_require_confirmation_for_restore() -> None:

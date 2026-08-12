@@ -9,7 +9,7 @@ from uuid import UUID
 from fastapi import UploadFile
 
 from app.auth.dependencies import CurrentPrincipal
-from app.db.session import AsyncSessionFactory
+from app.db.session import OperatorSessionFactory
 from app.schemas.emission_factor import FactorSetImportMetadata
 from app.services.emission_factors import import_uk_2026_factor_workbook
 
@@ -55,7 +55,7 @@ async def run() -> None:
         roles=frozenset({"platform_admin", "factor_manager"}),
     )
 
-    async with AsyncSessionFactory() as db:
+    async with OperatorSessionFactory() as db:
         with args.workbook.open("rb") as stream:
             upload = UploadFile(filename=args.workbook.name, file=stream)
             job = await import_uk_2026_factor_workbook(

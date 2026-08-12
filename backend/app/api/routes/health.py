@@ -7,8 +7,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
 from app.core.redis import get_redis
-from app.db.session import get_db
-from app.schemas.health import HealthResponse
+from app.db.pooling import database_budget
+from app.db.pool_metrics import database_pool_health
+from app.db.session import engine, get_db
+from app.schemas.health import DatabasePoolHealthResponse, HealthResponse
 from app.schemas.operations import (
     OperationalHealthResponse,
     RecoveryReadinessResponse,
@@ -40,6 +42,29 @@ async def readiness(db: AsyncSession = Depends(get_db)) -> HealthResponse:
             ) from exc
 
     return HealthResponse(status="ok", timestamp=datetime.now(UTC))
+
+
+@router.get(
+    "/health/database-pool",
+    response_model=DatabasePoolHealthResponse,
+)
+async def database_pool_status() -> DatabasePoolHealthResponse:
+    settings = get_settings()
+    budget = database_budget(settings)
+    pool_size, max_overflow = budget.process_pool(settings.database_process_role)
+    health = database_pool_health(
+        engine,
+        process_role=settings.database_process_role,
+        configured_capacity=pool_size + max_overflow,
+    )
+    return DatabasePoolHealthResponse(
+        status=health.status,
+        timestamp=datetime.now(UTC),
+        process_role=health.process_role,
+        capacity=health.capacity,
+        checked_out=health.checked_out,
+        utilisation_percent=health.utilisation_percent,
+    )
 
 
 @router.get(

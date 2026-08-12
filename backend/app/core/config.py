@@ -9,6 +9,8 @@ from uuid import UUID
 from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
+from app.db.connection_budget import DatabaseConnectionBudget
+
 
 def _read_secret(name: str, current: str | None) -> str | None:
     file_variable = os.getenv(f"{name.upper()}_FILE")
@@ -60,6 +62,27 @@ class Settings(BaseSettings):
 
     database_url: str = ""
     database_application_role: str = "dcarbn_app"
+    database_process_role: Literal["api", "worker"] = "api"
+    database_pool_mode: Literal["direct", "pgbouncer_transaction"] = "direct"
+    database_connection_limit: int = Field(default=50, ge=10, le=10_000)
+    database_safety_margin_percent: int = Field(default=40, ge=0, le=80)
+    database_operator_reserve: int = Field(default=5, ge=1, le=100)
+    database_monitoring_connections: int = Field(default=2, ge=1, le=100)
+    database_migration_connections: int = Field(default=1, ge=1, le=10)
+    database_api_replicas: int = Field(default=3, ge=1, le=100)
+    database_api_pool_size: int = Field(default=3, ge=1, le=100)
+    database_api_max_overflow: int = Field(default=1, ge=0, le=100)
+    database_worker_replicas: int = Field(default=3, ge=1, le=100)
+    database_worker_pool_size: int = Field(default=2, ge=1, le=100)
+    database_worker_max_overflow: int = Field(default=1, ge=0, le=100)
+    database_pool_timeout_seconds: float = Field(default=5.0, gt=0, le=60)
+    database_pool_recycle_seconds: int = Field(default=900, ge=60, le=86_400)
+    database_statement_timeout_ms: int = Field(default=30_000, ge=1_000, le=600_000)
+    database_idle_transaction_timeout_ms: int = Field(
+        default=15_000,
+        ge=1_000,
+        le=600_000,
+    )
     redis_url: str = "redis://localhost:6379/0"
     redis_required: bool = False
     async_workloads_enabled: bool = False
@@ -164,6 +187,21 @@ class Settings(BaseSettings):
         if not self.database_url:
             raise ValueError("DATABASE_URL is required.")
 
+        database_budget = DatabaseConnectionBudget(
+            connection_limit=self.database_connection_limit,
+            safety_margin_percent=self.database_safety_margin_percent,
+            operator_reserve=self.database_operator_reserve,
+            monitoring_connections=self.database_monitoring_connections,
+            migration_connections=self.database_migration_connections,
+            api_replicas=self.database_api_replicas,
+            api_pool_size=self.database_api_pool_size,
+            api_max_overflow=self.database_api_max_overflow,
+            worker_replicas=self.database_worker_replicas,
+            worker_pool_size=self.database_worker_pool_size,
+            worker_max_overflow=self.database_worker_max_overflow,
+        )
+        database_budget.validate()
+
         if self.async_workloads_enabled:
             rollout_errors: list[str] = []
             if not self.async_workload_allowed_tenant_ids:
@@ -186,6 +224,10 @@ class Settings(BaseSettings):
 
         if self.app_env in {"staging", "production"}:
             errors: list[str] = []
+            if "database_connection_limit" not in self.model_fields_set:
+                errors.append(
+                    "DATABASE_CONNECTION_LIMIT must be supplied by the hosting environment"
+                )
             if not self.cookie_secure:
                 errors.append("COOKIE_SECURE must be true")
             if not self.hsts_enabled:

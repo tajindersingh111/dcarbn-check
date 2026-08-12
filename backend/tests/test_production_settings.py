@@ -10,6 +10,7 @@ def production_settings(**overrides: object) -> Settings:
         "secret_key": "s" * 64,
         "mfa_encryption_key": "m" * 64,
         "database_url": "postgresql+asyncpg://user:pass@db:5432/app",
+        "database_connection_limit": 50,
         "redis_url": "redis://:password@redis:6379/0",
         "redis_required": True,
         "rate_limit_fail_open": False,
@@ -52,3 +53,13 @@ def test_staging_rejects_unsafe_runtime_settings() -> None:
             cookie_secure=False,
             rate_limit_fail_open=True,
         )
+
+
+def test_production_requires_host_connection_limit(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("DATABASE_CONNECTION_LIMIT", raising=False)
+    with pytest.raises(ValidationError, match="DATABASE_CONNECTION_LIMIT"):
+        values = production_settings().model_dump()
+        values.pop("database_connection_limit")
+        Settings(_env_file=None, **values)

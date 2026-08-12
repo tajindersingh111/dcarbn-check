@@ -63,6 +63,46 @@ groups:
     annotations:
       summary: PostgreSQL dependency check is failing
       runbook_url: /runbooks/postgresql-unavailable.md
+  - alert: DCarbnDatabasePoolSaturated
+    expr: |
+      max by (process_role) (
+        dcarbn_database_pool_connections{state="checked_out"}
+        /
+        clamp_min(dcarbn_database_pool_connections{state="capacity"}, 1)
+      ) >= 0.8
+    for: 10m
+    labels:
+      severity: warning
+      service: postgresql
+    annotations:
+      summary: Database pool usage exceeds 80% of a process-role budget
+      runbook_url: /runbooks/database-connection-saturation.md
+  - alert: DCarbnDatabasePoolWaitHigh
+    expr: |
+      histogram_quantile(
+        0.95,
+        sum by (process_role, le) (
+          rate(dcarbn_database_pool_acquisition_seconds_bucket[10m])
+        )
+      ) > 0.25
+    for: 10m
+    labels:
+      severity: warning
+      service: postgresql
+    annotations:
+      summary: Database connection acquisition p95 exceeds 250 milliseconds
+      runbook_url: /runbooks/database-connection-saturation.md
+  - alert: DCarbnDatabasePoolExhausted
+    expr: |
+      sum by (process_role) (
+        increase(dcarbn_database_pool_timeouts_total[5m])
+      ) > 0
+    labels:
+      severity: critical
+      service: postgresql
+    annotations:
+      summary: A database process pool rejected work after acquisition timeout
+      runbook_url: /runbooks/database-connection-saturation.md
   - alert: DCarbnRedisUnavailable
     expr: dcarbn_dependency_health{dependency="redis"} == 0
     for: 1m
