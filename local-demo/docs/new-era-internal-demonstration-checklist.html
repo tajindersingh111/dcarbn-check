@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="en-GB">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>New Era pilot — internal demonstration checklist</title>
+    <link rel="stylesheet" href="new-era-handover.css">
+  </head>
+  <body>
+    <main class="document">
+      <header class="masthead">
+        <div class="brand">
+          <div class="logo" aria-hidden="true">d</div>
+          <div>
+            <p class="brand-name">D-carbN Analytics</p>
+            <p class="brand-subtitle">Scope 1, 2 &amp; 3</p>
+          </div>
+        </div>
+        <p class="document-label">Internal use<br>Demonstration checklist</p>
+      </header>
+
+      <section class="hero">
+        <p class="eyebrow">Facilitator: Leonard</p>
+        <h1>Run a controlled, repeatable New Era demonstration.</h1>
+        <p class="lede">Complete the checks in order. Use the committed fictional samples or irreversibly anonymised 2025 data only.</p>
+      </section>
+
+      <section class="content">
+        <h2>Before the customer session</h2>
+        <ul class="checklist">
+          <li>Confirm the working branch is <code>agent/new-era-browser-pilot</code>.</li>
+          <li>From the repository root, start the application with <code>python3 -m http.server 8081 --directory local-demo</code>.</li>
+          <li>Open <code>http://127.0.0.1:8081/</code> on Leonard’s demonstration laptop and confirm there are no browser-console errors.</li>
+          <li>Open <strong>Inventory wizard → Clear all local customer data</strong>, read the warning, confirm the clear, and reload the page.</li>
+          <li>Confirm the visible reporting-period default is <strong>Calendar year 2025</strong>.</li>
+          <li>Create the agreed demonstration passphrase. Do not write it in this checklist, email it or display it in screenshots.</li>
+          <li>Prepare the committed fictional organisation, Scope 1, Scope 2 and Scope 3 sample CSV files. Do not use real New Era records.</li>
+          <li>Close unrelated applications, notifications and documents before screen sharing.</li>
+        </ul>
+
+        <h2>Demonstrate the customer journey</h2>
+        <ol class="steps">
+          <li>
+            <h3>Explain the local data boundary</h3>
+            <p>State that files, calculations and session state stay inside this browser on Leonard’s laptop. Independent remote access is not part of this pilot.</p>
+          </li>
+          <li>
+            <h3>Load the fictional organisation metadata</h3>
+            <p>Upload <code>local-demo/sample/fictional-organisation-2025.csv</code>. Show the organisation name, reporting boundary and Calendar year 2025 dates.</p>
+          </li>
+          <li>
+            <h3>Show a blocked error and its correction</h3>
+            <p>Create a temporary copy of a fictional sample outside the repository. Introduce an impossible date or unsupported unit, upload it, and show the row-specific correction guidance and blocked readiness. Correct the temporary copy and re-upload it.</p>
+          </li>
+          <li>
+            <h3>Show duplicate detection</h3>
+            <p>In another temporary copy, repeat a source record ID. Show that the duplicate blocks submission. Remove the repeated row or apply a truthful unique ID, then re-upload. Delete all temporary files after the demonstration.</p>
+          </li>
+          <li>
+            <h3>Load all three scopes independently</h3>
+            <p>Upload <code>fictional-scope-1-2025.csv</code>, <code>fictional-scope-2-2025.csv</code> and <code>fictional-scope-3-2025.csv</code> through their matching controls. Show that each receives its own validation summary.</p>
+          </li>
+          <li>
+            <h3>Complete and submit</h3>
+            <p>Complete the contributor confirmations, review the readiness panel and select <strong>Submit to D-carbN</strong>. Emphasise that blockers prevent readiness from reaching 100%.</p>
+          </li>
+          <li>
+            <h3>Switch to the D-carbN reviewer role</h3>
+            <p>Use the role control to switch from contributor to analyst/reviewer. Inspect totals, the versioned 2025 factor pack, evidence references and audit history. Approve all ready records and complete the analyst review.</p>
+          </li>
+          <li>
+            <h3>Approve and lock the report</h3>
+            <p>Switch to the authorised approver role. Resolve final controls, generate the immutable snapshot, inspect the report, and lock the release. Confirm that calculations and lineage remain visible after locking.</p>
+          </li>
+          <li>
+            <h3>Create an encrypted session backup</h3>
+            <p>Select <strong>Export pilot session</strong>, provide the approved passphrase and save the encrypted export. Demonstrate restoration only if agreed in the session plan. Never share the export without its protected transfer procedure.</p>
+          </li>
+        </ol>
+
+        <h2>Close the session safely</h2>
+        <ul class="checklist">
+          <li>Confirm any required report and calculation exports were captured and contain fictional or irreversibly anonymised information only.</li>
+          <li>Use <strong>Clear all local customer data</strong> and confirm the application returns to a clean Calendar year 2025 state.</li>
+          <li>Delete temporary error/duplicate CSV files and remove unnecessary downloaded session or report files from the laptop and bin/trash.</li>
+          <li>Close the browser tab and stop the local server with <code>Control-C</code> in the terminal.</li>
+          <li>Record feedback in the UAT form without names, contact details or sensitive business data.</li>
+        </ul>
+
+        <aside class="notice warning">
+          <strong>Stop condition.</strong> If real, identifiable, confidential or commercially sensitive information is displayed or selected, stop the demonstration, do not upload it, clear any local copy created by the pilot, and record only a non-sensitive description of the incident.
+        </aside>
+
+        <div class="grid-two">
+          <div class="card"><strong>Session date</strong><div class="line"></div></div>
+          <div class="card"><strong>Completion checked by Leonard</strong><div class="line"></div></div>
+        </div>
+      </section>
+
+      <footer class="footer">
+        <span>D-carbN Analytics · Internal demonstration control</span>
+        <span>Do not record passphrases or customer identifiers</span>
+      </footer>
+    </main>
+  </body>
+</html>

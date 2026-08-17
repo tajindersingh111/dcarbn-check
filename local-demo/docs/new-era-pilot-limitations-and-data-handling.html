@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="en-GB">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>New Era browser pilot — limitations and data handling</title>
+    <link rel="stylesheet" href="new-era-handover.css">
+  </head>
+  <body>
+    <main class="document">
+      <header class="masthead">
+        <div class="brand">
+          <div class="logo" aria-hidden="true">d</div>
+          <div>
+            <p class="brand-name">D-carbN Analytics</p>
+            <p class="brand-subtitle">Scope 1, 2 &amp; 3</p>
+          </div>
+        </div>
+        <p class="document-label">New Era browser pilot<br>Limitations &amp; data handling</p>
+      </header>
+
+      <section class="hero">
+        <p class="eyebrow">Mandatory pilot notice</p>
+        <h1>A local demonstration—not a hosted production service.</h1>
+        <p class="lede">Read this notice before preparing files or starting the New Era customer pilot.</p>
+      </section>
+
+      <section class="content">
+        <aside class="notice stop">
+          <strong>Do not upload identifiable, confidential or commercially sensitive data.</strong> The pilot is approved only for fictional or irreversibly anonymised data. If there is any doubt, do not use the file.
+        </aside>
+
+        <div class="grid-two">
+          <section class="card">
+            <h3>Approved for this pilot</h3>
+            <ul>
+              <li>Committed fictional demonstration files.</li>
+              <li>Irreversibly anonymised 2025 activity data that cannot be linked back to a person, supplier, customer, contract, site or commercially sensitive transaction.</li>
+              <li>Supervised use on Leonard’s designated demonstration laptop.</li>
+            </ul>
+          </section>
+          <section class="card">
+            <h3>Not approved</h3>
+            <ul>
+              <li>Names, email addresses, telephone numbers or employee identifiers.</li>
+              <li>Customer, supplier, vehicle, meter, account, contract or invoice identifiers that reveal a real party.</li>
+              <li>Prices, volumes, routes, locations or operational detail that is confidential or commercially sensitive.</li>
+              <li>Independent remote customer access to the local pilot.</li>
+            </ul>
+          </section>
+        </div>
+
+        <h2>Where the data is held</h2>
+        <p>The pilot has no application database and does not upload customer files to D-carbN servers. Imported CSV content, validation results, calculations, workflow state and audit history are stored only in the browser on Leonard’s demonstration laptop. Closing the tab does not necessarily clear that browser storage.</p>
+
+        <h2>Controls and their limits</h2>
+        <ul>
+          <li>The pilot uses a local security gate, inactivity locking and encrypted session exports. The passphrase is not stored and cannot be recovered.</li>
+          <li>Browser storage is not a substitute for production access control, managed backups, central audit monitoring, retention controls or tenant isolation on a hosted service.</li>
+          <li>Operating-system accounts, device security, browser extensions, screen sharing, screenshots, download folders and backup software sit outside the pilot application’s control.</li>
+          <li>Evidence references record lineage, but external evidence documents are not automatically embedded in the encrypted session export.</li>
+          <li>The pilot report demonstrates the workflow and format. It is not an independently assured statement and must not be used as a production disclosure.</li>
+        </ul>
+
+        <h2>Required handling procedure</h2>
+        <ol>
+          <li>Leonard checks every proposed file against this notice before it is opened or uploaded.</li>
+          <li>Use only the local address <code>http://127.0.0.1:8081/</code> on the designated laptop.</li>
+          <li>Keep passphrases separate from encrypted exports and never place a passphrase in a CSV, screenshot, form, chat or email.</li>
+          <li>During the session, display only the pilot and the approved fictional or anonymised files.</li>
+          <li>At the end, export only the agreed non-sensitive outputs, select <strong>Clear all local customer data</strong>, delete unnecessary downloads and temporary files, and stop the local server.</li>
+          <li>Report any accidental exposure immediately without copying the exposed information into the feedback record.</li>
+        </ol>
+
+        <h2>Remote access and the next phase</h2>
+        <p>This browser pilot is designed for a supervised demonstration on one local computer. Independent access from New Era computers—including direct access across the internet—requires the protected hosted platform with authenticated users, role-based permissions, tenant isolation, managed encrypted storage, monitoring and governed operational controls. Do not expose the local server publicly or use consumer file-sharing as a substitute.</p>
+
+        <aside class="callout">
+          <strong>Decision rule:</strong> if the customer needs to use real business data or access the application independently, pause the browser pilot and move that activity into the approved hosted-platform plan.
+        </aside>
+
+        <h2>Pre-session acknowledgement</h2>
+        <ul class="checklist">
+          <li>The approved data boundary has been explained.</li>
+          <li>All files have been confirmed fictional or irreversibly anonymised.</li>
+          <li>The local-storage limitation and end-of-session clearing process are understood.</li>
+          <li>Independent remote access has not been offered or enabled.</li>
+        </ul>
+        <div class="grid-two">
+          <div class="card"><strong>Date</strong><div class="line"></div></div>
+          <div class="card"><strong>Confirmed by facilitator</strong><div class="line"></div></div>
+        </div>
+      </section>
+
+      <footer class="footer">
+        <span>D-carbN Analytics · Mandatory pilot notice</span>
+        <span>Protected hosted platform required for independent remote access</span>
+      </footer>
+    </main>
+  </body>
+</html>

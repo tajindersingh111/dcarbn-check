@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en-GB">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>New Era customer pilot — quick-start guide</title>
+    <link rel="stylesheet" href="new-era-handover.css">
+  </head>
+  <body>
+    <main class="document">
+      <header class="masthead">
+        <div class="brand">
+          <div class="logo" aria-hidden="true">d</div>
+          <div>
+            <p class="brand-name">D-carbN Analytics</p>
+            <p class="brand-subtitle">Scope 1, 2 &amp; 3</p>
+          </div>
+        </div>
+        <p class="document-label">New Era customer pilot<br>Quick-start guide</p>
+      </header>
+
+      <section class="hero">
+        <p class="eyebrow">Browser-only demonstration</p>
+        <h1>From prepared CSV files to a reviewable carbon report.</h1>
+        <p class="lede">Use this guide during the supervised New Era pilot. The application works locally on Leonard’s demonstration laptop.</p>
+      </section>
+
+      <section class="content">
+        <aside class="notice warning">
+          <strong>Approved data only.</strong> Use fictional or irreversibly anonymised 2025 data. Do not upload identifiable, confidential or commercially sensitive information.
+        </aside>
+
+        <ol class="steps">
+          <li>
+            <h3>Open the local application</h3>
+            <p>After Leonard starts the local server, open <code>http://127.0.0.1:8081/</code> on the demonstration laptop. Create the agreed pilot passphrase when prompted. Keep it private: D-carbN cannot recover it.</p>
+          </li>
+          <li>
+            <h3>Enter the organisation and reporting details</h3>
+            <p>Open <strong>Inventory wizard</strong>, download the organisation template, and complete the required organisation name, reporting boundary, reporting dates and confirmation fields. Set the reporting period to <strong>Calendar year 2025</strong> (1 January–31 December 2025), save the file as CSV, then upload it.</p>
+          </li>
+          <li>
+            <h3>Prepare the Scope 1, Scope 2 and Scope 3 files</h3>
+            <p>Download each scope’s CSV template from the guided upload journey. Work in fresh copies and retain the supplied column headings.</p>
+            <ul>
+              <li><strong>Scope 1:</strong> direct fuel, company vehicles and refrigerants.</li>
+              <li><strong>Scope 2:</strong> purchased electricity using the supported location-based method.</li>
+              <li><strong>Scope 3:</strong> supported value-chain activity such as travel, transport, procurement and homeworking.</li>
+            </ul>
+            <p>Use a unique source record ID for every row, dates within 2025, a supported unit and method, and an evidence reference that can be traced to the source record. Do not rename, remove or add columns.</p>
+          </li>
+          <li>
+            <h3>Upload and validate each scope independently</h3>
+            <p>Use the matching <strong>Scope 1</strong>, <strong>Scope 2</strong> or <strong>Scope 3</strong> upload control. Confirm the file summary before continuing. Uploading remains local; the browser does not send the file over a network.</p>
+          </li>
+          <li>
+            <h3>Correct validation or duplicate errors</h3>
+            <p>The file is blocked if a row is invalid, flagged or duplicated. Read the row number and correction guidance, update the original CSV, save it again, and re-upload the complete corrected file. Common corrections include:</p>
+            <ul>
+              <li>replace an invalid or out-of-period date;</li>
+              <li>use an accepted unit or supported method;</li>
+              <li>complete missing evidence or organisational metadata;</li>
+              <li>give duplicate rows distinct, accurate source record IDs—or remove the genuine duplicate.</li>
+            </ul>
+          </li>
+          <li>
+            <h3>Submit the complete inventory to D-carbN</h3>
+            <p>Review the readiness panel. Submission is available only when the organisation file and all required scope files are valid, confirmation controls are complete, and no invalid, duplicate or flagged records remain. Select <strong>Submit to D-carbN</strong> when readiness reaches 100%.</p>
+          </li>
+          <li>
+            <h3>Review calculations and evidence lineage</h3>
+            <p>In <strong>Scope data</strong>, review activity quantities, units, calculated emissions and the versioned 2025 factor reference. Use the audit and evidence views to trace every result back to its uploaded source record and evidence reference. Raise any query before approval or locking.</p>
+          </li>
+          <li>
+            <h3>Export the approved results</h3>
+            <p>After D-carbN review and approval, open <strong>Reports</strong>. Review the report preview and export the available report and calculation outputs. The report can be locked only after the required metadata and approvals are complete.</p>
+          </li>
+        </ol>
+
+        <aside class="callout">
+          <strong>Need help?</strong> Stop and ask Leonard before changing a template structure, choosing an unfamiliar method or accepting a result that does not look reasonable. Keep the original source and corrected CSV copies so the correction trail remains clear.
+        </aside>
+      </section>
+
+      <footer class="footer">
+        <span>D-carbN Analytics · New Era browser pilot</span>
+        <span>Fictional or irreversibly anonymised 2025 data only</span>
+      </footer>
+    </main>
+  </body>
+</html>
