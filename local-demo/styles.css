@@ -135,6 +135,15 @@ h3 { color: var(--brand); font-size: 1rem; }
 .view.active { display: block; }
 @keyframes reveal { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
 .pilot-strip { align-items: center; background: white; border: 1px solid var(--border); border-radius: var(--radius-md); box-shadow: var(--shadow); display: grid; gap: 1rem; grid-template-columns: minmax(12rem, 0.8fr) minmax(24rem, 1.6fr) auto; margin-bottom: 2rem; padding: 1rem 1.2rem; }
+.security-gate { align-items: center; background: rgba(23, 27, 57, 0.97); display: flex; inset: 0; justify-content: center; padding: 2rem; position: fixed; z-index: 1000; }
+.security-gate.hidden { display: none; }
+.security-card { background: white; border-radius: 20px; box-shadow: 0 24px 80px rgba(0, 0, 0, 0.35); display: grid; gap: 1rem; max-width: 31rem; padding: 2.5rem; width: 100%; }
+.security-card h1, .security-card p { margin: 0; }
+.security-card label { display: grid; font-weight: 700; gap: .5rem; }
+.security-card input { border: 1px solid var(--border); border-radius: 8px; font: inherit; padding: .8rem; }
+.security-card small { color: var(--muted); line-height: 1.5; }
+.restore-label { cursor: pointer; text-align: center; }
+.restore-label input { display: none; }
 .pilot-role strong, .pilot-role span { display: block; }
 .pilot-role strong { color: var(--brand); font-size: 0.78rem; }
 .pilot-role span { color: var(--muted); font-size: 0.66rem; margin-top: 0.12rem; }

@@ -1,232 +1,12 @@
 "use strict";
 
-const STORAGE_KEY = "dcarbn.new-era.local-demo.v2";
-const FACTOR_SOURCE = "DESNZ UK Government GHG Conversion Factors 2026, revised July 2026";
+const CORE = globalThis.DCARBN_PILOT_CORE;
+if (!CORE) throw new Error("The governed browser-pilot core did not load.");
+const STORAGE_KEY = "dcarbn.new-era.local-demo.encrypted.v1";
+const LEGACY_STORAGE_KEY = "dcarbn.new-era.local-demo.v2";
+const FACTOR_SOURCE = CORE.FACTOR_PACK.source;
 
-const METHODS = [
-  {
-    id: "scope1.stationary_natural_gas.gross_cv.kwh.uk_2026.v1",
-    label: "Natural gas · gross CV · kWh",
-    short: "Natural gas",
-    scope: 1,
-    category: null,
-    unit: "kWh (Gross CV)",
-    factor: 0.18231,
-    factorLabel: "Fuels / Gaseous fuels / Natural gas",
-  },
-  {
-    id: "scope1.stationary_natural_gas.cubic_metres.uk_2026.v1",
-    label: "Natural gas · cubic metres",
-    short: "Natural gas",
-    scope: 1,
-    category: null,
-    unit: "cubic metres",
-    factor: 2.02633,
-    factorLabel: "Fuels / Gaseous fuels / Natural gas",
-  },
-  {
-    id: "scope1.mobile_combustion.diesel.litres.uk_2026.v1",
-    label: "Owned fleet diesel · litres",
-    short: "Fleet diesel",
-    scope: 1,
-    category: null,
-    unit: "litres",
-    factor: 2.58354,
-    factorLabel: "Fuels / Liquid fuels / Diesel (average biofuel blend)",
-  },
-  {
-    id: "scope1.mobile_combustion.delivery_van.class1.diesel.km.uk_2026.v1",
-    label: "Owned Class I diesel van · kilometres",
-    short: "Diesel van",
-    scope: 1,
-    category: null,
-    unit: "km",
-    factor: 0.15833,
-    factorLabel: "Delivery vehicles / Vans / Class I (up to 1.305 tonnes) / Diesel",
-  },
-  {
-    id: "scope1.mobile_combustion.average_car.petrol.km.uk_2026.v1",
-    label: "Average petrol car · kilometres",
-    short: "Petrol fleet",
-    scope: 1,
-    category: null,
-    unit: "km",
-    factor: 0.16152,
-    factorLabel: "Passenger vehicles / Cars / Average car / Petrol",
-  },
-  {
-    id: "scope1.refrigerant.r410a.service_top_up.kg.uk_2026.v1",
-    label: "R410A service top-up · kg",
-    short: "R410A top-up",
-    scope: 1,
-    category: null,
-    unit: "kg",
-    factor: 1924,
-    factorLabel: "Refrigerant & other / Blends / R410A",
-  },
-  {
-    id: "scope2.location_electricity.kwh.uk_2026.v1",
-    label: "UK electricity · location-based · kWh",
-    short: "Electricity",
-    scope: 2,
-    category: null,
-    unit: "kWh",
-    factor: 0.13096,
-    factorLabel: "UK electricity / Electricity generated / Electricity: UK",
-  },
-  {
-    id: "scope3.category3.diesel_wtt.litres.uk_2026.v1",
-    label: "Category 3 · Diesel well-to-tank · litres",
-    short: "Diesel WTT",
-    scope: 3,
-    category: 3,
-    unit: "litres",
-    factor: 0.61101,
-    factorLabel: "WTT fuels / Liquid fuels / Diesel",
-  },
-  {
-    id: "scope3.category5.commercial_waste.closed_loop.tonnes.uk_2026.v1",
-    label: "Category 5 · Commercial waste · closed-loop · tonnes",
-    short: "Closed-loop waste",
-    scope: 3,
-    category: 5,
-    unit: "tonnes",
-    factor: 4.65358,
-    factorLabel: "Waste disposal / Commercial and industrial waste / Closed-loop",
-  },
-  {
-    id: "scope3.category5.commercial_waste.landfill.tonnes.uk_2026.v1",
-    label: "Category 5 · Commercial waste · landfill · tonnes",
-    short: "Landfill waste",
-    scope: 3,
-    category: 5,
-    unit: "tonnes",
-    factor: 520.58023,
-    factorLabel: "Waste disposal / Commercial and industrial waste / Landfill",
-  },
-  {
-    id: "scope3.category5.commercial_waste.combustion.tonnes.uk_2026.v1",
-    label: "Category 5 · Commercial waste · combustion · tonnes",
-    short: "Waste combustion",
-    scope: 3,
-    category: 5,
-    unit: "tonnes",
-    factor: 4.65358,
-    factorLabel: "Waste disposal / Commercial and industrial waste / Combustion",
-  },
-  {
-    id: "scope3.category4.diesel_van.tonne_km.uk_2026.v1",
-    label: "Category 4 · Upstream diesel van freight · tonne-km",
-    short: "Upstream van freight",
-    scope: 3,
-    category: 4,
-    unit: "tonne.km",
-    factor: 0.87948,
-    factorLabel: "Freighting goods / Vans / Class I (up to 1.305 tonnes) / Diesel",
-  },
-  {
-    id: "scope3.category6.domestic_air.with_rf.passenger_km.uk_2026.v1",
-    label: "Category 6 · Domestic air · passenger-km · with RF",
-    short: "Domestic air",
-    scope: 3,
-    category: 6,
-    unit: "passenger.km",
-    factor: 0.22928,
-    factorLabel: "Business travel - air / Domestic, to/from UK / Average passenger / With RF",
-  },
-  {
-    id: "scope3.category6.national_rail.passenger_km.uk_2026.v1",
-    label: "Category 6 · National rail · passenger-km",
-    short: "National rail",
-    scope: 3,
-    category: 6,
-    unit: "passenger.km",
-    factor: 0.03092,
-    factorLabel: "Business travel - land / Rail / National rail",
-  },
-  {
-    id: "scope3.category6.average_ferry_passenger.passenger_km.uk_2026.v1",
-    label: "Category 6 · Average ferry passenger · passenger-km",
-    short: "Ferry travel",
-    scope: 3,
-    category: 6,
-    unit: "passenger.km",
-    factor: 0.1127,
-    factorLabel: "Business travel - sea / Ferry / Average passenger",
-  },
-  {
-    id: "scope3.category6.uk_hotel.room_night.uk_2026.v1",
-    label: "Category 6 · UK hotel · room night",
-    short: "UK hotel",
-    scope: 3,
-    category: 6,
-    unit: "Room per night",
-    factor: 10.4,
-    factorLabel: "Hotel stay / Hotel stay / UK",
-  },
-  {
-    id: "scope3.category7.average_car.unknown_fuel.km.uk_2026.v1",
-    label: "Category 7 · Average car commute · kilometres",
-    short: "Employee commuting",
-    scope: 3,
-    category: 7,
-    unit: "km",
-    factor: 0.16591,
-    factorLabel: "Business travel - land / Cars / Average car / Unknown fuel",
-  },
-  {
-    id: "scope3.category9.average_diesel_van.tonne_km.uk_2026.v1",
-    label: "Category 9 · Downstream average diesel van · tonne-km",
-    short: "Downstream van freight",
-    scope: 3,
-    category: 9,
-    unit: "tonne.km",
-    factor: 0.63511,
-    factorLabel: "Freighting goods / Vans / Average (up to 3.5 tonnes) / Diesel",
-  },
-  {
-    id: "scope3.category9.average_non_refrigerated_hgv.average_laden.tonne_km.uk_2026.v1",
-    label: "Category 9 · Downstream average-laden HGV · tonne-km",
-    short: "Downstream HGV freight",
-    scope: 3,
-    category: 9,
-    unit: "tonne.km",
-    factor: 0.10356,
-    factorLabel: "Freighting goods / HGV (non-refrigerated, all diesel) / Average laden",
-  },
-  {
-    id: "scope3.category9.rail_freight.tonne_km.uk_2026.v1",
-    label: "Category 9 · Downstream rail freight · tonne-km",
-    short: "Downstream rail freight",
-    scope: 3,
-    category: 9,
-    unit: "tonne.km",
-    factor: 0.02583,
-    factorLabel: "Freighting goods / Rail / Freight train",
-  },
-  {
-    id: "scope3.category1.supplier_specific.reported_kgco2e.ghgp.v1",
-    label: "Category 1 · Supplier-specific reported result",
-    short: "Purchased goods",
-    scope: 3,
-    category: 1,
-    unit: "kgCO2e",
-    factor: null,
-    directResult: true,
-    factorLabel: "Supplier-specific lifecycle result",
-  },
-  {
-    id: "scope3.category2.supplier_specific.reported_kgco2e.ghgp.v1",
-    label: "Category 2 · Supplier-specific capital goods result",
-    short: "Capital goods",
-    scope: 3,
-    category: 2,
-    unit: "kgCO2e",
-    factor: null,
-    directResult: true,
-    factorLabel: "Supplier-specific lifecycle result",
-  },
-];
+const METHODS = CORE.METHODS;
 
 const ACTIVITY_TEMPLATE_HEADINGS = [
   "template_type", "source_record_id", "activity_date", "description", "site_location", "source_type",
@@ -239,7 +19,8 @@ const ACTIVITY_TEMPLATE_HEADINGS = [
 
 const PROFILE_TEMPLATE_HEADINGS = [
   "template_type", "organisation_name", "reporting_period_start", "reporting_period_end",
-  "full_time_equivalent_employees", "headcount", "revenue_gbp", "completed_by", "evidence_reference", "notes",
+  "full_time_equivalent_employees", "headcount", "revenue_gbp", "completed_by", "evidence_reference",
+  "organisational_boundary", "reporting_scopes", "responsible_contributor_role", "evidence_completeness_confirmed", "notes",
 ];
 
 function templateRow(methodId, purpose) {
@@ -255,33 +36,32 @@ const TEMPLATE_LIBRARY = {
     filename: "dcarbn-new-era-info-needed.csv",
     label: "Organisation information",
     headings: PROFILE_TEMPLATE_HEADINGS,
-    rows: [{ template_type: "organisation_information", organisation_name: "", reporting_period_start: "", reporting_period_end: "", full_time_equivalent_employees: "", headcount: "", revenue_gbp: "", completed_by: "", evidence_reference: "", notes: "Complete one organisation row" }],
+    rows: [{ template_type: "organisation_information", organisation_name: "", reporting_period_start: "2025-01-01", reporting_period_end: "2025-12-31", full_time_equivalent_employees: "", headcount: "", revenue_gbp: "", completed_by: "", evidence_reference: "", organisational_boundary: "", reporting_scopes: "Scope 1, Scope 2 and Scope 3", responsible_contributor_role: "", evidence_completeness_confirmed: "Yes", notes: "Complete one organisation row" }],
   },
   utilities: {
     filename: "dcarbn-new-era-utilities-and-rent.csv",
     label: "Utilities & rent",
     rows: [
-      templateRow("scope2.location_electricity.kwh.uk_2026.v1", "Purchased electricity in kWh"),
-      templateRow("scope1.stationary_natural_gas.gross_cv.kwh.uk_2026.v1", "Natural gas in gross-CV kWh"),
-      templateRow("scope1.stationary_natural_gas.cubic_metres.uk_2026.v1", "Natural gas in cubic metres"),
-      templateRow("scope1.refrigerant.r410a.service_top_up.kg.uk_2026.v1", "R410A service top-up; equipment_reference is required"),
-      templateRow("scope3.category5.commercial_waste.landfill.tonnes.uk_2026.v1", "Commercial waste sent to landfill"),
-      templateRow("scope3.category5.commercial_waste.closed_loop.tonnes.uk_2026.v1", "Commercial waste sent to closed-loop recycling"),
-      templateRow("scope3.category5.commercial_waste.combustion.tonnes.uk_2026.v1", "Commercial waste sent to combustion"),
+      templateRow("scope2.location_electricity.kwh.uk_2025.v1", "Purchased electricity in kWh"),
+      templateRow("scope1.stationary_natural_gas.gross_cv.kwh.uk_2025.v1", "Natural gas in gross-CV kWh"),
+      templateRow("scope1.stationary_natural_gas.cubic_metres.uk_2025.v1", "Natural gas in cubic metres"),
+      templateRow("scope1.refrigerant.r410a.service_top_up.kg.uk_2025.v1", "R410A service top-up; equipment_reference is required"),
+      templateRow("scope3.category5.commercial_waste.landfill.tonnes.uk_2025.v1", "Commercial waste sent to landfill"),
+      templateRow("scope3.category5.commercial_waste.combustion.tonnes.uk_2025.v1", "Commercial waste sent to combustion"),
     ],
   },
   travel: {
     filename: "dcarbn-new-era-company-vehicles-and-business-travel.csv",
     label: "Vehicles & business travel",
     rows: [
-      templateRow("scope1.mobile_combustion.diesel.litres.uk_2026.v1", "Fuel used by owned or controlled diesel vehicles"),
-      templateRow("scope3.category3.diesel_wtt.litres.uk_2026.v1", "Well-to-tank emissions for the same diesel litres; use a distinct source ID"),
-      templateRow("scope1.mobile_combustion.delivery_van.class1.diesel.km.uk_2026.v1", "Distance travelled by owned or controlled Class I diesel vans"),
-      templateRow("scope1.mobile_combustion.average_car.petrol.km.uk_2026.v1", "Distance travelled by owned or controlled average petrol cars"),
-      templateRow("scope3.category6.domestic_air.with_rf.passenger_km.uk_2026.v1", "Domestic UK air travel; total passenger-km including return journeys"),
-      templateRow("scope3.category6.national_rail.passenger_km.uk_2026.v1", "National rail travel; total passenger-km including return journeys"),
-      templateRow("scope3.category6.average_ferry_passenger.passenger_km.uk_2026.v1", "Ferry travel; total passenger-km including return journeys"),
-      templateRow("scope3.category6.uk_hotel.room_night.uk_2026.v1", "UK overnight stays; total rooms multiplied by nights"),
+      templateRow("scope1.mobile_combustion.diesel.litres.uk_2025.v1", "Fuel used by owned or controlled diesel vehicles"),
+      templateRow("scope3.category3.diesel_wtt.litres.uk_2025.v1", "Well-to-tank emissions for the same diesel litres; use a distinct source ID"),
+      templateRow("scope1.mobile_combustion.delivery_van.class1.diesel.km.uk_2025.v1", "Distance travelled by owned or controlled Class I diesel vans"),
+      templateRow("scope1.mobile_combustion.average_car.petrol.km.uk_2025.v1", "Distance travelled by owned or controlled average petrol cars"),
+      templateRow("scope3.category6.domestic_air.with_rf.passenger_km.uk_2025.v1", "Domestic UK air travel; total passenger-km including return journeys"),
+      templateRow("scope3.category6.national_rail.passenger_km.uk_2025.v1", "National rail travel; total passenger-km including return journeys"),
+      templateRow("scope3.category6.average_ferry_passenger.passenger_km.uk_2025.v1", "Ferry travel; total passenger-km including return journeys"),
+      templateRow("scope3.category6.uk_hotel.room_night.uk_2025.v1", "UK overnight stays; total rooms multiplied by nights"),
     ],
   },
   procurement: {
@@ -296,17 +76,17 @@ const TEMPLATE_LIBRARY = {
     filename: "dcarbn-new-era-transportation-and-distribution.csv",
     label: "Transport & distribution",
     rows: [
-      templateRow("scope3.category4.diesel_van.tonne_km.uk_2026.v1", "Upstream Class I diesel van freight; payload tonnes multiplied by distance km"),
-      templateRow("scope3.category9.average_diesel_van.tonne_km.uk_2026.v1", "Downstream average diesel van freight; payload tonnes multiplied by distance km"),
-      templateRow("scope3.category9.average_non_refrigerated_hgv.average_laden.tonne_km.uk_2026.v1", "Downstream non-refrigerated HGV freight; payload tonnes multiplied by distance km"),
-      templateRow("scope3.category9.rail_freight.tonne_km.uk_2026.v1", "Downstream rail freight; payload tonnes multiplied by distance km"),
+      templateRow("scope3.category4.diesel_van.tonne_km.uk_2025.v1", "Upstream Class I diesel van freight; payload tonnes multiplied by distance km"),
+      templateRow("scope3.category9.average_diesel_van.tonne_km.uk_2025.v1", "Downstream average diesel van freight; payload tonnes multiplied by distance km"),
+      templateRow("scope3.category9.average_non_refrigerated_hgv.average_laden.tonne_km.uk_2025.v1", "Downstream non-refrigerated HGV freight; payload tonnes multiplied by distance km"),
+      templateRow("scope3.category9.rail_freight.tonne_km.uk_2025.v1", "Downstream rail freight; payload tonnes multiplied by distance km"),
     ],
   },
   commuting: {
     filename: "dcarbn-new-era-employee-commuting.csv",
     label: "Employee commuting",
     rows: [
-      templateRow("scope3.category7.average_car.unknown_fuel.km.uk_2026.v1", "Total employee commuting kilometres by average car"),
+      templateRow("scope3.category7.average_car.unknown_fuel.km.uk_2025.v1", "Total employee commuting kilometres by average car"),
     ],
   },
 };
@@ -331,7 +111,11 @@ const PILOT_STAGES = [
   { id: "locked", label: "Locked report" },
 ];
 
-state = loadState();
+let sessionPassphrase = "";
+let lastActivityAt = Date.now();
+let saveSequence = Promise.resolve();
+let pendingInitialState = null;
+state = normalisePilotState(defaultState());
 
 function uid(prefix) {
   if (globalThis.crypto?.randomUUID) return `${prefix}-${globalThis.crypto.randomUUID()}`;
@@ -350,6 +134,9 @@ function seedActivity({ id, date, description, methodId, value, evidence, status
     unit: method.unit,
     factor: method.factor,
     kgCo2e: method.directResult ? value : value * method.factor,
+    factorYear: method.factorYear,
+    factorVersion: method.factorVersion,
+    factorSource: method.factorSource,
     evidence,
     lineage,
     status,
@@ -361,23 +148,25 @@ function seedActivity({ id, date, description, methodId, value, evidence, status
 
 function defaultState() {
   return {
-    version: 2,
+    version: 3,
     organisation: "New Era Group",
     period: "Calendar year 2025",
     profile: {
       reportingPeriodStart: "2025-01-01", reportingPeriodEnd: "2025-12-31",
       fullTimeEquivalentEmployees: null, headcount: null, revenueGbp: null,
-      completedBy: "", evidenceReference: "", notes: "",
+      completedBy: "Fictional Sustainability Coordinator", evidenceReference: "FICTIONAL-ORG-2025",
+      organisationalBoundary: "Operational control", reportingScopes: "Scope 1, Scope 2 and Scope 3",
+      responsibleContributorRole: "Sustainability Coordinator", evidenceCompletenessConfirmed: true, notes: "Fictional demonstration profile",
     },
     activities: [
-      seedActivity({ id: "NEG-UTIL-GAS-001", date: "2025-03-31", description: "Head office natural gas", methodId: "scope1.stationary_natural_gas.gross_cv.kwh.uk_2026.v1", value: 48000, evidence: "NEG-GAS-Q1-2025" }),
-      seedActivity({ id: "NEG-FLEET-DSL-001", date: "2025-04-30", description: "Owned delivery fleet diesel", methodId: "scope1.mobile_combustion.diesel.litres.uk_2026.v1", value: 7200, evidence: "NEG-FUEL-APR-2025" }),
-      seedActivity({ id: "NEG-REF-001", date: "2025-05-16", description: "Warehouse R410A service top-up", methodId: "scope1.refrigerant.r410a.service_top_up.kg.uk_2026.v1", value: 2.4, evidence: "SERVICE-AC-14-2025", lineage: { equipment_reference: "WAREHOUSE-AC-14", service_performed: true } }),
-      seedActivity({ id: "NEG-ELEC-001", date: "2025-03-31", description: "UK grid electricity", methodId: "scope2.location_electricity.kwh.uk_2026.v1", value: 130000, evidence: "NEG-ELEC-Q1-2025" }),
-      seedActivity({ id: "NEG-RAIL-001", date: "2025-06-30", description: "Employee national rail travel", methodId: "scope3.category6.national_rail.passenger_km.uk_2026.v1", value: 4500, evidence: "TRAVEL-LEDGER-H1-2025" }),
-      seedActivity({ id: "NEG-HOTEL-001", date: "2025-06-30", description: "UK hotel stays", methodId: "scope3.category6.uk_hotel.room_night.uk_2026.v1", value: 44, evidence: "HOTEL-LEDGER-H1-2025" }),
-      seedActivity({ id: "NEG-COMMUTE-001", date: "2025-06-30", description: "Average car employee commuting", methodId: "scope3.category7.average_car.unknown_fuel.km.uk_2026.v1", value: 12000, evidence: "STAFF-SURVEY-2025", status: "ready" }),
-      seedActivity({ id: "NEG-SUPPLIER-001", date: "2025-06-30", description: "Supplier-reported packaging footprint", methodId: "scope3.category1.supplier_specific.reported_kgco2e.ghgp.v1", value: 8400, evidence: "SUPPLIER-PCF-PACK-2025", status: "ready", lineage: { supplier_name: "New Era Packaging Ltd", supplier_methodology: "Product carbon footprint", supplier_methodology_version: "2025.1", boundary_description: "Cradle-to-gate", assurance_status: "limited_assurance" } }),
+      seedActivity({ id: "NEG-UTIL-GAS-001", date: "2025-03-31", description: "Head office natural gas", methodId: "scope1.stationary_natural_gas.gross_cv.kwh.uk_2025.v1", value: 48000, evidence: "NEG-GAS-Q1-2025" }),
+      seedActivity({ id: "NEG-FLEET-DSL-001", date: "2025-04-30", description: "Owned delivery fleet diesel", methodId: "scope1.mobile_combustion.diesel.litres.uk_2025.v1", value: 7200, evidence: "NEG-FUEL-APR-2025" }),
+      seedActivity({ id: "NEG-REF-001", date: "2025-05-16", description: "Warehouse R410A service top-up", methodId: "scope1.refrigerant.r410a.service_top_up.kg.uk_2025.v1", value: 2.4, evidence: "SERVICE-AC-14-2025", lineage: { equipment_reference: "WAREHOUSE-AC-14", service_performed: true } }),
+      seedActivity({ id: "NEG-ELEC-001", date: "2025-03-31", description: "UK grid electricity", methodId: "scope2.location_electricity.kwh.uk_2025.v1", value: 130000, evidence: "NEG-ELEC-Q1-2025" }),
+      seedActivity({ id: "NEG-RAIL-001", date: "2025-06-30", description: "Employee national rail travel", methodId: "scope3.category6.national_rail.passenger_km.uk_2025.v1", value: 4500, evidence: "TRAVEL-LEDGER-H1-2025" }),
+      seedActivity({ id: "NEG-HOTEL-001", date: "2025-06-30", description: "UK hotel stays", methodId: "scope3.category6.uk_hotel.room_night.uk_2025.v1", value: 44, evidence: "HOTEL-LEDGER-H1-2025" }),
+      seedActivity({ id: "NEG-COMMUTE-001", date: "2025-06-30", description: "Average car employee commuting", methodId: "scope3.category7.average_car.unknown_fuel.km.uk_2025.v1", value: 12000, evidence: "STAFF-SURVEY-2025", status: "ready" }),
+      seedActivity({ id: "NEG-SUPPLIER-001", date: "2025-06-30", description: "Supplier-reported packaging footprint", methodId: "scope3.category1.supplier_specific.reported_kgco2e.ghgp.v1", value: 8400, evidence: "SUPPLIER-PCF-PACK-2025", status: "ready", lineage: { supplier_name: "Fictional Packaging Ltd", supplier_methodology: "Product carbon footprint", supplier_methodology_version: "2025.1", boundary_description: "Cradle-to-gate", assurance_status: "limited_assurance" } }),
     ],
     batches: [],
     audit: [
@@ -386,6 +175,7 @@ function defaultState() {
       { id: "audit-seed-1", at: "2026-08-17T09:00:00.000Z", action: "New Era Group demonstration inventory created", actor: "Local demo" },
     ],
     report: null,
+    intake: { organisationValidated: false, validatedScopes: { 1: true, 2: true, 3: true }, unresolvedRecords: [], duplicateChecksPassed: true, confirmations: { complete: true, duplicates: true } },
     pilot: { stage: "draft", activeRole: "contributor", submittedAt: null, reviewedAt: null, lockedAt: null },
   };
 }
@@ -394,28 +184,28 @@ function normalisePilotState(candidate) {
   const pilot = candidate.pilot || {};
   const stage = PILOT_STAGES.some((item) => item.id === pilot.stage) ? pilot.stage : "draft";
   const activeRole = ROLE_DEFINITIONS[pilot.activeRole] ? pilot.activeRole : "contributor";
+  const activities = (candidate.activities || []).map((activity) => {
+    const currentId = String(activity.methodId || "").replace("uk_2026", "uk_2025");
+    const governed = METHOD_BY_ID.get(currentId);
+    if (!governed) return activity;
+    return { ...activity, methodId: currentId, factor: governed.factor, kgCo2e: governed.directResult ? activity.quantity : activity.quantity * governed.factor, factorYear: governed.factorYear, factorVersion: governed.factorVersion, factorSource: governed.factorSource };
+  });
   return {
     ...candidate,
-    profile: candidate.profile || defaultState().profile,
+    version: 3,
+    activities,
+    profile: { ...defaultState().profile, ...(candidate.profile || {}) },
+    intake: { ...defaultState().intake, ...(candidate.intake || {}), validatedScopes: { ...defaultState().intake.validatedScopes, ...(candidate.intake?.validatedScopes || {}) }, confirmations: { ...defaultState().intake.confirmations, ...(candidate.intake?.confirmations || {}) } },
     pilot: { stage, activeRole, submittedAt: pilot.submittedAt || null, reviewedAt: pilot.reviewedAt || null, lockedAt: pilot.lockedAt || null },
   };
 }
 
-function loadState() {
-  try {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored) {
-      const parsed = JSON.parse(stored);
-      if (parsed?.version === 2 && Array.isArray(parsed.activities)) return normalisePilotState(parsed);
-    }
-  } catch (error) {
-    console.warn("Could not restore local demo state", error);
-  }
-  return normalisePilotState(defaultState());
-}
-
 function saveState() {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  if (!sessionPassphrase) return;
+  const snapshot = structuredClone(state);
+  saveSequence = saveSequence
+    .then(async () => localStorage.setItem(STORAGE_KEY, JSON.stringify(await CORE.encryptPayload(CORE.createSessionBundle(snapshot), sessionPassphrase))))
+    .catch((error) => { console.error("Encrypted local save failed", error); showToast("Secure local save failed; export the session before closing this page."); });
 }
 
 function escapeHtml(value) {
@@ -442,7 +232,7 @@ function methodFor(activity) {
 function lineageComplete(activity) {
   const method = methodFor(activity);
   const lineage = activity.lineage || {};
-  if (method.id === "scope1.refrigerant.r410a.service_top_up.kg.uk_2026.v1") {
+  if (method.id === "scope1.refrigerant.r410a.service_top_up.kg.uk_2025.v1") {
     return Boolean(lineage.equipment_reference && lineage.service_performed === true);
   }
   if (method.directResult) {
@@ -454,7 +244,7 @@ function lineageComplete(activity) {
 function lineageSummary(activity) {
   const method = methodFor(activity);
   const lineage = activity.lineage || {};
-  if (method.id === "scope1.refrigerant.r410a.service_top_up.kg.uk_2026.v1") return `Equipment ${lineage.equipment_reference || "missing"}`;
+  if (method.id === "scope1.refrigerant.r410a.service_top_up.kg.uk_2025.v1") return `Equipment ${lineage.equipment_reference || "missing"}`;
   if (method.directResult) return `${lineage.supplier_name || "Supplier missing"} · ${lineage.supplier_methodology || "Method missing"}`;
   return "Government factor hierarchy retained";
 }
@@ -525,8 +315,11 @@ function renderPilotStrip() {
   let action = "";
   let helper = "";
   if (state.pilot.stage === "draft") {
-    if (currentRole() === "contributor") action = `<button class="button button-primary" data-pilot-action="submit">Submit to D-carbN</button>`;
-    else helper = "Awaiting customer submission.";
+    const blockers = CORE.submissionBlockers(state);
+    if (currentRole() === "contributor") {
+      action = `<button class="button button-primary" data-pilot-action="submit"${blockers.length ? " disabled" : ""}>Submit to D-carbN</button>`;
+      helper = blockers.length ? blockers.join(" ") : "All required files and confirmations are complete.";
+    } else helper = "Awaiting customer submission.";
   } else if (state.pilot.stage === "analyst_review") {
     if (currentRole() === "analyst") {
       const reviewComplete = summary.ready === 0 && summary.attention === 0;
@@ -534,7 +327,7 @@ function renderPilotStrip() {
       helper = reviewComplete ? "All activities have an analyst decision." : `${summary.ready} review and ${summary.attention} correction item(s) remain.`;
     } else helper = "D-carbN is reviewing the submitted inventory.";
   } else if (state.pilot.stage === "ready_for_approval") {
-    if (currentRole() === "approver") action = `<button class="button button-primary" data-pilot-action="lock">Lock and release report</button>`;
+    if (currentRole() === "approver") action = `<button class="button button-primary" data-pilot-action="lock"${reportChecks().some((check) => !check.ok) ? " disabled" : ""}>Lock and release report</button>`;
     else helper = "Awaiting independent D-carbN approval.";
   } else {
     action = `<span class="badge badge-success">Report locked</span>`;
@@ -585,8 +378,10 @@ function renderDashboard() {
   scopePanel.querySelector("h2").textContent = "Emissions by scope";
 
   if (currentRole() === "contributor" && state.pilot.stage !== "locked") {
-    const intakeProgress = Math.round((evidenceCoverage + (summary.attention === 0 ? 100 : 0)) / 2);
-    document.querySelector("#dashboard-readiness").innerHTML = `<span>Submission readiness</span><strong>${intakeProgress}%</strong><small>${summary.attention ? `${summary.attention} validation item(s) remain` : "Ready to submit"}</small>`;
+    const intakeChecks = [state.intake.organisationValidated, state.intake.validatedScopes[1], state.intake.validatedScopes[2], state.intake.validatedScopes[3], state.intake.duplicateChecksPassed, !state.intake.unresolvedRecords.length, state.intake.confirmations.complete, state.intake.confirmations.duplicates];
+    const intakeProgress = Math.round(intakeChecks.filter(Boolean).length / intakeChecks.length * 100);
+    const intakeBlockers = CORE.submissionBlockers(state);
+    document.querySelector("#dashboard-readiness").innerHTML = `<span>Submission readiness</span><strong>${intakeProgress}%</strong><small>${intakeBlockers.length ? escapeHtml(intakeBlockers[0]) : "Ready to submit"}</small>`;
     document.querySelector("#dashboard-metrics").innerHTML = [
       metricCard("Activity records", state.activities.length, "Customer source records prepared", "ACT", { featured: true, note: "New Era Group workspace" }),
       metricCard("Evidence references", `${evidenceCoverage}%`, `${evidenceCount} of ${valid.length} valid records`, "EV", { note: evidenceCoverage === 100 ? "Complete coverage" : "Evidence required" }),
@@ -662,7 +457,7 @@ function renderActivities() {
       <td><div class="stacked"><strong>${escapeHtml(item.description)}</strong><span>${escapeHtml(item.sourceRecordId)} · ${escapeHtml(item.date)}</span></div></td>
       <td><span class="badge scope-badge">${scopeLabel(method)}</span></td>
       <td>${formatNumber(item.quantity, 4)} ${escapeHtml(item.unit)}</td>
-      <td>${factorValue}</td>
+      <td><div class="stacked"><strong>${factorValue}</strong><span>${escapeHtml(item.factorVersion || "Missing version")} · ${escapeHtml(item.factorYear || "Missing year")}</span></div></td>
       <td>${resultValue}</td>
       <td><div class="stacked"><strong>${item.evidence ? "Complete" : "Missing"}</strong><span>${escapeHtml(item.evidence || "—")}</span></div></td>
       <td>${statusBadge(item.status)}</td>
@@ -688,7 +483,7 @@ function renderReview() {
       <div class="review-details">
         <div><span>Classification</span><strong>${scopeLabel(method)}</strong></div>
         <div><span>Activity</span><strong>${formatNumber(item.quantity, 4)} ${escapeHtml(item.unit)}</strong></div>
-        <div><span>Factor / basis</span><strong>${method.directResult ? "Supplier reported" : formatNumber(item.factor, 5)}</strong></div>
+        <div><span>Factor / basis</span><strong>${method.directResult ? "Supplier reported" : formatNumber(item.factor, 5)} · ${escapeHtml(item.factorVersion)}</strong></div>
         <div><span>Result</span><strong>${formatNumber(item.kgCo2e)} kgCO₂e</strong></div>
         <div><span>Evidence</span><strong>${escapeHtml(item.evidence || "Missing")}</strong></div>
         <div><span>Method</span><strong>${escapeHtml(method.short)}</strong></div>
@@ -730,19 +525,21 @@ function renderResults() {
   document.querySelector("#results-table").innerHTML = valid.map((item) => {
     const method = methodFor(item);
     const expression = method.directResult ? `${formatNumber(item.quantity)} reported kgCO₂e` : `${formatNumber(item.quantity, 4)} × ${formatNumber(item.factor, 5)}`;
-    return `<tr><td><div class="stacked"><strong>${escapeHtml(item.description)}</strong><span>${escapeHtml(item.sourceRecordId)}</span></div></td><td>${scopeLabel(method)}</td><td><div class="stacked"><strong>${escapeHtml(method.short)}</strong><span class="mono">${escapeHtml(method.id)}</span></div></td><td>${expression}</td><td><strong>${formatNumber(item.kgCo2e)} kgCO₂e</strong></td><td>${statusBadge(item.status)}</td></tr>`;
+    return `<tr><td><div class="stacked"><strong>${escapeHtml(item.description)}</strong><span>${escapeHtml(item.sourceRecordId)}</span></div></td><td>${scopeLabel(method)}</td><td><div class="stacked"><strong>${escapeHtml(method.short)}</strong><span class="mono">${escapeHtml(method.id)}</span><span>${escapeHtml(item.factorSource)} · pack ${escapeHtml(item.factorVersion)}</span></div></td><td>${expression}</td><td><strong>${formatNumber(item.kgCo2e)} kgCO₂e</strong></td><td>${statusBadge(item.status)}</td></tr>`;
   }).join("");
 }
 
 function reportChecks() {
   const summary = totals();
   const valid = state.activities.filter((item) => item.status !== "needs_attention");
+  const lockBlockers = CORE.reportLockBlockers(state);
   return [
     { ok: state.activities.length > 0, title: "Activity population", helper: `${state.activities.length} records loaded` },
     { ok: summary.attention === 0, title: "Validation complete", helper: summary.attention ? `${summary.attention} record(s) need attention` : "No unresolved validation flags" },
     { ok: summary.ready === 0, title: "Review complete", helper: summary.ready ? `${summary.ready} decision(s) outstanding` : "All valid records approved" },
     { ok: valid.every((item) => item.evidence), title: "Evidence references", helper: "Every valid result retains evidence lineage" },
     { ok: valid.every((item) => methodFor(item) && lineageComplete(item)), title: "Factor and method lineage", helper: "Every valid result retains its governed and method-specific lineage" },
+    { ok: lockBlockers.length === 0, title: "Organisation and release controls", helper: lockBlockers.length ? lockBlockers.join(" ") : "Boundary, scopes, contributor, evidence, files and methodology are complete" },
   ];
 }
 
@@ -797,7 +594,7 @@ function renderReports() {
       </section>
 
       <section class="report-section report-detail-grid">
-        <div><p class="eyebrow">Inventory basis</p><h2>Boundary and methodology</h2><dl class="report-definition-list"><div><dt>Organisation</dt><dd>${escapeHtml(state.organisation)}</dd></div><div><dt>Reporting period</dt><dd>${escapeHtml(state.period)}</dd></div><div><dt>Factor source</dt><dd>${escapeHtml(FACTOR_SOURCE)}</dd></div><div><dt>Scope 2 basis</dt><dd>Location-based headline</dd></div><div><dt>Calculation unit</dt><dd>kgCO₂e before report rounding</dd></div></dl></div>
+        <div><p class="eyebrow">Inventory basis</p><h2>Boundary and methodology</h2><dl class="report-definition-list"><div><dt>Organisation</dt><dd>${escapeHtml(state.organisation)}</dd></div><div><dt>Reporting period</dt><dd>${escapeHtml(state.period)}</dd></div><div><dt>Factor source</dt><dd>${escapeHtml(FACTOR_SOURCE)}</dd></div><div><dt>Factor pack</dt><dd>${escapeHtml(CORE.FACTOR_PACK.version)} · ${escapeHtml(CORE.FACTOR_PACK.year)}</dd></div><div><dt>Organisational boundary</dt><dd>${escapeHtml(state.profile.organisationalBoundary || "Open")}</dd></div><div><dt>Scope 2 basis</dt><dd>Location-based headline</dd></div><div><dt>Calculation unit</dt><dd>kgCO₂e before report rounding</dd></div></dl></div>
         <div><p class="eyebrow">Assurance controls</p><h2>Readiness and lineage</h2><div class="report-controls">${controlRows}</div></div>
       </section>
 
@@ -831,7 +628,7 @@ function renderUploadPreview() {
   correctionGuidance.innerHTML = correctionItems.length ? `<strong>Correct the flagged rows before continuing</strong><p>Edit the CSV, save it again as CSV UTF-8, then select and validate the corrected file.</p><ul>${correctionItems.map((error) => `<li>${escapeHtml(error)}</li>`).join("")}</ul>` : "";
   const acceptButton = document.querySelector("#accept-valid-rows");
   acceptButton.textContent = uploadKind === "profile" ? "Save organisation information" : "Add valid rows to inventory";
-  acceptButton.disabled = validCount === 0;
+  acceptButton.disabled = validCount === 0 || validCount !== uploadRows.length;
 }
 
 function renderAll() {
@@ -1007,7 +804,8 @@ function validateRows(rows) {
     const errors = [...normalised.errors];
     const id = String(values.source_record_id || "").trim();
     const idKey = id.toLocaleUpperCase("en-GB");
-    const method = METHOD_BY_ID.get(String(values.calculation_method_id || "").trim());
+    const methodId = String(values.calculation_method_id || "").trim();
+    const method = METHOD_BY_ID.get(methodId);
     const activityValue = String(values.activity_value || "").trim();
     const number = Number(activityValue);
     if (!id) errors.push("Add a unique source_record_id, for example NEG-GAS-001");
@@ -1015,14 +813,17 @@ function validateRows(rows) {
     else if (incomingIds.has(idKey)) errors.push(`Source ID ${id} is repeated in this file; keep one row or assign distinct IDs`);
     else incomingIds.add(idKey);
     const activityDate = String(values.activity_date || "").trim();
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(activityDate) || Number.isNaN(Date.parse(`${activityDate}T00:00:00`))) errors.push("Enter activity_date as YYYY-MM-DD");
+    if (!CORE.isValidIsoDate(activityDate)) errors.push("Enter a real calendar activity_date as YYYY-MM-DD (for example, 2025-02-28; 2025-02-30 is invalid)");
     else if (state.profile?.reportingPeriodStart && state.profile?.reportingPeriodEnd && (activityDate < state.profile.reportingPeriodStart || activityDate > state.profile.reportingPeriodEnd)) errors.push(`activity_date must fall within ${state.profile.reportingPeriodStart} to ${state.profile.reportingPeriodEnd}`);
     if (!String(values.description || "").trim()) errors.push("Add a description that identifies the site, supplier or journey");
-    if (!method) errors.push("Use a calculation_method_id supplied in a downloaded D-carbN template");
+    if (!method) errors.push("Use a 2025 calculation_method_id supplied in a downloaded D-carbN template");
+    else {
+      try { CORE.resolveMethod(method.id, 2025); } catch (error) { errors.push(error.message); }
+    }
     if (!activityValue || !Number.isFinite(number) || number <= 0) errors.push("activity_value must be a positive number or derivable from completed component fields");
     if (method && String(values.activity_unit || "").trim() !== method.unit) errors.push(`Change activity_unit to the exact required unit: ${method.unit}`);
     if (!String(values.evidence_reference || "").trim()) errors.push("Add an evidence_reference such as an invoice, meter or travel-ledger ID");
-    if (method?.id === "scope1.refrigerant.r410a.service_top_up.kg.uk_2026.v1" && !String(values.equipment_reference || "").trim()) errors.push("Add equipment_reference for the serviced refrigerant asset");
+    if (method?.id === "scope1.refrigerant.r410a.service_top_up.kg.uk_2025.v1" && !String(values.equipment_reference || "").trim()) errors.push("Add equipment_reference for the serviced refrigerant asset");
     if (method?.directResult) {
       const supplierFields = ["supplier_name", "supplier_methodology", "supplier_methodology_version", "boundary_description", "assurance_status"];
       const missingSupplierFields = supplierFields.filter((field) => !String(values[field] || "").trim());
@@ -1044,15 +845,20 @@ function validateProfileRows(rows) {
     const headcount = Number(headcountRaw);
     const revenue = Number(revenueRaw);
     if (!String(values.organisation_name || "").trim()) errors.push("Add the legal or reporting organisation name");
-    if (!start || !/^\d{4}-\d{2}-\d{2}$/.test(start) || Number.isNaN(Date.parse(`${start}T00:00:00`))) errors.push("Enter reporting_period_start as YYYY-MM-DD");
-    if (!end || !/^\d{4}-\d{2}-\d{2}$/.test(end) || Number.isNaN(Date.parse(`${end}T00:00:00`))) errors.push("Enter reporting_period_end as YYYY-MM-DD");
+    if (!CORE.isValidIsoDate(start)) errors.push("Enter a real reporting_period_start as YYYY-MM-DD");
+    if (!CORE.isValidIsoDate(end)) errors.push("Enter a real reporting_period_end as YYYY-MM-DD");
     if (start && end && !Number.isNaN(Date.parse(start)) && !Number.isNaN(Date.parse(end)) && Date.parse(end) < Date.parse(start)) errors.push("reporting_period_end must be on or after the start date");
+    if (start !== "2025-01-01" || end !== "2025-12-31") errors.push("This governed pilot is fixed to Calendar year 2025; use 2025-01-01 to 2025-12-31");
     if (!fteRaw || !Number.isFinite(fte) || fte < 0) errors.push("Enter full_time_equivalent_employees as zero or a positive number");
     if (!headcountRaw || !Number.isFinite(headcount) || headcount < 0) errors.push("Enter headcount as zero or a positive number");
     if (Number.isFinite(fte) && Number.isFinite(headcount) && fte > headcount) errors.push("FTE cannot exceed headcount; correct one of these values");
     if (!revenueRaw || !Number.isFinite(revenue) || revenue < 0) errors.push("Enter revenue_gbp as zero or a positive number without currency symbols");
     if (!String(values.completed_by || "").trim()) errors.push("Add the person or team that completed this information");
     if (!String(values.evidence_reference || "").trim()) errors.push("Add an evidence_reference for the organisation information");
+    if (!String(values.organisational_boundary || "").trim()) errors.push("Define organisational_boundary, for example Operational control");
+    if (!String(values.reporting_scopes || "").trim()) errors.push("Confirm reporting_scopes");
+    if (!String(values.responsible_contributor_role || "").trim()) errors.push("Add responsible_contributor_role");
+    if (!["yes", "true"].includes(String(values.evidence_completeness_confirmed || "").trim().toLowerCase())) errors.push("Set evidence_completeness_confirmed to Yes after checking the evidence register");
     return { values, errors, valid: errors.length === 0 };
   });
 }
@@ -1064,6 +870,7 @@ function importedActivity(values, batchReference) {
     id: uid("activity"), sourceRecordId: values.source_record_id.trim(), date: values.activity_date,
     description: values.description.trim(), methodId: method.id, quantity, unit: method.unit,
     factor: method.factor, kgCo2e: method.directResult ? quantity : quantity * method.factor,
+    factorYear: method.factorYear, factorVersion: method.factorVersion, factorSource: method.factorSource,
     evidence: String(values.evidence_reference).trim(), status: "ready",
     lineage: {
       ...(values.equipment_reference ? { equipment_reference: String(values.equipment_reference).trim(), service_performed: true } : {}),
@@ -1101,6 +908,10 @@ async function validateSelectedFile() {
     if (profileRows.length > 1) throw new Error("The organisation information CSV must contain exactly one data row.");
     uploadKind = profileRows.length === 1 ? "profile" : "activity";
     uploadRows = uploadKind === "profile" ? validateProfileRows(rows) : validateRows(rows);
+    state.intake.confirmations = { complete: true, duplicates: true };
+    state.intake.unresolvedRecords = uploadRows.filter((row) => !row.valid).map((row, index) => ({ row: index + 1, sourceRecordId: String(row.values.source_record_id || "PROFILE"), errors: row.errors }));
+    state.intake.duplicateChecksPassed = !uploadRows.some((row) => row.errors.some((error) => error.toLowerCase().includes("duplicate") || error.toLowerCase().includes("repeated") || error.toLowerCase().includes("already exists")));
+    saveState();
     renderUploadPreview();
     showToast(`${uploadRows.filter((row) => row.valid).length} valid rows found.`);
   } catch (error) {
@@ -1128,6 +939,7 @@ function acceptValidRows() {
   if (!contributorCanEdit()) return showToast("This submission is read-only at the current pilot stage.");
   const validRows = uploadRows.filter((item) => item.valid);
   if (!validRows.length) return;
+  if (validRows.length !== uploadRows.length) return showToast("Nothing was imported. Correct every flagged row and re-upload the complete file.");
   const batchReference = document.querySelector("#batch-reference").value.trim() || `LOCAL-${Date.now()}`;
   if (uploadKind === "profile") {
     const values = validRows[0].values;
@@ -1146,8 +958,15 @@ function acceptValidRows() {
       revenueGbp: Number(values.revenue_gbp),
       completedBy: String(values.completed_by).trim(),
       evidenceReference: String(values.evidence_reference).trim(),
+      organisationalBoundary: String(values.organisational_boundary).trim(),
+      reportingScopes: String(values.reporting_scopes).trim(),
+      responsibleContributorRole: String(values.responsible_contributor_role).trim(),
+      evidenceCompletenessConfirmed: ["yes", "true"].includes(String(values.evidence_completeness_confirmed).trim().toLowerCase()),
       notes: String(values.notes || "").trim(),
     };
+    state.intake.organisationValidated = true;
+    state.intake.unresolvedRecords = [];
+    state.intake.duplicateChecksPassed = true;
     state.batches.unshift({ id: uid("batch"), reference: batchReference, importedAt: new Date().toISOString(), rows: 1, kind: "organisation_information" });
     addAudit(`Organisation information imported from batch ${batchReference}`);
     state.report = null;
@@ -1158,6 +977,10 @@ function acceptValidRows() {
     return showToast("Organisation information passed integrity checks and was saved.");
   }
   state.activities.push(...validRows.map((item) => importedActivity(item.values, batchReference)));
+  const importedScopes = new Set(validRows.map((item) => METHOD_BY_ID.get(String(item.values.calculation_method_id).trim()).scope));
+  importedScopes.forEach((scope) => { state.intake.validatedScopes[scope] = true; });
+  state.intake.unresolvedRecords = [];
+  state.intake.duplicateChecksPassed = true;
   state.batches.unshift({ id: uid("batch"), reference: batchReference, importedAt: new Date().toISOString(), rows: validRows.length });
   addAudit(`Batch ${batchReference} imported with ${validRows.length} valid row(s)`);
   state.report = null;
@@ -1170,9 +993,9 @@ function acceptValidRows() {
 
 function sampleUploadRows() {
   return validateRows([
-    { source_record_id: "NEG-UPLOAD-GAS-002", activity_date: "2025-07-31", description: "July natural gas", calculation_method_id: "scope1.stationary_natural_gas.gross_cv.kwh.uk_2026.v1", activity_value: "12500", activity_unit: "kWh (Gross CV)", evidence_reference: "NEG-GAS-JUL-2025" },
-    { source_record_id: "NEG-UPLOAD-RAIL-002", activity_date: "2025-07-31", description: "July national rail travel", calculation_method_id: "scope3.category6.national_rail.passenger_km.uk_2026.v1", activity_value: "880", activity_unit: "passenger.km", evidence_reference: "NEG-TRAVEL-JUL-2025" },
-    { source_record_id: "NEG-UPLOAD-WASTE-002", activity_date: "2025-07-31", description: "Waste with ambiguous treatment", calculation_method_id: "scope3.category5.commercial_waste.closed_loop.tonnes.uk_2026.v1", activity_value: "3.2", activity_unit: "kg", evidence_reference: "NEG-WASTE-JUL-2025" },
+    { source_record_id: "NEG-UPLOAD-GAS-002", activity_date: "2025-07-31", description: "July natural gas", calculation_method_id: "scope1.stationary_natural_gas.gross_cv.kwh.uk_2025.v1", activity_value: "12500", activity_unit: "kWh (Gross CV)", evidence_reference: "NEG-GAS-JUL-2025" },
+    { source_record_id: "NEG-UPLOAD-RAIL-002", activity_date: "2025-07-31", description: "July national rail travel", calculation_method_id: "scope3.category6.national_rail.passenger_km.uk_2025.v1", activity_value: "880", activity_unit: "passenger.km", evidence_reference: "NEG-TRAVEL-JUL-2025" },
+    { source_record_id: "NEG-UPLOAD-WASTE-002", activity_date: "2025-07-31", description: "Waste with ambiguous treatment", calculation_method_id: "scope3.category5.commercial_waste.closed_loop.tonnes.uk_2025.v1", activity_value: "3.2", activity_unit: "kg", evidence_reference: "NEG-WASTE-JUL-2025" },
   ]);
 }
 
@@ -1204,7 +1027,7 @@ function downloadTemplate(templateId) {
 function downloadScopeTemplate(scope) {
   const scopeNumber = Number(scope);
   const rows = METHODS
-    .filter((method) => method.scope === scopeNumber)
+    .filter((method) => method.scope === scopeNumber && !method.unavailableReason)
     .map((method) => templateRow(method.id, `Scope ${scopeNumber}: ${method.label}`));
   if (!rows.length) return showToast("No governed methods are configured for that scope.");
   download(`dcarbn-new-era-scope-${scopeNumber}-2025.csv`, templateCsv({ rows }), "text/csv;charset=utf-8");
@@ -1221,10 +1044,10 @@ function downloadCompleteTemplatePack() {
 
 function exportResults() {
   if (currentRole() === "contributor" && state.pilot.stage !== "locked") return showToast("Calculation exports are released only after D-carbN approval.");
-  const headings = ["source_record_id", "activity_date", "description", "scope", "scope_3_category", "calculation_method_id", "activity_value", "activity_unit", "factor", "kg_co2e", "review_status", "evidence_reference"];
+  const headings = ["source_record_id", "activity_date", "description", "scope", "scope_3_category", "calculation_method_id", "activity_value", "activity_unit", "factor", "factor_year", "factor_version", "factor_source", "kg_co2e", "review_status", "evidence_reference"];
   const rows = state.activities.map((item) => {
     const method = methodFor(item);
-    return [item.sourceRecordId, item.date, item.description, method.scope, method.category || "", method.id, item.quantity, item.unit, item.factor ?? "supplier_reported", item.kgCo2e, item.status, item.evidence];
+    return [item.sourceRecordId, item.date, item.description, method.scope, method.category || "", method.id, item.quantity, item.unit, item.factor ?? "supplier_reported", item.factorYear, item.factorVersion, item.factorSource, item.kgCo2e, item.status, item.evidence];
   });
   download("new-era-group-calculation-results.csv", [headings, ...rows].map((row) => row.map(csvEscape).join(",")).join("\n"), "text/csv;charset=utf-8");
   showToast("Calculation results exported.");
@@ -1236,20 +1059,14 @@ function stableReportPayload() {
     organisation: state.organisation,
     reporting_period: state.period,
     organisation_profile: state.profile,
-    factor_source: FACTOR_SOURCE,
+    factor_pack: CORE.FACTOR_PACK,
     totals_kg_co2e: { scope_1: summary.scopes[1], scope_2: summary.scopes[2], scope_3: summary.scopes[3], total: summary.total },
-    activities: [...state.activities].sort((a, b) => a.sourceRecordId.localeCompare(b.sourceRecordId)).map((item) => ({ source_record_id: item.sourceRecordId, activity_date: item.date, description: item.description, calculation_method_id: item.methodId, activity_value: item.quantity, activity_unit: item.unit, factor: item.factor, kg_co2e: item.kgCo2e, evidence_reference: item.evidence, lineage: item.lineage || {}, review_status: item.status })),
+    activities: [...state.activities].sort((a, b) => a.sourceRecordId.localeCompare(b.sourceRecordId)).map((item) => ({ source_record_id: item.sourceRecordId, activity_date: item.date, description: item.description, calculation_method_id: item.methodId, activity_value: item.quantity, activity_unit: item.unit, factor: item.factor, factor_year: item.factorYear, factor_version: item.factorVersion, factor_source: item.factorSource, kg_co2e: item.kgCo2e, evidence_reference: item.evidence, lineage: item.lineage || {}, review_status: item.status })),
   };
 }
 
 async function sha256(text) {
-  if (globalThis.crypto?.subtle) {
-    const digest = await globalThis.crypto.subtle.digest("SHA-256", new TextEncoder().encode(text));
-    return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
-  }
-  let hash = 2166136261;
-  for (let index = 0; index < text.length; index += 1) hash = Math.imul(hash ^ text.charCodeAt(index), 16777619);
-  return `local-${(hash >>> 0).toString(16).padStart(8, "0")}`;
+  return CORE.sha256(text);
 }
 
 async function generateReport() {
@@ -1273,20 +1090,35 @@ async function generateReport() {
 
 function exportWorkspace() {
   if (currentRole() !== "analyst") return showToast("The controlled workspace export is restricted to the D-carbN Analyst.");
-  download("new-era-group-local-workspace.json", JSON.stringify(state, null, 2), "application/json");
-  showToast("Local workspace exported.");
+  exportPilotSession();
 }
 
-function exportPilotSession() {
-  const payload = {
-    export_format: "dcarbn-local-pilot-session-v1",
-    exported_at: new Date().toISOString(),
-    storage_location: "browser_local_storage_on_this_computer",
-    transmitted_to_external_service: false,
-    session: state,
-  };
-  download("new-era-group-2025-pilot-session.json", JSON.stringify(payload, null, 2), "application/json");
-  showToast("Pilot session exported locally as JSON.");
+async function exportPilotSession() {
+  if (!sessionPassphrase) return showToast("Unlock the local pilot session before exporting it.");
+  try {
+    const envelope = await CORE.encryptPayload(CORE.createSessionBundle(structuredClone(state)), sessionPassphrase, "portable-session-export");
+    download("new-era-group-2025-encrypted-pilot-session.json", JSON.stringify(envelope, null, 2), "application/json");
+    showToast("Encrypted pilot session exported. Keep the passphrase separately.");
+  } catch (error) {
+    showToast(error.message || "The encrypted export could not be created.");
+  }
+}
+
+async function restorePilotSession(file) {
+  const passphrase = prompt("Enter the passphrase used to encrypt this exported pilot session. It will not be stored.");
+  if (!passphrase) return;
+  try {
+    const envelope = JSON.parse(await file.text());
+    const bundle = await CORE.decryptPayload(envelope, passphrase, "portable-session-export");
+    state = normalisePilotState(CORE.validateSessionBundle(bundle));
+    addAudit("Encrypted pilot session restored and integrity checksum verified", "Local pilot");
+    saveState();
+    renderAll();
+    navigate("dashboard");
+    showToast("Encrypted session restored with calculations, lineage, audit and report state intact.");
+  } catch (error) {
+    showToast(error.message || "The encrypted session could not be restored.");
+  }
 }
 
 function emptyPilotState() {
@@ -1298,9 +1130,11 @@ function emptyPilotState() {
     reportingPeriodStart: "2025-01-01", reportingPeriodEnd: "2025-12-31",
     fullTimeEquivalentEmployees: null, headcount: null, revenueGbp: null,
     completedBy: "", evidenceReference: "", notes: "",
+    organisationalBoundary: "", reportingScopes: "", responsibleContributorRole: "", evidenceCompletenessConfirmed: false,
   };
   cleared.audit = [{ id: uid("audit"), at: new Date().toISOString(), action: "All local customer data cleared", actor: "Local pilot" }];
   cleared.report = null;
+  cleared.intake = { organisationValidated: false, validatedScopes: { 1: false, 2: false, 3: false }, unresolvedRecords: [], duplicateChecksPassed: false, confirmations: { complete: false, duplicates: false } };
   cleared.pilot = { stage: "draft", activeRole: "contributor", submittedAt: null, reviewedAt: null, lockedAt: null };
   return cleared;
 }
@@ -1308,12 +1142,77 @@ function emptyPilotState() {
 function clearLocalCustomerData() {
   const confirmed = confirm("Clear all uploaded activities, calculations, organisation details, audit history and reports stored by this pilot in this browser? This cannot be undone unless you exported the session first.");
   if (!confirmed) return;
+  CORE.clearPilotStorage(localStorage, [STORAGE_KEY, LEGACY_STORAGE_KEY]);
   state = emptyPilotState();
+  sessionPassphrase = "";
   clearUploadSelection();
-  saveState();
+  showSecurityGate("setup", "All local customer data and encrypted storage were removed. Create a new passphrase to begin an empty 2025 pilot session.");
+}
+
+function showSecurityGate(mode, message = "") {
+  const gate = document.querySelector("#security-gate");
+  document.querySelector(".app-frame").inert = true;
+  gate.dataset.mode = mode;
+  gate.classList.remove("hidden");
+  document.querySelector("#security-title").textContent = mode === "unlock" ? "Unlock local pilot session" : "Protect this pilot session";
+  document.querySelector("#security-message").textContent = message || (mode === "unlock" ? "Enter the passphrase for the encrypted data stored in this browser." : "Create a passphrase to encrypt all pilot data held on this computer.");
+  document.querySelector("#security-confirm-label").classList.toggle("hidden", mode === "unlock");
+  document.querySelector("#security-passphrase-confirm").required = mode !== "unlock";
+  document.querySelector("#security-submit").textContent = mode === "unlock" ? "Unlock session" : "Create encrypted session";
+  document.querySelector("#security-passphrase").value = "";
+  document.querySelector("#security-passphrase-confirm").value = "";
+  document.querySelector("#security-passphrase").focus();
+}
+
+function lockLocalSession() {
+  state = emptyPilotState();
+  sessionPassphrase = "";
   renderAll();
-  navigate("dashboard");
-  showToast("All local customer data has been cleared from this pilot session.");
+  showSecurityGate("unlock", "The encrypted pilot locked. Enter its passphrase to continue.");
+}
+
+async function handleSecuritySubmit(event) {
+  event.preventDefault();
+  const mode = document.querySelector("#security-gate").dataset.mode;
+  const passphrase = document.querySelector("#security-passphrase").value;
+  const confirmation = document.querySelector("#security-passphrase-confirm").value;
+  try {
+    if (passphrase.length < 12) throw new Error("Use a passphrase of at least 12 characters.");
+    if (mode === "setup") {
+      if (passphrase !== confirmation) throw new Error("The passphrase confirmation does not match.");
+      sessionPassphrase = passphrase;
+      state = normalisePilotState(pendingInitialState || emptyPilotState());
+      pendingInitialState = null;
+      localStorage.removeItem(LEGACY_STORAGE_KEY);
+      saveState();
+    } else {
+      const envelope = JSON.parse(localStorage.getItem(STORAGE_KEY) || "null");
+      const bundle = await CORE.decryptPayload(envelope, passphrase, "persistent-session");
+      state = normalisePilotState(CORE.validateSessionBundle(bundle));
+      sessionPassphrase = passphrase;
+    }
+    lastActivityAt = Date.now();
+    document.querySelector("#security-passphrase").value = "";
+    document.querySelector("#security-passphrase-confirm").value = "";
+    document.querySelector(".app-frame").inert = false;
+    document.querySelector("#security-gate").classList.add("hidden");
+    renderAll();
+    navigate("dashboard");
+  } catch (error) {
+    document.querySelector("#security-message").textContent = error.message || "The encrypted session could not be opened.";
+  }
+}
+
+function initialiseSecurePilot() {
+  const encrypted = localStorage.getItem(STORAGE_KEY);
+  if (encrypted) return showSecurityGate("unlock");
+  const legacy = localStorage.getItem(LEGACY_STORAGE_KEY);
+  if (legacy) {
+    try { pendingInitialState = normalisePilotState(JSON.parse(legacy)); } catch (_error) { pendingInitialState = emptyPilotState(); }
+    return showSecurityGate("setup", "A previous unencrypted local session was found. Create a passphrase to migrate it into encrypted storage; the old copy will then be removed.");
+  }
+  pendingInitialState = defaultState();
+  showSecurityGate("setup");
 }
 
 function configureActivityForm() {
@@ -1324,7 +1223,7 @@ function configureActivityForm() {
     document.querySelector("#method-unit").value = method?.unit || "";
     const equipmentFields = document.querySelector("#equipment-lineage-fields");
     const supplierFields = document.querySelector("#supplier-lineage-fields");
-    const isRefrigerant = method?.id === "scope1.refrigerant.r410a.service_top_up.kg.uk_2026.v1";
+    const isRefrigerant = method?.id === "scope1.refrigerant.r410a.service_top_up.kg.uk_2025.v1";
     equipmentFields.classList.toggle("hidden", !isRefrigerant);
     supplierFields.classList.toggle("hidden", !method?.directResult);
     equipmentFields.querySelectorAll("input").forEach((input) => { input.required = isRefrigerant; });
@@ -1342,7 +1241,7 @@ function submitActivity(event) {
   const quantity = Number(form.get("activity_value"));
   if (!method || !Number.isFinite(quantity) || quantity <= 0) return showToast("Enter a positive governed activity value.");
   const lineage = {};
-  if (method.id === "scope1.refrigerant.r410a.service_top_up.kg.uk_2026.v1") {
+  if (method.id === "scope1.refrigerant.r410a.service_top_up.kg.uk_2025.v1") {
     lineage.equipment_reference = String(form.get("equipment_reference")).trim();
     lineage.service_performed = true;
   }
@@ -1357,6 +1256,7 @@ function submitActivity(event) {
   state.activities.push({
     id: uid("activity"), sourceRecordId, date: form.get("activity_date"), description: String(form.get("description")).trim(),
     methodId: method.id, quantity, unit: method.unit, factor: method.factor,
+    factorYear: method.factorYear, factorVersion: method.factorVersion, factorSource: method.factorSource,
     kgCo2e: method.directResult ? quantity : quantity * method.factor,
     evidence: String(form.get("evidence_reference")).trim(), lineage, status: "ready",
     validation: "Exact governed method and compatible unit confirmed.", source: "Manual local entry", createdAt: new Date().toISOString(),
@@ -1403,7 +1303,8 @@ async function performPilotAction(action) {
   const summary = totals();
   if (action === "submit") {
     if (!contributorCanEdit()) return showToast("Only the customer contributor can submit the draft inventory.");
-    if (!state.activities.length || summary.attention > 0) return showToast("Resolve validation issues before submitting to D-carbN.");
+    const blockers = CORE.submissionBlockers(state);
+    if (blockers.length || summary.attention > 0) return showToast(blockers[0] || "Resolve validation issues before submitting to D-carbN.");
     state.pilot.stage = "analyst_review";
     state.pilot.submittedAt = new Date().toISOString();
     state.pilot.activeRole = "analyst";
@@ -1428,6 +1329,10 @@ async function performPilotAction(action) {
   }
   if (action === "lock") {
     if (currentRole() !== "approver" || state.pilot.stage !== "ready_for_approval") return showToast("Only the D-carbN Approver can lock this report.");
+    const blockers = CORE.reportLockBlockers(state);
+    if (blockers.length) return showToast(`Report cannot be locked: ${blockers[0]}`);
+    const openControl = reportChecks().find((check) => !check.ok);
+    if (openControl) return showToast(`Report cannot be locked: ${openControl.title} — ${openControl.helper}`);
     const payload = stableReportPayload();
     const previousVersion = state.report?.version || 0;
     state.report = { version: previousVersion + 1, generatedAt: new Date().toISOString(), status: "Locked customer release", hash: await sha256(JSON.stringify(payload)), payload };
@@ -1454,6 +1359,12 @@ function attachEvents() {
     button.addEventListener("click", () => downloadScopeTemplate(button.dataset.scopeDownload));
   });
   document.querySelector("#export-pilot-session").addEventListener("click", exportPilotSession);
+  document.querySelector("#restore-pilot-session").addEventListener("change", (event) => {
+    const file = event.target.files[0];
+    if (file) restorePilotSession(file);
+    event.target.value = "";
+  });
+  document.querySelector("#lock-local-session").addEventListener("click", lockLocalSession);
   document.querySelector("#clear-local-customer-data").addEventListener("click", clearLocalCustomerData);
   document.querySelector("#validate-upload").addEventListener("click", validateSelectedFile);
   document.querySelector("#load-sample").addEventListener("click", () => { uploadRows = sampleUploadRows(); renderUploadPreview(); showToast("Sample rows loaded: two valid and one intentionally flagged."); });
@@ -1489,4 +1400,9 @@ function attachEvents() {
 
 configureActivityForm();
 attachEvents();
-renderAll();
+document.querySelector("#security-form").addEventListener("submit", handleSecuritySubmit);
+["pointerdown", "keydown", "touchstart"].forEach((name) => document.addEventListener(name, () => { if (sessionPassphrase) lastActivityAt = Date.now(); }, { passive: true }));
+setInterval(() => {
+  if (sessionPassphrase && Date.now() - lastActivityAt >= 15 * 60 * 1000) lockLocalSession();
+}, 30000);
+initialiseSecurePilot();

@@ -13,7 +13,7 @@
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
-    <div class="app-frame">
+    <div class="app-frame" inert>
       <button class="mobile-menu" id="mobile-menu" aria-label="Open navigation">Menu</button>
       <aside class="sidebar" id="sidebar">
         <div class="brand-row">
@@ -45,7 +45,7 @@
 
       <div class="content-frame">
         <header class="topbar">
-          <div class="environment-label"><span></span>Demonstration workspace · local fictional data</div>
+          <div class="environment-label"><span></span>Browser-local pilot · encrypted fictional data · no network connection</div>
           <div class="topbar-actions">
             <button class="text-button" id="reset-demo">Reset demo</button>
             <span class="help-label">Help &amp; guidance</span>
@@ -162,7 +162,9 @@
                 <div class="local-session-card">
                   <strong>Local pilot session</strong>
                   <p>Uploads, calculations and session exports remain on this computer. Nothing is sent to D-carbN or another service.</p>
-                  <button class="button button-secondary full-width" id="export-pilot-session">Export pilot session</button>
+                  <button class="button button-secondary full-width" id="export-pilot-session">Export encrypted pilot session</button>
+                  <label class="button button-secondary full-width restore-label">Restore encrypted session<input id="restore-pilot-session" type="file" accept=".json,application/json" /></label>
+                  <button class="button button-secondary full-width" id="lock-local-session">Lock local session now</button>
                   <button class="button button-danger-outline full-width" id="clear-local-customer-data">Clear all local customer data</button>
                 </div>
               </aside>
@@ -295,7 +297,21 @@
       </div>
     </div>
 
+    <section class="security-gate" id="security-gate" aria-labelledby="security-title">
+      <form class="security-card" id="security-form">
+        <div class="brand-mark">d</div>
+        <p class="eyebrow">Browser-local security</p>
+        <h1 id="security-title">Protect this pilot session</h1>
+        <p id="security-message">Create a passphrase to encrypt all customer data held on this computer.</p>
+        <label>Session passphrase<input id="security-passphrase" type="password" minlength="12" autocomplete="current-password" required /></label>
+        <label id="security-confirm-label">Confirm passphrase<input id="security-passphrase-confirm" type="password" minlength="12" autocomplete="new-password" required /></label>
+        <button class="button button-primary full-width" id="security-submit" type="submit">Create encrypted session</button>
+        <small>The passphrase is never stored. Losing it makes the encrypted session unrecoverable. The pilot locks after 15 minutes of inactivity.</small>
+      </form>
+    </section>
+
     <div class="toast" id="toast" role="status" aria-live="polite"></div>
+    <script src="pilot-core.js" defer></script>
     <script src="app.js" defer></script>
   </body>
 </html>

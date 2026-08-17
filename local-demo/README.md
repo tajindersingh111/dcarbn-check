@@ -20,10 +20,14 @@ python3 -m http.server 8081 --directory local-demo
 
 Open <http://127.0.0.1:8081> in a modern browser.
 
-All changes are stored in that browser's `localStorage`. Use **Export workspace
-JSON** before clearing browser data if a workshop state must be retained. The
-**Reset demo** control restores the original New Era Group sample inventory.
-The default reporting period is **Calendar year 2025**.
+All pilot state stored in the browser is protected in an AES-256-GCM encrypted
+envelope. A passphrase-derived key (PBKDF2-SHA-256, 250,000 iterations) exists
+only in memory and is never stored. The pilot locks after 15 minutes without
+activity. **Export encrypted pilot session** creates a versioned, checksummed,
+encrypted recovery file; **Restore encrypted session** verifies and restores
+the complete state. **Clear all local customer data** removes encrypted and
+legacy pilot storage. The default and only governed reporting period is
+**Calendar year 2025**.
 
 ## Demonstration workflow
 
@@ -105,14 +109,16 @@ the downloadable template set.
 Validation messages identify the field to correct and explain the expected
 format or value. Source IDs are compared case-insensitively against both the
 existing local inventory and other rows in the same file. Activity dates must
-fall inside the reporting period. Flagged rows remain outside the inventory and
-the interface provides a correction checklist before re-upload.
+fall inside the reporting period. If any row is flagged, the whole file remains
+outside the inventory. The interface persists unresolved and duplicate blockers
+until a clean corrected re-upload. Submission requires organisation information,
+independently validated Scope 1, 2 and 3 files, and both contributor confirmations.
 
-**Export pilot session** downloads the complete browser session as JSON,
-including activity data, calculations, evidence references, audit history and
-any locked report identity. **Clear all local customer data** removes those
-records from the active browser session after an explicit confirmation. The
-normal **Reset demo** action remains available for restoring fictional data.
+The encrypted export contains the complete state, including activities,
+calculations, evidence references, audit history, workflow state and any locked
+report identity. Plaintext customer fields are never written to the export or
+browser storage. Wrong passphrases, tampered ciphertext, incompatible versions
+and incomplete decrypted structures are rejected.
 
 Spend-only estimates, water use, rent and other inputs without an approved
 calculation route are not silently converted. They remain outside the governed
@@ -121,15 +127,20 @@ activity import until D-carbN defines and approves the required method.
 ## Important boundary
 
 This workspace demonstrates intended operation and user experience. It is not a
-substitute for the hosted platform's authentication, tenant isolation, database
-controls, immutable audit storage, approvals or controlled migrations. Report
-outputs are marked as prototypes and must not be represented as externally
-assured filings.
+substitute for the hosted platform's authentication, tenant isolation, managed
+key recovery, database controls, immutable server audit storage, approvals or
+controlled migrations. Browser extensions, malware, screenshots and a
+compromised operating-system account remain outside browser-local encryption.
+Do not use identifiable or commercially sensitive New Era data until the
+parties accept these residual limitations and an approved data protocol.
 
-The bundled factor mappings use the revised July 2026 DESNZ UK Government GHG
-Conversion Factors. Unsupported combinations are flagged rather than assigned a
-nearby factor.
+The governed factor pack is the DESNZ UK Government GHG Conversion Factors for
+Company Reporting 2025, pack version `2025.1`. Every calculated record retains
+the factor year, version and source. Unsupported years and combinations fail
+closed; the broad commercial-waste closed-loop row is blocked because the
+official 2025 flat pack does not publish a numeric factor for that grouping.
 
 The page Content Security Policy uses `connect-src 'none'`, and the JavaScript
 contains no API, database or telemetry client. Customer uploads, calculations,
-exports and reports therefore remain on the computer running the browser pilot.
+encrypted exports and reports therefore remain on the computer running the
+browser pilot. Losing the passphrase makes encrypted state unrecoverable.

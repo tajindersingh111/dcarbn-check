@@ -4,7 +4,7 @@
       "source_record_id": "NEG-JSON-FLEET-201",
       "activity_date": "2025-08-31",
       "description": "August owned fleet diesel",
-      "calculation_method_id": "scope1.mobile_combustion.diesel.litres.uk_2026.v1",
+      "calculation_method_id": "scope1.mobile_combustion.diesel.litres.uk_2025.v1",
       "activity_value": "1850",
       "activity_unit": "litres",
       "evidence_reference": "NEG-FUEL-AUG-2025"
@@ -13,7 +13,7 @@
       "source_record_id": "NEG-JSON-COMMUTE-201",
       "activity_date": "2025-08-31",
       "description": "August average car commuting",
-      "calculation_method_id": "scope3.category7.average_car.unknown_fuel.km.uk_2026.v1",
+      "calculation_method_id": "scope3.category7.average_car.unknown_fuel.km.uk_2025.v1",
       "activity_value": "2400",
       "activity_unit": "km",
       "evidence_reference": "NEG-COMMUTE-AUG-2025"
