@@ -18,6 +18,8 @@ assert.doesNotMatch(`${app}\n${coreSource}`, /postgresql?:|DATABASE_URL|indexedD
 assert.doesNotMatch(app, /localStorage\.setItem\([^,]+,\s*JSON\.stringify\(state\)/);
 assert.match(coreSource, /AES-GCM/);
 assert.match(coreSource, /PBKDF2/);
+assert.match(app, /const openChecks = checks\.filter\(\(check\) => !check\.ok\)/);
+assert.match(app, /report-final-controls/);
 assert.match(readme, /Calendar year 2025/);
 
 const samples = await readdir(resolve(demo, "sample"));

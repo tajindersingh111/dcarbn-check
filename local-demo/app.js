@@ -566,9 +566,9 @@ function renderReports() {
   const scopeDescriptions = { 1: "Direct operations", 2: "Purchased energy · location-based", 3: "Value-chain emissions" };
   const scopeRows = [1, 2, 3].map((scope) => `<div class="report-scope-row"><span class="scope-dot scope-${scope}"></span><span><strong>Scope ${scope}</strong><small>${scopeDescriptions[scope]}</small></span><strong>${formatNumber(summary.scopes[scope] / 1000, 2)}</strong><span>${summary.total ? formatNumber(summary.scopes[scope] / summary.total * 100, 0) : 0}%</span></div>`).join("");
   const controlRows = checks.map((check) => `<div class="report-control-row"><span class="checklist-icon ${check.ok ? "badge-success" : "badge-warning"}">${check.ok ? "✓" : "!"}</span><span><strong>${escapeHtml(check.title)}</strong><small>${escapeHtml(check.helper)}</small></span><em>${check.ok ? "Complete" : "Open"}</em></div>`).join("");
-  const pendingApprovals = state.activities.filter((item) => item.status === "ready");
-  document.querySelector("#final-controls-title").textContent = pendingApprovals.length ? `${pendingApprovals.length} action${pendingApprovals.length === 1 ? "" : "s"} before locking` : "Ready for locking";
-  document.querySelector("#report-final-controls").innerHTML = pendingApprovals.length ? pendingApprovals.map((item) => `<div class="final-control-item"><span>!</span><div><strong>Approve ${escapeHtml(item.description.toLowerCase())}</strong><small>Assigned to Data Reviewer</small></div></div>`).join("") : `<div class="final-control-item complete"><span>✓</span><div><strong>All approvals complete</strong><small>The inventory is ready to be sealed.</small></div></div>`;
+  const openChecks = checks.filter((check) => !check.ok);
+  document.querySelector("#final-controls-title").textContent = openChecks.length ? `${openChecks.length} action${openChecks.length === 1 ? "" : "s"} before locking` : "Ready for locking";
+  document.querySelector("#report-final-controls").innerHTML = openChecks.length ? openChecks.map((check) => `<div class="final-control-item"><span>!</span><div><strong>${escapeHtml(check.title)}</strong><small>${escapeHtml(check.helper)}</small></div></div>`).join("") : `<div class="final-control-item complete"><span>✓</span><div><strong>All release controls complete</strong><small>The inventory is ready to be sealed.</small></div></div>`;
 
   document.querySelector("#report-preview").innerHTML = `
     <div class="report-cover-brand"><span>d</span><div><strong>D-carbN Analytics</strong><small>Scope 1, 2 &amp; 3</small></div></div>
