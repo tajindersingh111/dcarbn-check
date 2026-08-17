@@ -1,0 +1,285 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'self'" />
+    <meta
+      name="description"
+      content="D-carbN database-free carbon accounting demonstration workspace for New Era Group."
+    />
+    <title>D-carbN · New Era Group demo</title>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ccircle cx='32' cy='32' r='28' fill='%23171b39' stroke='%23fff' stroke-width='3'/%3E%3Ctext x='32' y='44' text-anchor='middle' font-family='Arial' font-size='40' fill='%23fff'%3Ed%3C/text%3E%3C/svg%3E" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="app-frame">
+      <button class="mobile-menu" id="mobile-menu" aria-label="Open navigation">Menu</button>
+      <aside class="sidebar" id="sidebar">
+        <div class="brand-row">
+          <div class="brand-mark">d</div>
+          <div>
+            <strong>D-carbN Analytics</strong>
+            <small>Scope 1, 2 &amp; 3</small>
+          </div>
+        </div>
+
+        <div class="demo-tenant">
+          <strong>Partner demonstration</strong>
+        </div>
+
+        <nav aria-label="Primary navigation">
+          <button class="nav-link active" data-view="dashboard"><span>01</span>Executive dashboard</button>
+          <button class="nav-link" data-view="upload"><span>02</span>Inventory wizard</button>
+          <button class="nav-link" data-view="activities"><span>03</span>Scope data</button>
+          <button class="nav-link" data-view="review"><span>04</span>Data review</button>
+          <button class="nav-link" data-view="results"><span>05</span>Results</button>
+          <button class="nav-link" data-view="reports"><span>06</span>Reports</button>
+        </nav>
+
+        <div class="sidebar-footer">
+          <span class="customer-avatar">NE</span>
+          <div><strong>New Era Group</strong><span>2026 reporting year</span></div>
+        </div>
+      </aside>
+
+      <div class="content-frame">
+        <header class="topbar">
+          <div class="environment-label"><span></span>Demonstration workspace · local fictional data</div>
+          <div class="topbar-actions">
+            <button class="text-button" id="reset-demo">Reset demo</button>
+            <span class="help-label">Help &amp; guidance</span>
+            <label class="role-switcher">Prototype role<select id="role-select"><option value="contributor">New Era Contributor</option><option value="analyst">D-carbN Analyst</option><option value="approver">D-carbN Approver</option></select></label>
+            <div class="user-menu">
+              <span class="avatar" id="role-avatar">NE</span>
+            </div>
+          </div>
+        </header>
+
+        <main class="page-content">
+          <section class="pilot-strip" id="pilot-strip" aria-label="Controlled pilot workflow"></section>
+          <section class="view active" id="view-dashboard" aria-labelledby="dashboard-title">
+            <div class="page-header dashboard-hero">
+              <div class="hero-copy">
+                <p class="eyebrow">Executive carbon position</p>
+                <h1 id="dashboard-title">Your emissions, ready for scrutiny.</h1>
+                <p class="page-description">A single governed view from customer activity through calculation, evidence, approval and immutable report.</p>
+              </div>
+              <aside class="readiness-card" id="dashboard-readiness"></aside>
+            </div>
+
+            <div class="notice notice-info">
+              <strong>Controlled workflow prototype</strong>
+              <span>The role switch demonstrates the intended SaaS permission boundary. This local version stores data in this browser; production access controls must be enforced server-side.</span>
+            </div>
+
+            <section class="metric-grid" id="dashboard-metrics" aria-label="Inventory summary"></section>
+
+            <section class="dashboard-grid">
+              <article class="panel panel-wide">
+                <div class="panel-heading">
+                  <div><p class="eyebrow">Reported footprint</p><h2>Emissions by scope</h2></div>
+                  <button class="text-button" data-go="activities">View activity data →</button>
+                </div>
+                <div class="scope-chart" id="scope-chart"></div>
+              </article>
+              <article class="panel">
+                <div class="panel-heading"><div><p class="eyebrow">Assurance controls</p><h2>Report readiness</h2></div><span class="badge badge-success">On track</span></div>
+                <div class="workflow-list" id="workflow-list"></div>
+              </article>
+              <article class="panel panel-wide">
+                <div class="panel-heading">
+                  <div><p class="eyebrow">Largest sources</p><h2>Material activities</h2></div>
+                  <button class="text-button" data-go="activities">View all</button>
+                </div>
+                <div class="table-shell"><table><thead><tr><th>Activity</th><th>Scope</th><th>Method</th><th>Result</th><th>Status</th></tr></thead><tbody id="material-activities"></tbody></table></div>
+              </article>
+            </section>
+          </section>
+
+          <section class="view" id="view-upload" aria-labelledby="upload-title">
+            <div class="page-header">
+              <div><p class="eyebrow">Customer data intake</p><h1 id="upload-title">Upload activity data</h1><p class="page-description">Download the relevant D-carbN template, complete it offline and upload the CSV for controlled validation.</p></div>
+              <button class="button button-secondary" id="download-template">Download combined activity CSV</button>
+            </div>
+
+            <section class="panel template-library" aria-labelledby="template-library-title">
+              <div class="panel-heading">
+                <div><p class="eyebrow">New Era Group template library</p><h2 id="template-library-title">Choose the data you want to collect</h2></div>
+                <span class="record-count">5 source conversions + commuting</span>
+              </div>
+              <p class="template-introduction">Each supplied workbook and questionnaire now has a D-carbN CSV counterpart. Calculation rows retain the source collection fields and add the governed method, unit, evidence and lineage needed for integrity checks.</p>
+              <div class="template-grid">
+                <article class="template-card"><span class="template-number">01</span><div><h3>Organisation information</h3><p>FTE, headcount, revenue and reporting-period information.</p><small>Converted from Info needed v1.docx</small></div><button class="button button-secondary template-download" data-template-download="organisation">Download CSV</button></article>
+                <article class="template-card"><span class="template-number">02</span><div><h3>Utilities &amp; rent</h3><p>Calculation-ready electricity, natural gas, refrigerants and operational waste.</p><small>Converted from Utilities and Rent Template.xlsx</small></div><button class="button button-secondary template-download" data-template-download="utilities">Download CSV</button></article>
+                <article class="template-card"><span class="template-number">03</span><div><h3>Company vehicles &amp; business travel</h3><p>Owned fleet, air, rail, ferry and UK hotel activity.</p><small>Converted from Company Vehicle and Business Travel Template.xlsx</small></div><button class="button button-secondary template-download" data-template-download="travel">Download CSV</button></article>
+                <article class="template-card"><span class="template-number">04</span><div><h3>Procurement</h3><p>Supplier-specific purchased goods, services and capital goods.</p><small>Converted from Procurement Template.xlsx</small></div><button class="button button-secondary template-download" data-template-download="procurement">Download CSV</button></article>
+                <article class="template-card"><span class="template-number">05</span><div><h3>Transportation &amp; distribution</h3><p>Upstream and downstream van, HGV and rail freight.</p><small>Converted from Transportation and Distribution Template.xlsx</small></div><button class="button button-secondary template-download" data-template-download="freight">Download CSV</button></article>
+                <article class="template-card"><span class="template-number">06</span><div><h3>Employee commuting</h3><p>Employee travel recorded as total average-car kilometres.</p><small>Additional requirement identified in Info needed v1.docx</small></div><button class="button button-secondary template-download" data-template-download="commuting">Download CSV</button></article>
+              </div>
+              <div class="template-note"><strong>How to use the templates</strong><span>Keep the headings unchanged, complete one row per source record, add an evidence reference, then save as CSV UTF-8 and upload below. Component totals are reconciled before a calculation can enter the inventory. Delete unused guide rows.</span></div>
+            </section>
+
+            <section class="upload-layout">
+              <article class="panel">
+                <div class="panel-heading"><div><p class="eyebrow">Step 1</p><h2>Select source file</h2></div></div>
+                <label class="drop-zone" id="drop-zone">
+                  <input id="file-input" type="file" accept=".csv,.json,text/csv,application/json" />
+                  <span class="upload-symbol">↑</span>
+                  <strong>Drop a completed D-carbN CSV here</strong>
+                  <small>or choose a CSV or JSON file from this computer</small>
+                </label>
+                <div class="form-grid compact-grid">
+                  <label>Batch reference<input id="batch-reference" value="NEG-2026-IMPORT-01" /></label>
+                  <label>Reporting period<select id="reporting-period"><option>Calendar year 2026</option></select></label>
+                </div>
+                <div class="attestation-box">
+                  <label><input id="complete-attestation" type="checkbox" checked /> I confirm this file is complete for the stated sources.</label>
+                  <label><input id="double-count-attestation" type="checkbox" checked /> I checked that records are not duplicated elsewhere.</label>
+                </div>
+                <div class="button-row">
+                  <button class="button button-primary" id="validate-upload" disabled>Validate selected file</button>
+                  <button class="button button-secondary" id="load-sample">Load sample upload</button>
+                </div>
+              </article>
+
+              <aside class="panel guidance-panel">
+                <p class="eyebrow">Accepted contract</p>
+                <h2>What the file must contain</h2>
+                <ul class="check-list">
+                  <li>Stable source record ID</li><li>Activity date and description</li><li>Governed method ID</li><li>Positive activity value</li><li>Exact compatible unit</li><li>Evidence or invoice reference</li>
+                </ul>
+                <div class="lineage-card"><strong>Excel users</strong><p>Open the supplied template in Excel, populate it, then use “Save As → CSV UTF-8” before upload. Original evidence files remain outside this demo.</p></div>
+              </aside>
+            </section>
+
+            <section class="panel hidden" id="upload-preview-panel">
+              <div class="panel-heading"><div><p class="eyebrow">Step 2</p><h2>Validation preview</h2></div><span class="record-count" id="upload-summary"></span></div>
+              <div class="table-shell"><table><thead><tr><th>Row</th><th>Source ID</th><th>Description</th><th>Method</th><th>Quantity</th><th>Validation</th></tr></thead><tbody id="upload-preview"></tbody></table></div>
+              <div class="button-row panel-actions"><button class="button button-primary" id="accept-valid-rows">Add valid rows to inventory</button><button class="button button-secondary" id="clear-upload">Clear preview</button></div>
+            </section>
+          </section>
+
+          <section class="view" id="view-activities" aria-labelledby="activities-title">
+            <div class="page-header">
+              <div><p class="eyebrow">Inventory activity ledger</p><h1 id="activities-title">Activities</h1><p class="page-description">Inspect source data, factor lineage, calculation results and evidence readiness.</p></div>
+              <button class="button button-primary" id="open-activity-form">Add activity</button>
+            </div>
+
+            <section class="panel hidden" id="activity-form-panel">
+              <div class="panel-heading"><div><p class="eyebrow">Manual entry</p><h2>Add governed activity</h2></div><button class="text-button" id="close-activity-form">Close</button></div>
+              <form id="activity-form" class="form-grid">
+                <label>Activity date<input name="activity_date" type="date" value="2026-06-30" required /></label>
+                <label class="field-span-2">Description<input name="description" placeholder="June natural gas consumption" required /></label>
+                <label class="field-span-2">Governed method<select name="calculation_method_id" id="method-select" required></select></label>
+                <label>Activity value<input name="activity_value" type="number" min="0.000000001" step="any" required /></label>
+                <label>Unit<input name="activity_unit" id="method-unit" readonly required /></label>
+                <div class="field-span-2 hidden method-lineage-fields" id="equipment-lineage-fields">
+                  <label>Equipment reference<input name="equipment_reference" placeholder="AC-01" /></label>
+                </div>
+                <div class="field-span-2 hidden method-lineage-fields lineage-form-grid" id="supplier-lineage-fields">
+                  <label>Supplier name<input name="supplier_name" /></label>
+                  <label>Supplier methodology<input name="supplier_methodology" /></label>
+                  <label>Methodology version<input name="supplier_methodology_version" /></label>
+                  <label>Boundary description<input name="boundary_description" /></label>
+                  <label>Assurance status<select name="assurance_status"><option value="not_assured">Not assured</option><option value="limited_assurance">Limited assurance</option><option value="reasonable_assurance">Reasonable assurance</option><option value="third_party_verified">Third-party verified</option></select></label>
+                </div>
+                <label class="field-span-2">Evidence reference<input name="evidence_reference" placeholder="Invoice NEG-UTIL-0626" required /></label>
+                <div class="button-row field-span-2"><button class="button button-primary" type="submit">Validate and add</button><button class="button button-secondary" id="cancel-activity-form" type="button">Cancel</button></div>
+              </form>
+            </section>
+
+            <section class="panel">
+              <div class="filter-row">
+                <label class="search-field">Search<input id="activity-search" placeholder="Description, evidence or source ID" /></label>
+                <label>Scope<select id="scope-filter"><option value="all">All scopes</option><option value="1">Scope 1</option><option value="2">Scope 2</option><option value="3">Scope 3</option></select></label>
+                <label>Status<select id="status-filter"><option value="all">All statuses</option><option value="ready">Ready for review</option><option value="approved">Approved</option><option value="needs_attention">Needs attention</option></select></label>
+              </div>
+              <div class="table-shell"><table><thead><tr><th>Source activity</th><th>Scope</th><th>Quantity</th><th>Factor</th><th>kgCO₂e</th><th>Evidence</th><th>Status</th><th></th></tr></thead><tbody id="activities-table"></tbody></table></div>
+              <div class="empty-state hidden" id="activities-empty"><strong>No matching activities</strong><span>Adjust the filters or add a new record.</span></div>
+            </section>
+          </section>
+
+          <section class="view" id="view-review" aria-labelledby="review-title">
+            <div class="page-header">
+              <div><p class="eyebrow">Controlled review</p><h1 id="review-title">Data review</h1><p class="page-description">Approve only records with complete source, evidence, unit and factor lineage.</p></div>
+              <button class="button button-primary" id="approve-all-ready">Approve all ready records</button>
+            </div>
+            <section class="review-summary" id="review-summary"></section>
+            <section class="panel">
+              <div class="panel-heading"><div><p class="eyebrow">Reviewer queue</p><h2>Activity decisions</h2></div><span class="record-count" id="review-count"></span></div>
+              <div id="review-list" class="review-list"></div>
+            </section>
+          </section>
+
+          <section class="view" id="view-results" aria-labelledby="results-title">
+            <div class="page-header">
+              <div><p class="eyebrow">Calculated inventory</p><h1 id="results-title">Scope 1, 2 &amp; 3 results</h1><p class="page-description">See the outcome of validated activity data before approving the hosted implementation.</p></div>
+              <button class="button button-secondary" id="export-results">Export results CSV</button>
+            </div>
+            <section class="metric-grid" id="results-metrics"></section>
+            <section class="results-grid">
+              <article class="panel"><div class="panel-heading"><div><p class="eyebrow">Inventory composition</p><h2>Emissions by scope</h2></div></div><div class="donut-layout"><div class="donut" id="scope-donut"><span></span></div><div id="donut-legend" class="legend"></div></div></article>
+              <article class="panel"><div class="panel-heading"><div><p class="eyebrow">Category detail</p><h2>Top contributing methods</h2></div></div><div id="method-bars" class="method-bars"></div></article>
+            </section>
+            <section class="panel"><div class="panel-heading"><div><p class="eyebrow">Calculation register</p><h2>Governed results</h2></div><span class="record-count" id="result-count"></span></div><div class="table-shell"><table><thead><tr><th>Description</th><th>Scope/category</th><th>Methodology</th><th>Activity × factor</th><th>Result</th><th>Review</th></tr></thead><tbody id="results-table"></tbody></table></div></section>
+          </section>
+
+          <section class="view" id="view-reports" aria-labelledby="reports-title">
+            <div class="page-header">
+              <div><p class="eyebrow">Assurance-ready output</p><h1 id="reports-title">Report</h1><p class="page-description">Preview the customer report, resolve final approvals and create an immutable, hash-stamped version.</p></div>
+            </div>
+            <section class="report-showcase">
+              <article class="report-cover-preview" id="report-preview" aria-label="Customer report cover preview"></article>
+              <aside class="report-actions-column">
+                <article class="panel report-action-card">
+                  <p class="eyebrow">Final controls</p>
+                  <h2 id="final-controls-title"></h2>
+                  <div id="report-final-controls" class="final-control-list"></div>
+                  <button class="button button-primary full-width" id="open-approvals" data-go="review">Open approvals</button>
+                </article>
+                <article class="panel report-action-card">
+                  <p class="eyebrow">Export package</p>
+                  <h2>Customer deliverables</h2>
+                  <ul class="deliverable-list">
+                    <li>Board-ready PDF report</li>
+                    <li>Detailed calculation CSV</li>
+                    <li>Evidence and lineage appendix</li>
+                    <li>Immutable SHA-256 report hash</li>
+                  </ul>
+                  <button class="button button-secondary full-width" id="inspect-output">Inspect sample output</button>
+                  <div class="button-row report-export-actions">
+                    <button class="button button-secondary" id="export-workspace">Export workspace</button>
+                    <button class="button button-primary" id="generate-report">Generate snapshot</button>
+                  </div>
+                </article>
+              </aside>
+            </section>
+            <section class="report-detail hidden" id="report-detail">
+              <div class="report-detail-header"><div><p class="eyebrow">Sample output</p><h2>Report contents and controls</h2></div><button class="text-button" id="close-output">Close preview</button></div>
+              <article class="panel report-document-panel" id="report-detail-document"></article>
+              <section class="report-grid">
+                <article class="panel">
+                  <div class="panel-heading"><div><p class="eyebrow">Release controls</p><h2>Readiness checklist</h2></div></div>
+                  <div id="report-checklist" class="checklist-cards"></div>
+                </article>
+                <article class="panel">
+                  <div class="panel-heading"><div><p class="eyebrow">Latest snapshot</p><h2>Report identity</h2></div></div>
+                  <div id="report-identity" class="report-identity"></div>
+                  <button class="button button-secondary full-width" id="print-report">Print report view</button>
+                </article>
+              </section>
+              <section class="panel">
+                <div class="panel-heading"><div><p class="eyebrow">Local audit history</p><h2>Workspace events</h2></div><span class="record-count" id="audit-count"></span></div>
+                <div class="timeline" id="audit-timeline"></div>
+              </section>
+            </section>
+          </section>
+        </main>
+      </div>
+    </div>
+
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+    <script src="app.js" defer></script>
+  </body>
+</html>
