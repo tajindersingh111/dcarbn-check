@@ -275,6 +275,7 @@ const TEMPLATE_LIBRARY = {
     label: "Vehicles & business travel",
     rows: [
       templateRow("scope1.mobile_combustion.diesel.litres.uk_2026.v1", "Fuel used by owned or controlled diesel vehicles"),
+      templateRow("scope3.category3.diesel_wtt.litres.uk_2026.v1", "Well-to-tank emissions for the same diesel litres; use a distinct source ID"),
       templateRow("scope1.mobile_combustion.delivery_van.class1.diesel.km.uk_2026.v1", "Distance travelled by owned or controlled Class I diesel vans"),
       templateRow("scope1.mobile_combustion.average_car.petrol.km.uk_2026.v1", "Distance travelled by owned or controlled average petrol cars"),
       templateRow("scope3.category6.domestic_air.with_rf.passenger_km.uk_2026.v1", "Domestic UK air travel; total passenger-km including return journeys"),
@@ -362,21 +363,21 @@ function defaultState() {
   return {
     version: 2,
     organisation: "New Era Group",
-    period: "Calendar year 2026",
+    period: "Calendar year 2025",
     profile: {
-      reportingPeriodStart: "2026-01-01", reportingPeriodEnd: "2026-12-31",
+      reportingPeriodStart: "2025-01-01", reportingPeriodEnd: "2025-12-31",
       fullTimeEquivalentEmployees: null, headcount: null, revenueGbp: null,
       completedBy: "", evidenceReference: "", notes: "",
     },
     activities: [
-      seedActivity({ id: "NEG-UTIL-GAS-001", date: "2026-03-31", description: "Head office natural gas", methodId: "scope1.stationary_natural_gas.gross_cv.kwh.uk_2026.v1", value: 48000, evidence: "NEG-GAS-Q1-2026" }),
-      seedActivity({ id: "NEG-FLEET-DSL-001", date: "2026-04-30", description: "Owned delivery fleet diesel", methodId: "scope1.mobile_combustion.diesel.litres.uk_2026.v1", value: 7200, evidence: "NEG-FUEL-APR-2026" }),
-      seedActivity({ id: "NEG-REF-001", date: "2026-05-16", description: "Warehouse R410A service top-up", methodId: "scope1.refrigerant.r410a.service_top_up.kg.uk_2026.v1", value: 2.4, evidence: "SERVICE-AC-14-2026", lineage: { equipment_reference: "WAREHOUSE-AC-14", service_performed: true } }),
-      seedActivity({ id: "NEG-ELEC-001", date: "2026-03-31", description: "UK grid electricity", methodId: "scope2.location_electricity.kwh.uk_2026.v1", value: 130000, evidence: "NEG-ELEC-Q1-2026" }),
-      seedActivity({ id: "NEG-RAIL-001", date: "2026-06-30", description: "Employee national rail travel", methodId: "scope3.category6.national_rail.passenger_km.uk_2026.v1", value: 4500, evidence: "TRAVEL-LEDGER-H1" }),
-      seedActivity({ id: "NEG-HOTEL-001", date: "2026-06-30", description: "UK hotel stays", methodId: "scope3.category6.uk_hotel.room_night.uk_2026.v1", value: 44, evidence: "HOTEL-LEDGER-H1" }),
-      seedActivity({ id: "NEG-COMMUTE-001", date: "2026-06-30", description: "Average car employee commuting", methodId: "scope3.category7.average_car.unknown_fuel.km.uk_2026.v1", value: 12000, evidence: "STAFF-SURVEY-2026", status: "ready" }),
-      seedActivity({ id: "NEG-SUPPLIER-001", date: "2026-06-30", description: "Supplier-reported packaging footprint", methodId: "scope3.category1.supplier_specific.reported_kgco2e.ghgp.v1", value: 8400, evidence: "SUPPLIER-PCF-PACK-2026", status: "ready", lineage: { supplier_name: "New Era Packaging Ltd", supplier_methodology: "Product carbon footprint", supplier_methodology_version: "2026.1", boundary_description: "Cradle-to-gate", assurance_status: "limited_assurance" } }),
+      seedActivity({ id: "NEG-UTIL-GAS-001", date: "2025-03-31", description: "Head office natural gas", methodId: "scope1.stationary_natural_gas.gross_cv.kwh.uk_2026.v1", value: 48000, evidence: "NEG-GAS-Q1-2025" }),
+      seedActivity({ id: "NEG-FLEET-DSL-001", date: "2025-04-30", description: "Owned delivery fleet diesel", methodId: "scope1.mobile_combustion.diesel.litres.uk_2026.v1", value: 7200, evidence: "NEG-FUEL-APR-2025" }),
+      seedActivity({ id: "NEG-REF-001", date: "2025-05-16", description: "Warehouse R410A service top-up", methodId: "scope1.refrigerant.r410a.service_top_up.kg.uk_2026.v1", value: 2.4, evidence: "SERVICE-AC-14-2025", lineage: { equipment_reference: "WAREHOUSE-AC-14", service_performed: true } }),
+      seedActivity({ id: "NEG-ELEC-001", date: "2025-03-31", description: "UK grid electricity", methodId: "scope2.location_electricity.kwh.uk_2026.v1", value: 130000, evidence: "NEG-ELEC-Q1-2025" }),
+      seedActivity({ id: "NEG-RAIL-001", date: "2025-06-30", description: "Employee national rail travel", methodId: "scope3.category6.national_rail.passenger_km.uk_2026.v1", value: 4500, evidence: "TRAVEL-LEDGER-H1-2025" }),
+      seedActivity({ id: "NEG-HOTEL-001", date: "2025-06-30", description: "UK hotel stays", methodId: "scope3.category6.uk_hotel.room_night.uk_2026.v1", value: 44, evidence: "HOTEL-LEDGER-H1-2025" }),
+      seedActivity({ id: "NEG-COMMUTE-001", date: "2025-06-30", description: "Average car employee commuting", methodId: "scope3.category7.average_car.unknown_fuel.km.uk_2026.v1", value: 12000, evidence: "STAFF-SURVEY-2025", status: "ready" }),
+      seedActivity({ id: "NEG-SUPPLIER-001", date: "2025-06-30", description: "Supplier-reported packaging footprint", methodId: "scope3.category1.supplier_specific.reported_kgco2e.ghgp.v1", value: 8400, evidence: "SUPPLIER-PCF-PACK-2025", status: "ready", lineage: { supplier_name: "New Era Packaging Ltd", supplier_methodology: "Product carbon footprint", supplier_methodology_version: "2025.1", boundary_description: "Cradle-to-gate", assurance_status: "limited_assurance" } }),
     ],
     batches: [],
     audit: [
@@ -763,7 +764,7 @@ function renderReports() {
   const reportStatus = report?.status || "Working draft";
   const coverStatus = state.pilot.stage === "locked" || reportStatus.startsWith("Assurance-ready") ? "Approved for issue" : "Draft for approval";
   const preparedDate = new Date(report?.generatedAt || Date.now()).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" });
-  const reportYear = state.period.match(/\b\d{4}\b/)?.[0] || "2026";
+  const reportYear = state.period.match(/\b\d{4}\b/)?.[0] || "2025";
   const reportIdentity = report ? `v${report.version} · ${report.hash.slice(0, 16)}…` : "Snapshot not yet sealed";
   const scopeDescriptions = { 1: "Direct operations", 2: "Purchased energy · location-based", 3: "Value-chain emissions" };
   const scopeRows = [1, 2, 3].map((scope) => `<div class="report-scope-row"><span class="scope-dot scope-${scope}"></span><span><strong>Scope ${scope}</strong><small>${scopeDescriptions[scope]}</small></span><strong>${formatNumber(summary.scopes[scope] / 1000, 2)}</strong><span>${summary.total ? formatNumber(summary.scopes[scope] / summary.total * 100, 0) : 0}%</span></div>`).join("");
@@ -809,17 +810,25 @@ function renderReports() {
 
 function renderUploadPreview() {
   const panel = document.querySelector("#upload-preview-panel");
+  const correctionGuidance = document.querySelector("#upload-correction-guidance");
   panel.classList.toggle("hidden", uploadRows.length === 0);
-  if (!uploadRows.length) return;
+  if (!uploadRows.length) {
+    correctionGuidance.classList.add("hidden");
+    correctionGuidance.innerHTML = "";
+    return;
+  }
   const validCount = uploadRows.filter((item) => item.valid).length;
   document.querySelector("#upload-summary").textContent = `${validCount} valid · ${uploadRows.length - validCount} flagged`;
   document.querySelector("#upload-preview").innerHTML = uploadRows.map((item, index) => {
     if (uploadKind === "profile") {
-      return `<tr><td>${index + 1}</td><td class="mono">PROFILE</td><td>${escapeHtml(item.values.organisation_name || "—")}</td><td>Organisation information</td><td>${escapeHtml(item.values.full_time_equivalent_employees || "—")} FTE · ${escapeHtml(item.values.headcount || "—")} people</td><td><span class="badge badge-${item.valid ? "success" : "danger"}">${item.valid ? "Valid" : escapeHtml(item.errors.join(" · "))}</span></td></tr>`;
+      return `<tr><td>${index + 1}</td><td class="mono">PROFILE</td><td>${escapeHtml(item.values.organisation_name || "—")}</td><td>Organisation information</td><td>${escapeHtml(item.values.full_time_equivalent_employees || "—")} FTE · ${escapeHtml(item.values.headcount || "—")} people</td><td><span class="badge badge-${item.valid ? "success" : "danger"} upload-validation">${item.valid ? "Valid" : escapeHtml(item.errors.join(" · "))}</span></td></tr>`;
     }
     const method = METHOD_BY_ID.get(item.values.calculation_method_id);
-    return `<tr><td>${index + 1}</td><td class="mono">${escapeHtml(item.values.source_record_id || "—")}</td><td>${escapeHtml(item.values.description || "—")}</td><td>${escapeHtml(method?.short || item.values.calculation_method_id || "—")}</td><td>${escapeHtml(item.values.activity_value || "—")} ${escapeHtml(item.values.activity_unit || "")}</td><td><span class="badge badge-${item.valid ? "success" : "danger"}">${item.valid ? "Valid" : escapeHtml(item.errors.join(" · "))}</span></td></tr>`;
+    return `<tr><td>${index + 1}</td><td class="mono">${escapeHtml(item.values.source_record_id || "—")}</td><td>${escapeHtml(item.values.description || "—")}</td><td>${escapeHtml(method?.short || item.values.calculation_method_id || "—")}</td><td>${escapeHtml(item.values.activity_value || "—")} ${escapeHtml(item.values.activity_unit || "")}</td><td><span class="badge badge-${item.valid ? "success" : "danger"} upload-validation">${item.valid ? "Valid" : escapeHtml(item.errors.join(" · "))}</span></td></tr>`;
   }).join("");
+  const correctionItems = [...new Set(uploadRows.filter((item) => !item.valid).flatMap((item) => item.errors))];
+  correctionGuidance.classList.toggle("hidden", correctionItems.length === 0);
+  correctionGuidance.innerHTML = correctionItems.length ? `<strong>Correct the flagged rows before continuing</strong><p>Edit the CSV, save it again as CSV UTF-8, then select and validate the corrected file.</p><ul>${correctionItems.map((error) => `<li>${escapeHtml(error)}</li>`).join("")}</ul>` : "";
   const acceptButton = document.querySelector("#accept-valid-rows");
   acceptButton.textContent = uploadKind === "profile" ? "Save organisation information" : "Add valid rows to inventory";
   acceptButton.disabled = validCount === 0;
@@ -943,7 +952,7 @@ function positiveComponent(values, field, errors) {
   if (!raw) return null;
   const number = Number(raw);
   if (!Number.isFinite(number) || number <= 0) {
-    errors.push(`Invalid ${field}`);
+    errors.push(`${field} must be a positive number when supplied`);
     return null;
   }
   return number;
@@ -990,29 +999,34 @@ function normaliseActivityRow(input) {
 }
 
 function validateRows(rows) {
-  const existingIds = new Set(state.activities.map((item) => item.sourceRecordId));
+  const existingIds = new Set(state.activities.map((item) => item.sourceRecordId.toLocaleUpperCase("en-GB")));
   const incomingIds = new Set();
   return rows.map((input) => {
     const normalised = normaliseActivityRow(input);
     const values = normalised.values;
     const errors = [...normalised.errors];
     const id = String(values.source_record_id || "").trim();
+    const idKey = id.toLocaleUpperCase("en-GB");
     const method = METHOD_BY_ID.get(String(values.calculation_method_id || "").trim());
     const activityValue = String(values.activity_value || "").trim();
     const number = Number(activityValue);
-    if (!id) errors.push("Missing source ID");
-    else if (existingIds.has(id) || incomingIds.has(id)) errors.push("Duplicate source ID");
-    else incomingIds.add(id);
-    if (!values.activity_date || Number.isNaN(Date.parse(values.activity_date))) errors.push("Invalid date");
-    if (!String(values.description || "").trim()) errors.push("Missing description");
-    if (!method) errors.push("Unknown governed method");
-    if (!activityValue || !Number.isFinite(number) || number <= 0) errors.push("Invalid activity value");
-    if (method && String(values.activity_unit || "").trim() !== method.unit) errors.push(`Unit must be ${method.unit}`);
-    if (!String(values.evidence_reference || "").trim()) errors.push("Missing evidence reference");
-    if (method?.id === "scope1.refrigerant.r410a.service_top_up.kg.uk_2026.v1" && !String(values.equipment_reference || "").trim()) errors.push("Missing equipment reference");
+    if (!id) errors.push("Add a unique source_record_id, for example NEG-GAS-001");
+    else if (existingIds.has(idKey)) errors.push(`Source ID ${id} already exists in this pilot session; correct the ID or remove the duplicate row`);
+    else if (incomingIds.has(idKey)) errors.push(`Source ID ${id} is repeated in this file; keep one row or assign distinct IDs`);
+    else incomingIds.add(idKey);
+    const activityDate = String(values.activity_date || "").trim();
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(activityDate) || Number.isNaN(Date.parse(`${activityDate}T00:00:00`))) errors.push("Enter activity_date as YYYY-MM-DD");
+    else if (state.profile?.reportingPeriodStart && state.profile?.reportingPeriodEnd && (activityDate < state.profile.reportingPeriodStart || activityDate > state.profile.reportingPeriodEnd)) errors.push(`activity_date must fall within ${state.profile.reportingPeriodStart} to ${state.profile.reportingPeriodEnd}`);
+    if (!String(values.description || "").trim()) errors.push("Add a description that identifies the site, supplier or journey");
+    if (!method) errors.push("Use a calculation_method_id supplied in a downloaded D-carbN template");
+    if (!activityValue || !Number.isFinite(number) || number <= 0) errors.push("activity_value must be a positive number or derivable from completed component fields");
+    if (method && String(values.activity_unit || "").trim() !== method.unit) errors.push(`Change activity_unit to the exact required unit: ${method.unit}`);
+    if (!String(values.evidence_reference || "").trim()) errors.push("Add an evidence_reference such as an invoice, meter or travel-ledger ID");
+    if (method?.id === "scope1.refrigerant.r410a.service_top_up.kg.uk_2026.v1" && !String(values.equipment_reference || "").trim()) errors.push("Add equipment_reference for the serviced refrigerant asset");
     if (method?.directResult) {
       const supplierFields = ["supplier_name", "supplier_methodology", "supplier_methodology_version", "boundary_description", "assurance_status"];
-      if (supplierFields.some((field) => !String(values[field] || "").trim())) errors.push("Incomplete supplier lineage");
+      const missingSupplierFields = supplierFields.filter((field) => !String(values[field] || "").trim());
+      if (missingSupplierFields.length) errors.push(`Complete supplier lineage: ${missingSupplierFields.join(", ")}`);
     }
     return { values, errors, valid: errors.length === 0 };
   });
@@ -1029,16 +1043,16 @@ function validateProfileRows(rows) {
     const fte = Number(fteRaw);
     const headcount = Number(headcountRaw);
     const revenue = Number(revenueRaw);
-    if (!String(values.organisation_name || "").trim()) errors.push("Missing organisation name");
-    if (!start || Number.isNaN(Date.parse(start))) errors.push("Invalid period start");
-    if (!end || Number.isNaN(Date.parse(end))) errors.push("Invalid period end");
-    if (start && end && !Number.isNaN(Date.parse(start)) && !Number.isNaN(Date.parse(end)) && Date.parse(end) < Date.parse(start)) errors.push("Period end precedes start");
-    if (!fteRaw || !Number.isFinite(fte) || fte < 0) errors.push("Invalid FTE");
-    if (!headcountRaw || !Number.isFinite(headcount) || headcount < 0) errors.push("Invalid headcount");
-    if (Number.isFinite(fte) && Number.isFinite(headcount) && fte > headcount) errors.push("FTE cannot exceed headcount");
-    if (!revenueRaw || !Number.isFinite(revenue) || revenue < 0) errors.push("Invalid revenue");
-    if (!String(values.completed_by || "").trim()) errors.push("Missing completed by");
-    if (!String(values.evidence_reference || "").trim()) errors.push("Missing evidence reference");
+    if (!String(values.organisation_name || "").trim()) errors.push("Add the legal or reporting organisation name");
+    if (!start || !/^\d{4}-\d{2}-\d{2}$/.test(start) || Number.isNaN(Date.parse(`${start}T00:00:00`))) errors.push("Enter reporting_period_start as YYYY-MM-DD");
+    if (!end || !/^\d{4}-\d{2}-\d{2}$/.test(end) || Number.isNaN(Date.parse(`${end}T00:00:00`))) errors.push("Enter reporting_period_end as YYYY-MM-DD");
+    if (start && end && !Number.isNaN(Date.parse(start)) && !Number.isNaN(Date.parse(end)) && Date.parse(end) < Date.parse(start)) errors.push("reporting_period_end must be on or after the start date");
+    if (!fteRaw || !Number.isFinite(fte) || fte < 0) errors.push("Enter full_time_equivalent_employees as zero or a positive number");
+    if (!headcountRaw || !Number.isFinite(headcount) || headcount < 0) errors.push("Enter headcount as zero or a positive number");
+    if (Number.isFinite(fte) && Number.isFinite(headcount) && fte > headcount) errors.push("FTE cannot exceed headcount; correct one of these values");
+    if (!revenueRaw || !Number.isFinite(revenue) || revenue < 0) errors.push("Enter revenue_gbp as zero or a positive number without currency symbols");
+    if (!String(values.completed_by || "").trim()) errors.push("Add the person or team that completed this information");
+    if (!String(values.evidence_reference || "").trim()) errors.push("Add an evidence_reference for the organisation information");
     return { values, errors, valid: errors.length === 0 };
   });
 }
@@ -1156,9 +1170,9 @@ function acceptValidRows() {
 
 function sampleUploadRows() {
   return validateRows([
-    { source_record_id: "NEG-UPLOAD-GAS-002", activity_date: "2026-07-31", description: "July natural gas", calculation_method_id: "scope1.stationary_natural_gas.gross_cv.kwh.uk_2026.v1", activity_value: "12500", activity_unit: "kWh (Gross CV)", evidence_reference: "NEG-GAS-JUL-2026" },
-    { source_record_id: "NEG-UPLOAD-RAIL-002", activity_date: "2026-07-31", description: "July national rail travel", calculation_method_id: "scope3.category6.national_rail.passenger_km.uk_2026.v1", activity_value: "880", activity_unit: "passenger.km", evidence_reference: "NEG-TRAVEL-JUL-2026" },
-    { source_record_id: "NEG-UPLOAD-WASTE-002", activity_date: "2026-07-31", description: "Waste with ambiguous treatment", calculation_method_id: "scope3.category5.commercial_waste.closed_loop.tonnes.uk_2026.v1", activity_value: "3.2", activity_unit: "kg", evidence_reference: "NEG-WASTE-JUL-2026" },
+    { source_record_id: "NEG-UPLOAD-GAS-002", activity_date: "2025-07-31", description: "July natural gas", calculation_method_id: "scope1.stationary_natural_gas.gross_cv.kwh.uk_2026.v1", activity_value: "12500", activity_unit: "kWh (Gross CV)", evidence_reference: "NEG-GAS-JUL-2025" },
+    { source_record_id: "NEG-UPLOAD-RAIL-002", activity_date: "2025-07-31", description: "July national rail travel", calculation_method_id: "scope3.category6.national_rail.passenger_km.uk_2026.v1", activity_value: "880", activity_unit: "passenger.km", evidence_reference: "NEG-TRAVEL-JUL-2025" },
+    { source_record_id: "NEG-UPLOAD-WASTE-002", activity_date: "2025-07-31", description: "Waste with ambiguous treatment", calculation_method_id: "scope3.category5.commercial_waste.closed_loop.tonnes.uk_2026.v1", activity_value: "3.2", activity_unit: "kg", evidence_reference: "NEG-WASTE-JUL-2025" },
   ]);
 }
 
@@ -1185,6 +1199,16 @@ function downloadTemplate(templateId) {
   if (!template) return showToast("That template is not available.");
   download(template.filename, templateCsv(template), "text/csv;charset=utf-8");
   showToast(`${template.label} CSV downloaded.`);
+}
+
+function downloadScopeTemplate(scope) {
+  const scopeNumber = Number(scope);
+  const rows = METHODS
+    .filter((method) => method.scope === scopeNumber)
+    .map((method) => templateRow(method.id, `Scope ${scopeNumber}: ${method.label}`));
+  if (!rows.length) return showToast("No governed methods are configured for that scope.");
+  download(`dcarbn-new-era-scope-${scopeNumber}-2025.csv`, templateCsv({ rows }), "text/csv;charset=utf-8");
+  showToast(`Scope ${scopeNumber} CSV downloaded with ${rows.length} supported data categories.`);
 }
 
 function downloadCompleteTemplatePack() {
@@ -1251,6 +1275,45 @@ function exportWorkspace() {
   if (currentRole() !== "analyst") return showToast("The controlled workspace export is restricted to the D-carbN Analyst.");
   download("new-era-group-local-workspace.json", JSON.stringify(state, null, 2), "application/json");
   showToast("Local workspace exported.");
+}
+
+function exportPilotSession() {
+  const payload = {
+    export_format: "dcarbn-local-pilot-session-v1",
+    exported_at: new Date().toISOString(),
+    storage_location: "browser_local_storage_on_this_computer",
+    transmitted_to_external_service: false,
+    session: state,
+  };
+  download("new-era-group-2025-pilot-session.json", JSON.stringify(payload, null, 2), "application/json");
+  showToast("Pilot session exported locally as JSON.");
+}
+
+function emptyPilotState() {
+  const cleared = defaultState();
+  cleared.organisation = "Local pilot";
+  cleared.activities = [];
+  cleared.batches = [];
+  cleared.profile = {
+    reportingPeriodStart: "2025-01-01", reportingPeriodEnd: "2025-12-31",
+    fullTimeEquivalentEmployees: null, headcount: null, revenueGbp: null,
+    completedBy: "", evidenceReference: "", notes: "",
+  };
+  cleared.audit = [{ id: uid("audit"), at: new Date().toISOString(), action: "All local customer data cleared", actor: "Local pilot" }];
+  cleared.report = null;
+  cleared.pilot = { stage: "draft", activeRole: "contributor", submittedAt: null, reviewedAt: null, lockedAt: null };
+  return cleared;
+}
+
+function clearLocalCustomerData() {
+  const confirmed = confirm("Clear all uploaded activities, calculations, organisation details, audit history and reports stored by this pilot in this browser? This cannot be undone unless you exported the session first.");
+  if (!confirmed) return;
+  state = emptyPilotState();
+  clearUploadSelection();
+  saveState();
+  renderAll();
+  navigate("dashboard");
+  showToast("All local customer data has been cleared from this pilot session.");
 }
 
 function configureActivityForm() {
@@ -1387,6 +1450,11 @@ function attachEvents() {
   document.querySelectorAll("[data-template-download]").forEach((button) => {
     button.addEventListener("click", () => downloadTemplate(button.dataset.templateDownload));
   });
+  document.querySelectorAll("[data-scope-download]").forEach((button) => {
+    button.addEventListener("click", () => downloadScopeTemplate(button.dataset.scopeDownload));
+  });
+  document.querySelector("#export-pilot-session").addEventListener("click", exportPilotSession);
+  document.querySelector("#clear-local-customer-data").addEventListener("click", clearLocalCustomerData);
   document.querySelector("#validate-upload").addEventListener("click", validateSelectedFile);
   document.querySelector("#load-sample").addEventListener("click", () => { uploadRows = sampleUploadRows(); renderUploadPreview(); showToast("Sample rows loaded: two valid and one intentionally flagged."); });
   document.querySelector("#accept-valid-rows").addEventListener("click", acceptValidRows);

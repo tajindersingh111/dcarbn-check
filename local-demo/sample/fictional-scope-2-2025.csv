@@ -1,0 +1,2 @@
+source_record_id,activity_date,description,calculation_method_id,activity_value,activity_unit,evidence_reference,equipment_reference,supplier_name,supplier_methodology,supplier_methodology_version,boundary_description,assurance_status
+PILOT-S2-ELECTRICITY-2025,2025-03-31,Fictional purchased electricity,scope2.location_electricity.kwh.uk_2026.v1,50000,kWh,FICTIONAL-ELECTRICITY-INVOICE-2025,,,,,,

@@ -1,6 +1,6 @@
 source_record_id,activity_date,description,calculation_method_id,activity_value,activity_unit,evidence_reference,equipment_reference,supplier_name,supplier_methodology,supplier_methodology_version,boundary_description,assurance_status
-NEG-IMPORT-GAS-101,2026-07-31,July head office natural gas,scope1.stationary_natural_gas.gross_cv.kwh.uk_2026.v1,12500,kWh (Gross CV),NEG-GAS-JUL-2026,,,,,,
-NEG-IMPORT-ELEC-101,2026-07-31,July UK grid electricity,scope2.location_electricity.kwh.uk_2026.v1,28400,kWh,NEG-ELEC-JUL-2026,,,,,,
-NEG-IMPORT-RAIL-101,2026-07-31,July national rail travel,scope3.category6.national_rail.passenger_km.uk_2026.v1,880,passenger.km,NEG-TRAVEL-JUL-2026,,,,,,
-NEG-IMPORT-HOTEL-101,2026-07-31,July UK hotel stays,scope3.category6.uk_hotel.room_night.uk_2026.v1,12,Room per night,NEG-HOTEL-JUL-2026,,,,,,
-NEG-IMPORT-WASTE-101,2026-07-31,Commercial waste closed-loop recycling,scope3.category5.commercial_waste.closed_loop.tonnes.uk_2026.v1,3.2,tonnes,NEG-WASTE-JUL-2026,,,,,,
+NEG-IMPORT-GAS-101,2025-07-31,July head office natural gas,scope1.stationary_natural_gas.gross_cv.kwh.uk_2026.v1,12500,kWh (Gross CV),NEG-GAS-JUL-2025,,,,,,
+NEG-IMPORT-ELEC-101,2025-07-31,July UK grid electricity,scope2.location_electricity.kwh.uk_2026.v1,28400,kWh,NEG-ELEC-JUL-2025,,,,,,
+NEG-IMPORT-RAIL-101,2025-07-31,July national rail travel,scope3.category6.national_rail.passenger_km.uk_2026.v1,880,passenger.km,NEG-TRAVEL-JUL-2025,,,,,,
+NEG-IMPORT-HOTEL-101,2025-07-31,July UK hotel stays,scope3.category6.uk_hotel.room_night.uk_2026.v1,12,Room per night,NEG-HOTEL-JUL-2025,,,,,,
+NEG-IMPORT-WASTE-101,2025-07-31,Commercial waste closed-loop recycling,scope3.category5.commercial_waste.closed_loop.tonnes.uk_2026.v1,3.2,tonnes,NEG-WASTE-JUL-2025,,,,,,

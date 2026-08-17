@@ -1,0 +1,2 @@
+source_record_id,activity_date,description,calculation_method_id,activity_value,activity_unit,evidence_reference,equipment_reference,supplier_name,supplier_methodology,supplier_methodology_version,boundary_description,assurance_status
+PILOT-S3-RAIL-2025,2025-06-30,Fictional national rail travel,scope3.category6.national_rail.passenger_km.uk_2026.v1,1000,passenger.km,FICTIONAL-RAIL-LEDGER-2025,,,,,,

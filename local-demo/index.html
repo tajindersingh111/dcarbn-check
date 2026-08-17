@@ -39,7 +39,7 @@
 
         <div class="sidebar-footer">
           <span class="customer-avatar">NE</span>
-          <div><strong>New Era Group</strong><span>2026 reporting year</span></div>
+          <div><strong>New Era Group</strong><span>2025 reporting year</span></div>
         </div>
       </aside>
 
@@ -103,6 +103,15 @@
               <button class="button button-secondary" id="download-template">Download combined activity CSV</button>
             </div>
 
+            <section class="scope-journeys" aria-labelledby="scope-journeys-title">
+              <div class="section-heading-inline"><div><p class="eyebrow">Guided upload journeys</p><h2 id="scope-journeys-title">Start with the scope you are preparing</h2></div><span>Files can be uploaded one at a time</span></div>
+              <div class="scope-journey-grid">
+                <article class="scope-journey-card scope-one"><span class="scope-journey-number">1</span><div><h3>Scope 1 · Direct emissions</h3><p>Natural gas, owned vehicles and refrigerant leakage.</p><ol><li>Download the Scope 1 CSV</li><li>Complete source and evidence fields</li><li>Upload and correct flagged rows</li></ol></div><button class="button button-secondary" data-scope-download="1">Download Scope 1 CSV</button></article>
+                <article class="scope-journey-card scope-two"><span class="scope-journey-number">2</span><div><h3>Scope 2 · Purchased energy</h3><p>Location-based UK purchased electricity in kWh.</p><ol><li>Download the Scope 2 CSV</li><li>Enter metered or invoiced electricity</li><li>Upload with the invoice reference</li></ol></div><button class="button button-secondary" data-scope-download="2">Download Scope 2 CSV</button></article>
+                <article class="scope-journey-card scope-three"><span class="scope-journey-number">3</span><div><h3>Scope 3 · Value chain</h3><p>Fuel WTT, procurement, freight, waste, travel and commuting.</p><ol><li>Download the Scope 3 CSV</li><li>Keep supplier and journey lineage</li><li>Upload and resolve every warning</li></ol></div><button class="button button-secondary" data-scope-download="3">Download Scope 3 CSV</button></article>
+              </div>
+            </section>
+
             <section class="panel template-library" aria-labelledby="template-library-title">
               <div class="panel-heading">
                 <div><p class="eyebrow">New Era Group template library</p><h2 id="template-library-title">Choose the data you want to collect</h2></div>
@@ -130,8 +139,8 @@
                   <small>or choose a CSV or JSON file from this computer</small>
                 </label>
                 <div class="form-grid compact-grid">
-                  <label>Batch reference<input id="batch-reference" value="NEG-2026-IMPORT-01" /></label>
-                  <label>Reporting period<select id="reporting-period"><option>Calendar year 2026</option></select></label>
+                  <label>Batch reference<input id="batch-reference" value="NEG-2025-IMPORT-01" /></label>
+                  <label>Reporting period<select id="reporting-period"><option>Calendar year 2025</option></select></label>
                 </div>
                 <div class="attestation-box">
                   <label><input id="complete-attestation" type="checkbox" checked /> I confirm this file is complete for the stated sources.</label>
@@ -150,12 +159,19 @@
                   <li>Stable source record ID</li><li>Activity date and description</li><li>Governed method ID</li><li>Positive activity value</li><li>Exact compatible unit</li><li>Evidence or invoice reference</li>
                 </ul>
                 <div class="lineage-card"><strong>Excel users</strong><p>Open the supplied template in Excel, populate it, then use “Save As → CSV UTF-8” before upload. Original evidence files remain outside this demo.</p></div>
+                <div class="local-session-card">
+                  <strong>Local pilot session</strong>
+                  <p>Uploads, calculations and session exports remain on this computer. Nothing is sent to D-carbN or another service.</p>
+                  <button class="button button-secondary full-width" id="export-pilot-session">Export pilot session</button>
+                  <button class="button button-danger-outline full-width" id="clear-local-customer-data">Clear all local customer data</button>
+                </div>
               </aside>
             </section>
 
             <section class="panel hidden" id="upload-preview-panel">
               <div class="panel-heading"><div><p class="eyebrow">Step 2</p><h2>Validation preview</h2></div><span class="record-count" id="upload-summary"></span></div>
               <div class="table-shell"><table><thead><tr><th>Row</th><th>Source ID</th><th>Description</th><th>Method</th><th>Quantity</th><th>Validation</th></tr></thead><tbody id="upload-preview"></tbody></table></div>
+              <div class="correction-guidance hidden" id="upload-correction-guidance"></div>
               <div class="button-row panel-actions"><button class="button button-primary" id="accept-valid-rows">Add valid rows to inventory</button><button class="button button-secondary" id="clear-upload">Clear preview</button></div>
             </section>
           </section>
@@ -169,7 +185,7 @@
             <section class="panel hidden" id="activity-form-panel">
               <div class="panel-heading"><div><p class="eyebrow">Manual entry</p><h2>Add governed activity</h2></div><button class="text-button" id="close-activity-form">Close</button></div>
               <form id="activity-form" class="form-grid">
-                <label>Activity date<input name="activity_date" type="date" value="2026-06-30" required /></label>
+                <label>Activity date<input name="activity_date" type="date" value="2025-06-30" required /></label>
                 <label class="field-span-2">Description<input name="description" placeholder="June natural gas consumption" required /></label>
                 <label class="field-span-2">Governed method<select name="calculation_method_id" id="method-select" required></select></label>
                 <label>Activity value<input name="activity_value" type="number" min="0.000000001" step="any" required /></label>

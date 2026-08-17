@@ -23,6 +23,7 @@ Open <http://127.0.0.1:8081> in a modern browser.
 All changes are stored in that browser's `localStorage`. Use **Export workspace
 JSON** before clearing browser data if a workshop state must be retained. The
 **Reset demo** control restores the original New Era Group sample inventory.
+The default reporting period is **Calendar year 2025**.
 
 ## Demonstration workflow
 
@@ -94,6 +95,25 @@ components are supplied, the importer derives passenger-km, tonne-km or room
 nights. If a manually entered total disagrees with those components, the row is
 blocked. Accepted source fields are preserved in calculation lineage.
 
+The guided Scope 1, Scope 2 and Scope 3 cards each generate a downloadable CSV
+containing every governed method currently supported for that scope. This
+catalogue-driven route ensures that a supported category cannot be omitted from
+the downloadable template set.
+
+## Validation and local-session controls
+
+Validation messages identify the field to correct and explain the expected
+format or value. Source IDs are compared case-insensitively against both the
+existing local inventory and other rows in the same file. Activity dates must
+fall inside the reporting period. Flagged rows remain outside the inventory and
+the interface provides a correction checklist before re-upload.
+
+**Export pilot session** downloads the complete browser session as JSON,
+including activity data, calculations, evidence references, audit history and
+any locked report identity. **Clear all local customer data** removes those
+records from the active browser session after an explicit confirmation. The
+normal **Reset demo** action remains available for restoring fictional data.
+
 Spend-only estimates, water use, rent and other inputs without an approved
 calculation route are not silently converted. They remain outside the governed
 activity import until D-carbN defines and approves the required method.
@@ -109,3 +129,7 @@ assured filings.
 The bundled factor mappings use the revised July 2026 DESNZ UK Government GHG
 Conversion Factors. Unsupported combinations are flagged rather than assigned a
 nearby factor.
+
+The page Content Security Policy uses `connect-src 'none'`, and the JavaScript
+contains no API, database or telemetry client. Customer uploads, calculations,
+exports and reports therefore remain on the computer running the browser pilot.

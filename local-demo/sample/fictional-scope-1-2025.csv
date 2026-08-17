@@ -1,0 +1,2 @@
+source_record_id,activity_date,description,calculation_method_id,activity_value,activity_unit,evidence_reference,equipment_reference,supplier_name,supplier_methodology,supplier_methodology_version,boundary_description,assurance_status
+PILOT-S1-GAS-2025,2025-03-31,Fictional head office natural gas,scope1.stationary_natural_gas.gross_cv.kwh.uk_2026.v1,10000,kWh (Gross CV),FICTIONAL-GAS-INVOICE-2025,,,,,,
