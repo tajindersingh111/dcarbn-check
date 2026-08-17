@@ -382,7 +382,7 @@ function defaultState() {
     batches: [],
     audit: [
       { id: "audit-seed-3", at: "2026-08-17T09:12:00.000Z", action: "Supplier and commuting records queued for review", actor: "Local demo" },
-      { id: "audit-seed-2", at: "2026-08-17T09:06:00.000Z", action: "Six governed activities approved", actor: "Leonard Fraser" },
+      { id: "audit-seed-2", at: "2026-08-17T09:06:00.000Z", action: "Six governed activities approved", actor: "D-carbN Analyst" },
       { id: "audit-seed-1", at: "2026-08-17T09:00:00.000Z", action: "New Era Group demonstration inventory created", actor: "Local demo" },
     ],
     report: null,
@@ -482,7 +482,7 @@ function totals() {
   };
 }
 
-function addAudit(action, actor = "Leonard Fraser") {
+function addAudit(action, actor = "D-carbN Analyst") {
   state.audit.unshift({ id: uid("audit"), at: new Date().toISOString(), action, actor });
 }
 
