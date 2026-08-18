@@ -1,0 +1,17 @@
+FROM python:3.12-alpine
+
+RUN addgroup -g 10001 appuser && \
+    adduser -D -u 10001 -G appuser appuser
+
+WORKDIR /app
+COPY --chown=appuser:appuser local-demo/ ./
+
+ENV PORT=8080
+EXPOSE 8080
+
+USER 10001:10001
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+  CMD wget -q -O - "http://127.0.0.1:${PORT}/" >/dev/null 2>&1 || exit 1
+
+CMD ["sh", "-c", "python3 -m http.server ${PORT} --bind 0.0.0.0 --directory /app"]
