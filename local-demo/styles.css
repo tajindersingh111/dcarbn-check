@@ -42,7 +42,7 @@
   --radius-large: 1.35rem;
   --shadow-card: 0 14px 34px rgb(22 27 57 / 5%);
   --shadow-sidebar: none;
-  --sidebar-width: 17.25rem;
+  --sidebar-width: 13.5rem;
   --content-width: 100rem;
 
   /* Local-demo aliases resolve only to the production tokens above. */
@@ -89,22 +89,22 @@ h3 { color: var(--brand); font-size: 1rem; }
 .app-frame { min-height: 100vh; }
 .sidebar {
   background: var(--brand); bottom: 0; box-shadow: var(--shadow-sidebar); color: white;
-  display: flex; flex-direction: column; left: 0; padding: 2rem 1.3rem 1.4rem; position: fixed;
+  display: flex; flex-direction: column; left: 0; padding: 1.6rem 1rem 1.2rem; position: fixed;
   top: 0; width: var(--sidebar); z-index: 30;
 }
-.brand-row { align-items: center; display: flex; gap: 0.85rem; padding: 0 0.05rem; }
+.brand-row { align-items: center; display: flex; flex-direction: column; gap: 0.5rem; padding: 0; text-align: center; }
 .brand-row strong, .brand-row small { display: block; }
 .brand-row strong { font-size: 1.12rem; }
 .brand-row small { color: rgb(255 255 255 / 72%); font-size: 0.78rem; margin-top: 0.12rem; }
 .brand-mark { align-items: center; background: transparent; border: 2px solid white; border-radius: 50%; color: white; display: flex; font-size: 2rem; font-weight: 400; height: 3.15rem; justify-content: center; line-height: 1; width: 3.15rem; }
-.demo-tenant { background: transparent; border: 1px solid rgb(255 255 255 / 24%); border-radius: 0.65rem; margin: 2rem 0 1.5rem; padding: 0.78rem 1rem; text-align: center; }
+.demo-tenant { background: transparent; border: 1px solid rgb(255 255 255 / 24%); border-radius: 0.65rem; margin: 1.4rem 0 1.2rem; padding: 0.68rem 0.55rem; text-align: center; }
 .demo-tenant span, .demo-tenant strong, .demo-tenant small { display: block; }
-.demo-tenant span { color: var(--green-soft); font-size: 0.66rem; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; }
+.demo-tenant span { color: var(--green-soft); font-size: 0.61rem; font-weight: 800; letter-spacing: 0.07em; text-transform: uppercase; }
 .demo-tenant strong { color: #d5f8d1; font-size: 0.74rem; letter-spacing: 0.09em; text-transform: uppercase; }
 .demo-tenant small { color: rgb(255 255 255 / 58%); font-size: 0.72rem; }
-.sidebar nav { display: grid; gap: 0.42rem; margin-left: -1.3rem; margin-right: -0.05rem; }
-.nav-link { align-items: center; background: transparent; border: 0; border-radius: 0 0.7rem 0.7rem 0; color: rgb(255 255 255 / 77%); display: flex; font-size: 0.97rem; font-weight: 700; gap: 0.95rem; padding: 0.9rem 1rem 0.9rem 1.3rem; text-align: left; width: 100%; }
-.nav-link span { color: rgb(255 255 255 / 60%); display: block; font-size: 0.67rem; font-weight: 400; letter-spacing: 0.02em; width: 1.4rem; }
+.sidebar nav { display: grid; gap: 0.35rem; margin-left: -1rem; margin-right: 0; }
+.nav-link { align-items: center; background: transparent; border: 0; border-radius: 0 0.7rem 0.7rem 0; color: rgb(255 255 255 / 77%); display: flex; font-size: 0.86rem; font-weight: 700; gap: 0.55rem; padding: 0.8rem 0.65rem 0.8rem 1rem; text-align: left; width: 100%; }
+.nav-link span { color: rgb(255 255 255 / 60%); display: block; flex: 0 0 1.1rem; font-size: 0.64rem; font-weight: 400; letter-spacing: 0.02em; width: 1.1rem; }
 .nav-link:hover, .nav-link.active { background: rgb(84 177 82 / 15%); color: white; }
 .nav-link.active { box-shadow: inset 4px 0 var(--green); }
 .nav-link.active span { color: #baf5b6; }
