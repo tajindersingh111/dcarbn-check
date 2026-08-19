@@ -16,6 +16,24 @@ from app.models.identity import MembershipRole, TenantMembership, User, UserStat
 from app.models.tenant import Tenant
 from app.services.identity import ensure_system_roles
 
+# Import all models to populate the SQLAlchemy registry
+import app.models.activity
+import app.models.audit
+import app.models.boundary
+import app.models.calculation
+import app.models.data_integration
+import app.models.data_review
+import app.models.emission_factor
+import app.models.factor_resolution
+import app.models.inventory
+import app.models.inventory_governance
+import app.models.methodology
+import app.models.methodology_pack
+import app.models.organisation
+import app.models.security
+import app.models.workload
+
+
 TENANT_SLUG_PATTERN = re.compile(r"^[a-z0-9][a-z0-9-]{1,98}[a-z0-9]$")
 
 
