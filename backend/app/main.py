@@ -45,9 +45,13 @@ app = FastAPI(
 
 app.middleware("http")(metrics_middleware)
 
+allowed_hosts = list(settings.trusted_hosts)
+if settings.app_env == "development":
+    allowed_hosts.extend(["*.railway.app", "*.up.railway.app"])
+
 app.add_middleware(
     TrustedHostMiddleware,
-    allowed_hosts=settings.trusted_hosts,
+    allowed_hosts=allowed_hosts,
 )
 app.add_middleware(SecurityHeadersMiddleware)
 app.add_middleware(RateLimitMiddleware)
