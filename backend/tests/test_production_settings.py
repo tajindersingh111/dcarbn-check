@@ -36,6 +36,17 @@ def test_safe_production_settings_are_accepted() -> None:
     assert settings.cookie_secure is True
 
 
+@pytest.mark.parametrize("scheme", ["postgres://", "postgresql://"])
+def test_provider_postgres_urls_use_async_driver(scheme: str) -> None:
+    settings = production_settings(
+        database_url=f"{scheme}user:pass@db:5432/app?sslmode=require"
+    )
+
+    assert settings.database_url == (
+        "postgresql+asyncpg://user:pass@db:5432/app?sslmode=require"
+    )
+
+
 def test_production_rejects_fail_open_rate_limiting() -> None:
     with pytest.raises(ValidationError, match="RATE_LIMIT_FAIL_OPEN"):
         production_settings(rate_limit_fail_open=True)

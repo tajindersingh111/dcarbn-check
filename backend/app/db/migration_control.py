@@ -13,6 +13,8 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncConnection, create_async_engine
 from sqlalchemy.pool import NullPool
 
+from app.core.config import normalize_database_url
+
 MIGRATION_LOCK_ID = 4_444_227_701
 SUPPORTED_RUNTIME_REVISIONS = frozenset({"0022"})
 
@@ -139,6 +141,7 @@ async def migration_lock(
     idle_transaction_timeout_ms: int = 60_000,
     lock_timeout_ms: int = 30_000,
 ) -> AsyncIterator[AsyncConnection]:
+    database_url = normalize_database_url(database_url)
     if not database_url.startswith("postgresql+asyncpg://"):
         raise MigrationPolicyError("Controlled migrations require PostgreSQL.")
     engine = create_async_engine(database_url, poolclass=NullPool, pool_pre_ping=True)

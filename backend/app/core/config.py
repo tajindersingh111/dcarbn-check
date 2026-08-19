@@ -12,6 +12,14 @@ from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 from app.db.connection_budget import DatabaseConnectionBudget
 
 
+def normalize_database_url(value: str) -> str:
+    """Use the async PostgreSQL driver for provider-supplied URLs."""
+    for scheme in ("postgres://", "postgresql://"):
+        if value.startswith(scheme):
+            return "postgresql+asyncpg://" + value[len(scheme) :]
+    return value
+
+
 def _read_secret(name: str, current: str | None) -> str | None:
     file_variable = os.getenv(f"{name.upper()}_FILE")
     candidates = [
@@ -175,6 +183,7 @@ class Settings(BaseSettings):
             _read_secret("mfa_encryption_key", self.mfa_encryption_key) or ""
         )
         self.database_url = _read_secret("database_url", self.database_url) or ""
+        self.database_url = normalize_database_url(self.database_url)
         self.redis_url = _read_secret("redis_url", self.redis_url) or self.redis_url
         self.smtp_password = _read_secret("smtp_password", self.smtp_password)
 
