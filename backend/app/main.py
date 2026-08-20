@@ -56,9 +56,14 @@ app.add_middleware(
 app.add_middleware(SecurityHeadersMiddleware)
 app.add_middleware(RateLimitMiddleware)
 app.add_middleware(CorrelationIdMiddleware)
+cors_origin_regex = None
+if settings.app_env == "development":
+    cors_origin_regex = r"https://.*\.railway\.app|https://.*\.up\.railway\.app"
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins,
+    allow_origin_regex=cors_origin_regex,
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allow_headers=[
