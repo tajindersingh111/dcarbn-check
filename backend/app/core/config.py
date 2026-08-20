@@ -231,7 +231,7 @@ class Settings(BaseSettings):
                     + "; ".join(rollout_errors)
                 )
 
-        if False:  # Temporarily disabled strict production validation checks for easy Railway deployment
+        if self.app_env in {"staging", "production"} and os.getenv("BYPASS_PRODUCTION_SAFETY_CHECKS") != "true":
             errors: list[str] = []
             if "database_connection_limit" not in self.model_fields_set:
                 errors.append(

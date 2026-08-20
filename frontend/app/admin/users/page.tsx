@@ -66,7 +66,7 @@ export default function UsersPage() {
           role_names: form.getAll("role_names")
         })
       });
-      setInvitationToken(response.invitation_token);
+      setInvitationToken(response.invitation_token || "sent");
       await users.refresh();
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Invitation failed.");
@@ -150,7 +150,39 @@ export default function UsersPage() {
       </section>
 
       <Modal open={inviteOpen} onClose={() => setInviteOpen(false)} title="Invite user" description="Issue a time-limited invitation for this tenant.">
-        {invitationToken ? <div className="token-panel"><strong>Invitation created</strong><p>Share this link through your approved secure channel:</p><code>{`${window.location.origin}/accept-invitation?token=${invitationToken}`}</code></div> : <form className="modal-form" onSubmit={invite}><label>Full name<input name="full_name" required /></label><label>Email address<input name="email" required type="email" /></label><fieldset><legend>Roles</legend>{(roles.data ?? []).map((role) => <label className="checkbox-field" key={role.id}><input name="role_names" type="checkbox" value={role.name} /> {role.display_name}</label>)}</fieldset><MutationMessage error={error} /><div className="button-row modal-actions"><button className="button button-secondary" onClick={() => setInviteOpen(false)} type="button">Cancel</button><button className="button button-primary" disabled={working} type="submit">{working ? "Inviting…" : "Create invitation"}</button></div></form>}
+        {invitationToken ? (
+          <div className="token-panel">
+            <strong>Invitation created</strong>
+            {invitationToken !== "sent" ? (
+              <>
+                <p>Share this link through your approved secure channel:</p>
+                <code>{`${window.location.origin}/accept-invitation?token=${invitationToken}`}</code>
+              </>
+            ) : (
+              <p>Invitation emailed to the user.</p>
+            )}
+          </div>
+        ) : (
+          <form className="modal-form" onSubmit={invite}>
+            <label>Full name<input name="full_name" required /></label>
+            <label>Email address<input name="email" required type="email" /></label>
+            <fieldset>
+              <legend>Roles</legend>
+              {(roles.data ?? []).map((role) => (
+                <label className="checkbox-field" key={role.id}>
+                  <input name="role_names" type="checkbox" value={role.name} /> {role.display_name}
+                </label>
+              ))}
+            </fieldset>
+            <MutationMessage error={error} />
+            <div className="button-row modal-actions">
+              <button className="button button-secondary" onClick={() => setInviteOpen(false)} type="button">Cancel</button>
+              <button className="button button-primary" disabled={working} type="submit">
+                {working ? "Inviting…" : "Create invitation"}
+              </button>
+            </div>
+          </form>
+        )}
       </Modal>
     </>
   );

@@ -388,3 +388,58 @@ async def onboard(
         invitation_token=token if get_settings().expose_tokens_in_api else "",
         invitation_expires_at=invitation.expires_at,
     )
+
+
+@router.post(
+    "/platform/tenants/{tenant_id}/resend-invitation",
+    response_model=TenantOnboardingResponse,
+)
+async def resend_owner_invitation(
+    tenant_id: UUID,
+    principal: CurrentPrincipal = Depends(get_current_principal),
+    db: AsyncSession = Depends(get_db),
+) -> TenantOnboardingResponse:
+    from datetime import datetime, UTC, timedelta
+    from fastapi import HTTPException
+    from app.models.identity import UserInvitation, InvitationStatus
+    from app.auth.security import generate_opaque_token, hash_opaque_token
+
+    if not principal.is_platform_admin:
+        raise HTTPException(status_code=403, detail="Platform administrator access required.")
+
+    tenant = await db.get(Tenant, tenant_id)
+    if tenant is None:
+        raise HTTPException(status_code=404, detail="Tenant not found.")
+
+    invitation = await db.scalar(
+        select(UserInvitation).where(
+            UserInvitation.tenant_id == tenant_id,
+            UserInvitation.role_names == "tenant_admin",
+            UserInvitation.status == InvitationStatus.PENDING,
+        )
+    )
+    if invitation is None:
+        raise HTTPException(status_code=404, detail="Pending owner invitation not found.")
+
+    token = generate_opaque_token()
+    invitation.token_hash = hash_opaque_token(token)
+    invitation.expires_at = datetime.now(UTC) + timedelta(hours=get_settings().invitation_hours)
+
+    await send_invitation_email(
+        to_address=invitation.email,
+        full_name=invitation.full_name,
+        invitation_url=f"{get_settings().frontend_base_url}/accept-invitation?token={token}",
+        tenant_name=tenant.name,
+    )
+
+    await db.commit()
+    await db.refresh(invitation)
+
+    return TenantOnboardingResponse(
+        tenant_id=tenant.id,
+        tenant_name=tenant.name,
+        tenant_slug=tenant.slug,
+        owner_email=invitation.email,
+        invitation_token=token if get_settings().expose_tokens_in_api else "",
+        invitation_expires_at=invitation.expires_at,
+    )
