@@ -12,7 +12,7 @@ import type {
   Organisation
 } from "@/lib/types";
 
-interface GovernedMethodOption {
+export interface GovernedMethodOption {
   id: string;
   label: string;
   activityType: string;
@@ -39,7 +39,7 @@ const supplierSpecificScope3Categories = [
   [15, "Investments"],
 ] as const;
 
-const governedMethods: GovernedMethodOption[] = [
+export const governedMethods: GovernedMethodOption[] = [
   {
     id: "scope1.mobile_combustion.delivery_van.class1.diesel.km.uk_2026.v1",
     label: "Scope 1 · Class I diesel delivery van · km · 0.15833",
