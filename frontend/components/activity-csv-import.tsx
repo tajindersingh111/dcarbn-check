@@ -38,6 +38,10 @@ scope1.stationary_diesel.litres.uk_2026.v1,2026-03-31,Backup generator diesel,12
 scope2.location_electricity.kwh.uk_2026.v1,2026-03-31,Purchased electricity,50000,kWh,electricity-bill-001.pdf,electricity-001,GB
 scope3.category6.domestic_air.with_rf.passenger_km.uk_2026.v1,2026-03-31,Domestic business flights,8500,passenger.km,travel-report-001.pdf,travel-001,GB`;
 
+const hvoTemplateCsv = `calculation_method_id,activity_date,description,activity_value,activity_unit,evidence_reference,source_record_id,geography_code
+scope1.mobile_combustion.hvo.litres.uk_2024.v1,2024-10-31,HVO fleet fuel combustion,976227,litres,hvo-fuel-ledger-fy2024.xlsx,hvo-scope1-fy2024,GB
+scope3.category3.hvo_wtt.litres.uk_2024.v1,2024-10-31,HVO fuel well-to-tank,976227,litres,hvo-fuel-ledger-fy2024.xlsx,hvo-wtt-fy2024,GB`;
+
 function normaliseHeader(value: string): string {
   const normalised = value.trim().toLowerCase().replace(/[\s-]+/g, "_");
   return normalised === "calculation_method" ? "calculation_method_id" : normalised;
@@ -69,6 +73,9 @@ function rowFromCsv(
   }
   if (method && values.activity_unit !== method.activityUnit) {
     errors.push(`Unit must be ${method.activityUnit} for the selected method`);
+  }
+  if (method?.specialist && !values.evidence_reference) {
+    errors.push("Evidence reference is required for specialist HVO methods");
   }
 
   const amount = Number(values.activity_value);
@@ -186,6 +193,16 @@ export function ActivityCsvImport({
     const link = document.createElement("a");
     link.href = url;
     link.download = "dcarbn-activity-upload-template.csv";
+    link.click();
+    URL.revokeObjectURL(url);
+  }
+
+  function downloadHvoTemplate() {
+    const blob = new Blob([hvoTemplateCsv], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "dcarbn-uk-2024-hvo-activity-template.csv";
     link.click();
     URL.revokeObjectURL(url);
   }
@@ -355,9 +372,14 @@ export function ActivityCsvImport({
             <p className="eyebrow">Step 2</p>
             <h2>Choose one activity CSV</h2>
           </div>
-          <button className="button button-secondary" onClick={downloadTemplate} type="button">
-            Download simple template
-          </button>
+          <div className="button-row">
+            <button className="button button-secondary" onClick={downloadTemplate} type="button">
+              Download standard template
+            </button>
+            <button className="button button-secondary" onClick={downloadHvoTemplate} type="button">
+              Download UK 2024 HVO template
+            </button>
+          </div>
         </div>
         <div className="upload-zone">
           <label className="button button-primary" htmlFor="activity-csv-file">Choose CSV file</label>
@@ -423,7 +445,7 @@ export function ActivityCsvImport({
           </div>
           <div className="import-submit-row">
             <p>
-              Unknown calculation methods—including HVO until its factor pack is approved—are blocked rather than silently treated as diesel.
+              HVO is a specialist method and is never assumed. Its template records the same evidenced litres once for Scope 1 combustion and once for Scope 3 Category 3 well-to-tank; the report discloses biogenic CO₂ outside the scopes.
             </p>
             <button
               className="button button-primary"
