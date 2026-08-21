@@ -9,7 +9,7 @@ from pypdf import PdfReader
 
 def report_payload() -> dict[str, object]:
     return {
-        "report_schema_version": "1.5",
+        "report_schema_version": "1.6",
         "assurance_readiness": {
             "status": "assurance_ready",
             "claim_wording": "Assurance-ready reporting pack",
@@ -97,6 +97,20 @@ def report_payload() -> dict[str, object]:
                 "rationale": "Material purchased goods are calculated.",
             }
         ],
+        "bioenergy_disclosures": [
+            {
+                "method": "UK Government 2024 Biodiesel HVO",
+                "reporting_year": 2024,
+                "hvo_litres": "976227",
+                "scope_3_hvo_litres": "976227",
+                "complete": True,
+                "reconciliation_note": ("Scope 1 and Scope 3 Category 3 HVO litres reconcile."),
+                "scope_1_kg_co2e": "34734.15666",
+                "scope_3_category_3_wtt_kg_co2e": "545710.893",
+                "biogenic_co2_outside_scopes_kg": "2372231.61",
+                "note": ("HVO combustion CO2 is biogenic and disclosed outside Scopes 1, 2 and 3."),
+            }
+        ],
         "results": [
             {
                 "id": "result-1",
@@ -133,6 +147,8 @@ def test_csv_export_contains_full_lineage() -> None:
     assert "dcarbn_kg_co2e" in content
     assert "50,approved-exact-v1,45,UK-Government-comparator-v1" in content
     assert "disclosure-only comparator" in content
+    assert "hvo_biogenic_co2_outside_scopes_kg" in content
+    assert "2372231.61" in content
 
 
 def test_pdf_export_is_deterministic_and_valid() -> None:
@@ -152,6 +168,9 @@ def test_pdf_export_is_deterministic_and_valid() -> None:
     assert "UK-Government-comparator-v1" in normalized_text
     assert "excluded from inventory totals" in normalized_text
     assert "does not imply UK Government endorsement" in normalized_text
+    assert "HVO bioenergy disclosure" in normalized_text
+    assert "2372231.61 kg CO2" in normalized_text
+    assert "Scope 1 and Scope 3 Category 3 HVO litres reconcile" in normalized_text
     assert reader.metadata is not None
     assert reader.metadata.title == "DcarbN Analytics GHG Inventory Report"
     assert len(first) > 2000
@@ -169,9 +188,7 @@ def test_pdf_export_discloses_draft_blockers() -> None:
     }
 
     reader = PdfReader(BytesIO(build_audit_report_pdf(payload, "abc123")))
-    text = " ".join(
-        " ".join(page.extract_text() or "" for page in reader.pages).split()
-    )
+    text = " ".join(" ".join(page.extract_text() or "" for page in reader.pages).split())
 
     assert "Draft — calculation not fully validated" in text
     assert "Every current activity has a supporting evidence reference" in text
