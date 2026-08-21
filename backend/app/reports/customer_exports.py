@@ -91,6 +91,11 @@ def build_audit_report_csv(payload: dict[str, object], report_sha256: str) -> by
         "percentage_delta",
         "comparison_unavailable_reason",
         "comparison_disclosure",
+        "hvo_scope_1_kg_co2e",
+        "hvo_scope_3_category_3_wtt_kg_co2e",
+        "hvo_biogenic_co2_outside_scopes_kg",
+        "hvo_reconciliation_status",
+        "hvo_disclosure_note",
     ]
     writer.writerow(columns)
     comparisons = {
@@ -98,9 +103,9 @@ def build_audit_report_csv(payload: dict[str, object], report_sha256: str) -> by
         for item in _mappings(payload.get("calculation_comparisons"))
     }
     readiness = _mapping(payload.get("assurance_readiness"))
-    for row in sorted(
-        _mappings(payload.get("results")), key=lambda item: str(item.get("id", ""))
-    ):
+    hvo_disclosures = _mappings(payload.get("bioenergy_disclosures"))
+    hvo = hvo_disclosures[0] if hvo_disclosures else {}
+    for row in sorted(_mappings(payload.get("results")), key=lambda item: str(item.get("id", ""))):
         comparison = _mapping(comparisons.get(str(row.get("id", ""))))
         dcarbn = _mapping(comparison.get("dcarbn_result"))
         government = _mapping(comparison.get("uk_government_comparator"))
@@ -138,6 +143,11 @@ def build_audit_report_csv(payload: dict[str, object], report_sha256: str) -> by
                 comparison.get("percentage_delta"),
                 comparison.get("comparison_unavailable_reason"),
                 comparison.get("disclosure"),
+                hvo.get("scope_1_kg_co2e"),
+                hvo.get("scope_3_category_3_wtt_kg_co2e"),
+                hvo.get("biogenic_co2_outside_scopes_kg"),
+                hvo.get("reconciliation_note"),
+                hvo.get("note"),
             ]
         )
     return output.getvalue().encode("utf-8-sig")
@@ -167,10 +177,9 @@ def build_audit_report_pdf(payload: dict[str, object], report_sha256: str) -> by
     quality = _mapping(payload.get("data_quality"))
     uncertainty = _mapping(payload.get("uncertainty"))
     readiness = _mapping(payload.get("assurance_readiness"))
-    claim_wording = str(
-        readiness.get("claim_wording", "Draft — calculation not fully validated")
-    )
+    claim_wording = str(readiness.get("claim_wording", "Draft — calculation not fully validated"))
     readiness_blockers = _sequence(readiness.get("blockers"))
+    bioenergy_disclosures = _mappings(payload.get("bioenergy_disclosures"))
 
     story.extend(
         [
@@ -205,9 +214,7 @@ def build_audit_report_pdf(payload: dict[str, object], report_sha256: str) -> by
                     ("Scope 1", _amount(totals.get("scope_1_kg_co2e"), "kg CO2e")),
                     (
                         "Scope 2 - location-based",
-                        _amount(
-                            totals.get("scope_2_location_based_kg_co2e"), "kg CO2e"
-                        ),
+                        _amount(totals.get("scope_2_location_based_kg_co2e"), "kg CO2e"),
                     ),
                     (
                         "Scope 2 - market-based",
@@ -244,6 +251,48 @@ def build_audit_report_pdf(payload: dict[str, object], report_sha256: str) -> by
         for blocker in readiness_blockers:
             story.append(Paragraph(f"• {escape(str(blocker))}", styles["bullet"]))
         story.append(Spacer(1, 2 * mm))
+
+    for disclosure in bioenergy_disclosures:
+        story.extend(
+            [
+                _section("HVO bioenergy disclosure", styles),
+                _field_table(
+                    [
+                        ("Method", disclosure.get("method")),
+                        ("HVO activity", _amount(disclosure.get("hvo_litres"), "litres")),
+                        (
+                            "Scope 1",
+                            _amount(disclosure.get("scope_1_kg_co2e"), "kg CO2e"),
+                        ),
+                        (
+                            "Scope 3 Category 3 well-to-tank",
+                            _amount(
+                                disclosure.get("scope_3_category_3_wtt_kg_co2e"),
+                                "kg CO2e",
+                            ),
+                        ),
+                        (
+                            "Biogenic CO2 outside scopes",
+                            _amount(
+                                disclosure.get("biogenic_co2_outside_scopes_kg"),
+                                "kg CO2",
+                            ),
+                        ),
+                        (
+                            "Scope reconciliation",
+                            disclosure.get("reconciliation_note"),
+                        ),
+                    ],
+                    styles,
+                ),
+                Spacer(1, 1.5 * mm),
+                Paragraph(
+                    escape(str(disclosure.get("note", "Not reported"))),
+                    styles["body"],
+                ),
+                Spacer(1, 2 * mm),
+            ]
+        )
 
     boundary = _mapping(payload.get("organisational_boundary"))
     approval = _mapping(payload.get("approval"))
@@ -378,9 +427,7 @@ def build_audit_report_pdf(payload: dict[str, object], report_sha256: str) -> by
             )
             story.append(Spacer(1, 2 * mm))
 
-    lineage_rows: list[list[object]] = [
-        [Paragraph("Calculation lineage", styles["section_text"])]
-    ]
+    lineage_rows: list[list[object]] = [[Paragraph("Calculation lineage", styles["section_text"])]]
     for result in sorted(
         _mappings(payload.get("results")), key=lambda item: str(item.get("id", ""))
     ):
@@ -427,9 +474,7 @@ def build_audit_report_pdf(payload: dict[str, object], report_sha256: str) -> by
         pdf.drawRightString(width - 18 * mm, 8 * mm, f"Page {pdf.getPageNumber()}")
         pdf.restoreState()
 
-    doc.build(
-        story, onFirstPage=decorate, onLaterPages=decorate, canvasmaker=_InvariantCanvas
-    )
+    doc.build(story, onFirstPage=decorate, onLaterPages=decorate, canvasmaker=_InvariantCanvas)
     return output.getvalue()
 
 
@@ -518,9 +563,7 @@ def _styles() -> dict[str, ParagraphStyle]:
 
 
 def _section(title: str, styles: Mapping[str, ParagraphStyle]) -> Table:
-    table = Table(
-        [[Paragraph(escape(title), styles["section_text"])]], colWidths=[None]
-    )
+    table = Table([[Paragraph(escape(title), styles["section_text"])]], colWidths=[None])
     table.setStyle(
         TableStyle(
             [
@@ -537,9 +580,7 @@ def _section(title: str, styles: Mapping[str, ParagraphStyle]) -> Table:
     return table
 
 
-def _field_table(
-    rows: Sequence[tuple[str, object]], styles: Mapping[str, ParagraphStyle]
-) -> Table:
+def _field_table(rows: Sequence[tuple[str, object]], styles: Mapping[str, ParagraphStyle]) -> Table:
     data = [
         [
             Paragraph(escape(label), styles["label"]),
@@ -607,11 +648,7 @@ def _mapping(value: object) -> Mapping[str, Any]:
 
 
 def _sequence(value: object) -> Sequence[object]:
-    return (
-        value
-        if isinstance(value, Sequence) and not isinstance(value, (str, bytes))
-        else []
-    )
+    return value if isinstance(value, Sequence) and not isinstance(value, (str, bytes)) else []
 
 
 def _mappings(value: object) -> list[Mapping[str, Any]]:
