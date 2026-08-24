@@ -1,5 +1,7 @@
 from decimal import Decimal
 from inspect import signature
+from types import SimpleNamespace
+from uuid import UUID
 
 import pytest
 from app.models.inventory_governance import (
@@ -15,6 +17,7 @@ from app.schemas.inventory_governance import (
 )
 from app.services.inventory_governance import (
     _assess_assurance_readiness,
+    _build_hvo_2024_disclosure,
     _lock_snapshot,
 )
 from pydantic import ValidationError
@@ -100,6 +103,77 @@ def test_lock_snapshot_keeps_runtime_call_contract() -> None:
     ]
 
 
+def test_hvo_disclosure_reconciles_matching_scope_entries() -> None:
+    scope1_id = UUID("11111111-1111-1111-1111-111111111111")
+    wtt_id = UUID("22222222-2222-2222-2222-222222222222")
+    activities = {
+        scope1_id: SimpleNamespace(
+            metadata_json={
+                "calculation_method_id": ("scope1.mobile_combustion.hvo.litres.uk_2024.v1")
+            }
+        ),
+        wtt_id: SimpleNamespace(
+            metadata_json={"calculation_method_id": ("scope3.category3.hvo_wtt.litres.uk_2024.v1")}
+        ),
+    }
+    results = [
+        SimpleNamespace(
+            activity_id=scope1_id,
+            factor_activity_value=Decimal("976227"),
+            allocation_multiplier=Decimal(1),
+            allocated_kg_co2e=Decimal("34734.15666"),
+        ),
+        SimpleNamespace(
+            activity_id=wtt_id,
+            factor_activity_value=Decimal("976227"),
+            allocation_multiplier=Decimal(1),
+            allocated_kg_co2e=Decimal("545710.893"),
+        ),
+    ]
+
+    disclosure = _build_hvo_2024_disclosure(results, activities)  # type: ignore[arg-type]
+
+    assert disclosure is not None
+    assert disclosure["complete"] is True
+    assert disclosure["biogenic_co2_outside_scopes_kg"] == "2372231.61"
+    assert disclosure["scope_3_hvo_litres"] == "976227"
+
+
+def test_hvo_disclosure_marks_mismatched_litres_incomplete() -> None:
+    scope1_id = UUID("11111111-1111-1111-1111-111111111111")
+    wtt_id = UUID("22222222-2222-2222-2222-222222222222")
+    activities = {
+        scope1_id: SimpleNamespace(
+            metadata_json={
+                "calculation_method_id": ("scope1.mobile_combustion.hvo.litres.uk_2024.v1")
+            }
+        ),
+        wtt_id: SimpleNamespace(
+            metadata_json={"calculation_method_id": ("scope3.category3.hvo_wtt.litres.uk_2024.v1")}
+        ),
+    }
+    results = [
+        SimpleNamespace(
+            activity_id=scope1_id,
+            factor_activity_value=Decimal("100"),
+            allocation_multiplier=Decimal(1),
+            allocated_kg_co2e=Decimal("3.558"),
+        ),
+        SimpleNamespace(
+            activity_id=wtt_id,
+            factor_activity_value=Decimal("99"),
+            allocation_multiplier=Decimal(1),
+            allocated_kg_co2e=Decimal("55.341"),
+        ),
+    ]
+
+    disclosure = _build_hvo_2024_disclosure(results, activities)  # type: ignore[arg-type]
+
+    assert disclosure is not None
+    assert disclosure["complete"] is False
+    assert "must both be present" in str(disclosure["reconciliation_note"])
+
+
 def test_assurance_readiness_passes_only_complete_controls() -> None:
     assessment = _assess_assurance_readiness(
         boundary_approved=True,
@@ -111,6 +185,7 @@ def test_assurance_readiness_passes_only_complete_controls() -> None:
         calculated_scope3_categories={4},
         scope2_present=True,
         scope2_dual_reporting_complete=True,
+        bioenergy_reporting_complete=True,
         unresolved_warning_count=0,
         open_restatement_count=0,
     )
@@ -131,6 +206,7 @@ def test_assurance_readiness_returns_specific_blockers() -> None:
         calculated_scope3_categories={4},
         scope2_present=False,
         scope2_dual_reporting_complete=False,
+        bioenergy_reporting_complete=False,
         unresolved_warning_count=1,
         open_restatement_count=0,
     )
@@ -141,5 +217,6 @@ def test_assurance_readiness_returns_specific_blockers() -> None:
     assert failed == {
         "evidence_coverage",
         "scope3_included_category_results",
+        "bioenergy_scope_coverage",
         "unresolved_calculation_warnings",
     }

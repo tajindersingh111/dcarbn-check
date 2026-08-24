@@ -13,7 +13,7 @@ from app.models.emission_factor import GreenhouseGasComponent
 
 WORKSHEET_NAME = "Factors by Category"
 HEADER_ROW = 6
-EXPECTED_HEADERS = (
+BASE_HEADERS = (
     "ID",
     "Scope",
     "Level 1",
@@ -23,8 +23,19 @@ EXPECTED_HEADERS = (
     "Column Text",
     "UOM",
     "GHG/Unit",
-    "GHG Conversion Factor 2026",
 )
+SUPPORTED_REPORTING_YEARS = frozenset({2024, 2026})
+
+
+def expected_headers(reporting_year: int) -> tuple[str, ...]:
+    if reporting_year not in SUPPORTED_REPORTING_YEARS:
+        raise FactorWorkbookValidationError(
+            f"UK flat-format factor workbooks are not supported for {reporting_year}."
+        )
+    return (*BASE_HEADERS, f"GHG Conversion Factor {reporting_year}")
+
+
+EXPECTED_HEADERS = expected_headers(2026)
 
 
 class FactorWorkbookValidationError(ValueError):
@@ -101,9 +112,7 @@ def classify_greenhouse_gas_component(
 
 
 def infer_lifecycle_boundary(scope: str, level_1: str, column_text: str | None) -> str | None:
-    joined = " ".join(
-        part for part in (scope, level_1, column_text or "") if part
-    ).lower()
+    joined = " ".join(part for part in (scope, level_1, column_text or "") if part).lower()
 
     if "well-to-tank" in joined or "wtt" in joined:
         return "well_to_tank"
@@ -118,7 +127,9 @@ def infer_lifecycle_boundary(scope: str, level_1: str, column_text: str | None) 
     return None
 
 
-def parse_uk_2026_flat_workbook(content: bytes) -> ParsedWorkbook:
+def parse_uk_flat_workbook(content: bytes, reporting_year: int) -> ParsedWorkbook:
+    headers = expected_headers(reporting_year)
+    factor_column = f"GHG Conversion Factor {reporting_year}"
     workbook = load_workbook(
         filename=BytesIO(content),
         read_only=True,
@@ -134,12 +145,12 @@ def parse_uk_2026_flat_workbook(content: bytes) -> ParsedWorkbook:
         worksheet = workbook[WORKSHEET_NAME]
         actual_headers = tuple(
             _clean_text(worksheet.cell(row=HEADER_ROW, column=index).value)
-            for index in range(1, len(EXPECTED_HEADERS) + 1)
+            for index in range(1, len(headers) + 1)
         )
-        if actual_headers != EXPECTED_HEADERS:
+        if actual_headers != headers:
             raise FactorWorkbookValidationError(
-                "The UK 2026 flat-format header row does not match the expected "
-                f"schema. Expected {EXPECTED_HEADERS!r}; received {actual_headers!r}."
+                f"The UK {reporting_year} flat-format header row does not match the "
+                f"expected schema. Expected {headers!r}; received {actual_headers!r}."
             )
 
         factors: list[ParsedFactorRow] = []
@@ -150,7 +161,7 @@ def parse_uk_2026_flat_workbook(content: bytes) -> ParsedWorkbook:
         for row_number, values in enumerate(
             worksheet.iter_rows(
                 min_row=HEADER_ROW + 1,
-                max_col=len(EXPECTED_HEADERS),
+                max_col=len(headers),
                 values_only=True,
             ),
             start=HEADER_ROW + 1,
@@ -159,10 +170,7 @@ def parse_uk_2026_flat_workbook(content: bytes) -> ParsedWorkbook:
                 continue
 
             total_data_rows += 1
-            raw = {
-                header: value
-                for header, value in zip(EXPECTED_HEADERS, values, strict=True)
-            }
+            raw = {header: value for header, value in zip(headers, values, strict=True)}
 
             if _clean_text(raw["Scope"]).upper() == "END":
                 continue
@@ -173,7 +181,7 @@ def parse_uk_2026_flat_workbook(content: bytes) -> ParsedWorkbook:
                 level_1 = _clean_text(raw["Level 1"])
                 activity_unit = _clean_text(raw["UOM"])
                 factor_unit_text = _clean_text(raw["GHG/Unit"])
-                factor_value_text = _clean_text(raw["GHG Conversion Factor 2026"])
+                factor_value_text = _clean_text(raw[factor_column])
 
                 missing_descriptors = [
                     field
@@ -188,8 +196,7 @@ def parse_uk_2026_flat_workbook(content: bytes) -> ParsedWorkbook:
                 ]
                 if missing_descriptors:
                     raise FactorWorkbookValidationError(
-                        "Required descriptor values are missing: "
-                        f"{', '.join(missing_descriptors)}."
+                        f"Required descriptor values are missing: {', '.join(missing_descriptors)}."
                     )
 
                 if not factor_value_text:
@@ -200,7 +207,7 @@ def parse_uk_2026_flat_workbook(content: bytes) -> ParsedWorkbook:
                     factor_value = Decimal(factor_value_text)
                 except InvalidOperation as exc:
                     raise FactorWorkbookValidationError(
-                        "GHG Conversion Factor 2026 must be a valid decimal."
+                        f"{factor_column} must be a valid decimal."
                     ) from exc
 
                 component, greenhouse_gas_label = classify_greenhouse_gas_component(
@@ -244,9 +251,7 @@ def parse_uk_2026_flat_workbook(content: bytes) -> ParsedWorkbook:
                 )
 
         if not factors and not errors and skipped_unavailable_rows == 0:
-            raise FactorWorkbookValidationError(
-                "No factor rows were found in the workbook."
-            )
+            raise FactorWorkbookValidationError("No factor rows were found in the workbook.")
 
         return ParsedWorkbook(
             source_sha256=calculate_sha256(content),
@@ -257,6 +262,15 @@ def parse_uk_2026_flat_workbook(content: bytes) -> ParsedWorkbook:
         )
     finally:
         workbook.close()
+
+
+def parse_uk_2026_flat_workbook(content: bytes) -> ParsedWorkbook:
+    """Backward-compatible wrapper for existing API and CLI consumers."""
+    return parse_uk_flat_workbook(content, 2026)
+
+
+def parse_uk_2024_flat_workbook(content: bytes) -> ParsedWorkbook:
+    return parse_uk_flat_workbook(content, 2024)
 
 
 def read_binary_stream(stream: BinaryIO, maximum_bytes: int = 25_000_000) -> bytes:

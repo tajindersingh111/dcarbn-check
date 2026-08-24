@@ -12,7 +12,7 @@ import type {
   Organisation
 } from "@/lib/types";
 
-interface GovernedMethodOption {
+export interface GovernedMethodOption {
   id: string;
   label: string;
   activityType: string;
@@ -25,6 +25,7 @@ interface GovernedMethodOption {
   factorLevel4: string;
   factorColumnText: string;
   lifecycleBoundary: string;
+  specialist?: boolean;
 }
 
 const supplierSpecificScope3Categories = [
@@ -39,7 +40,37 @@ const supplierSpecificScope3Categories = [
   [15, "Investments"],
 ] as const;
 
-const governedMethods: GovernedMethodOption[] = [
+export const governedMethods: GovernedMethodOption[] = [
+  {
+    id: "scope1.mobile_combustion.hvo.litres.uk_2024.v1",
+    label: "Scope 1 · HVO combustion · litres · UK 2024 · 0.03558",
+    activityType: "mobile_combustion",
+    scope: "scope_1",
+    scope3Category: "",
+    activityUnit: "litres",
+    factorLevel1: "Bioenergy",
+    factorLevel2: "Biofuel",
+    factorLevel3: "Biodiesel HVO",
+    factorLevel4: "",
+    factorColumnText: "",
+    lifecycleBoundary: "direct",
+    specialist: true,
+  },
+  {
+    id: "scope3.category3.hvo_wtt.litres.uk_2024.v1",
+    label: "Scope 3 category 3 · HVO well-to-tank · litres · UK 2024 · 0.55900",
+    activityType: "mobile_combustion",
+    scope: "scope_3",
+    scope3Category: "3",
+    activityUnit: "litres",
+    factorLevel1: "WTT- bioenergy",
+    factorLevel2: "WTT- biofuel",
+    factorLevel3: "Biodiesel HVO",
+    factorLevel4: "",
+    factorColumnText: "",
+    lifecycleBoundary: "well_to_tank",
+    specialist: true,
+  },
   {
     id: "scope1.mobile_combustion.delivery_van.class1.diesel.km.uk_2026.v1",
     label: "Scope 1 · Class I diesel delivery van · km · 0.15833",
@@ -532,9 +563,16 @@ export function ActivityForm() {
               value={values.calculationMethodId}
             >
               <option value="">Manual / method not yet governed</option>
-              {governedMethods.map((method) => (
-                <option key={method.id} value={method.id}>{method.label}</option>
-              ))}
+              <optgroup label="Standard governed methods">
+                {governedMethods.filter((method) => !method.specialist).map((method) => (
+                  <option key={method.id} value={method.id}>{method.label}</option>
+                ))}
+              </optgroup>
+              <optgroup label="Specialist bioenergy methods — evidence required">
+                {governedMethods.filter((method) => method.specialist).map((method) => (
+                  <option key={method.id} value={method.id}>{method.label}</option>
+                ))}
+              </optgroup>
             </select>
           </label>
           <div className="lineage-card">

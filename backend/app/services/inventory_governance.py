@@ -3,9 +3,16 @@ from __future__ import annotations
 from collections import Counter
 from datetime import UTC, datetime
 from decimal import Decimal
+from typing import cast
 from uuid import UUID
 
 from app.auth.dependencies import CurrentPrincipal
+from app.calculations.governed_methods import (
+    HVO_2024_BIOGENIC_CO2_KG_PER_LITRE,
+    HVO_2024_SCOPE1_FACTOR_KG_CO2E_PER_LITRE,
+    HVO_2024_WTT_FACTOR_KG_CO2E_PER_LITRE,
+    GovernedCalculationMethod,
+)
 from app.calculations.scope2_reporting import validate_market_based_evidence
 from app.integrations.data.hashing import canonical_json_sha256
 from app.models.activity import ActivityRecord, EmissionScope, Scope2Method
@@ -45,6 +52,98 @@ from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 
+def _build_hvo_2024_disclosure(
+    results: list[CalculationResult],
+    activity_by_id: dict[UUID, ActivityRecord],
+) -> dict[str, object] | None:
+    scope1_method = GovernedCalculationMethod.SCOPE1_MOBILE_HVO_LITRES_2024.value
+    wtt_method = GovernedCalculationMethod.SCOPE3_CATEGORY3_HVO_WTT_LITRES_2024.value
+    scope1_results = [
+        result
+        for result in results
+        if (
+            activity_by_id.get(result.activity_id)
+            and activity_by_id[result.activity_id].metadata_json.get("calculation_method_id")
+            == scope1_method
+        )
+    ]
+    wtt_results = [
+        result
+        for result in results
+        if (
+            activity_by_id.get(result.activity_id)
+            and activity_by_id[result.activity_id].metadata_json.get("calculation_method_id")
+            == wtt_method
+        )
+    ]
+    if not scope1_results and not wtt_results:
+        return None
+
+    scope1_litres = sum(
+        (result.factor_activity_value * result.allocation_multiplier for result in scope1_results),
+        Decimal(0),
+    )
+    wtt_litres = sum(
+        (result.factor_activity_value * result.allocation_multiplier for result in wtt_results),
+        Decimal(0),
+    )
+    scope1_kg = sum(
+        (result.allocated_kg_co2e for result in scope1_results),
+        Decimal(0),
+    )
+    wtt_kg = sum(
+        (result.allocated_kg_co2e for result in wtt_results),
+        Decimal(0),
+    )
+    biogenic_co2_kg = scope1_litres * HVO_2024_BIOGENIC_CO2_KG_PER_LITRE
+    complete = bool(scope1_results and wtt_results and scope1_litres == wtt_litres)
+    reconciliation_note = (
+        "Scope 1 and Scope 3 Category 3 HVO litres reconcile."
+        if complete
+        else (
+            "HVO reporting is incomplete: the Scope 1 and Scope 3 Category 3 "
+            "well-to-tank entries must both be present and use matching litres."
+        )
+    )
+    return {
+        "method": "UK Government 2024 Biodiesel HVO",
+        "reporting_year": 2024,
+        "hvo_litres": str(scope1_litres),
+        "scope_3_hvo_litres": str(wtt_litres),
+        "complete": complete,
+        "reconciliation_note": reconciliation_note,
+        "scope_1_kg_co2e": str(scope1_kg),
+        "scope_3_category_3_wtt_kg_co2e": str(wtt_kg),
+        "biogenic_co2_outside_scopes_kg": str(biogenic_co2_kg),
+        "scope_1_factor_kg_co2e_per_litre": str(HVO_2024_SCOPE1_FACTOR_KG_CO2E_PER_LITRE),
+        "scope_3_wtt_factor_kg_co2e_per_litre": str(HVO_2024_WTT_FACTOR_KG_CO2E_PER_LITRE),
+        "biogenic_co2_factor_kg_per_litre": str(HVO_2024_BIOGENIC_CO2_KG_PER_LITRE),
+        "source_factor_ids": {
+            "scope_1": "2_103_1036_8_1",
+            "scope_3_category_3_wtt": "12_900_1036_8_1",
+            "biogenic_co2_outside_scopes": "99_103_1036_8_2",
+        },
+        "note": (
+            "HVO is reported only where the customer supplied evidence confirming "
+            "the fuel type. UK Government 2024 factors report direct CH4 and N2O "
+            "in Scope 1 and upstream well-to-tank emissions in Scope 3 Category 3. "
+            "Combustion CO2 is biogenic and disclosed outside Scopes 1, 2 and 3; "
+            "it is excluded from the headline inventory total. The Government "
+            "well-to-tank factor is a UK average; supplier- and feedstock-specific "
+            "evidence should be used when available."
+        ),
+        "source_reference": (
+            "https://www.gov.uk/government/publications/"
+            "greenhouse-gas-reporting-conversion-factors-2024"
+        ),
+        "methodology_reference": (
+            "https://assets.publishing.service.gov.uk/media/"
+            "66a9fe4ca3c2a28abb50da4a/"
+            "2024-greenhouse-gas-conversion-factors-methodology.pdf"
+        ),
+    }
+
+
 def _assess_assurance_readiness(
     *,
     boundary_approved: bool,
@@ -56,13 +155,12 @@ def _assess_assurance_readiness(
     calculated_scope3_categories: set[int],
     scope2_present: bool,
     scope2_dual_reporting_complete: bool,
+    bioenergy_reporting_complete: bool,
     unresolved_warning_count: int,
     open_restatement_count: int,
 ) -> dict[str, object]:
     """Return deterministic claim wording and the controls supporting it."""
-    missing_scope3_categories = sorted(
-        included_scope3_categories - calculated_scope3_categories
-    )
+    missing_scope3_categories = sorted(included_scope3_categories - calculated_scope3_categories)
     checks = [
         {
             "code": "approved_boundary",
@@ -78,8 +176,7 @@ def _assess_assurance_readiness(
             "code": "calculation_lineage",
             "passed": result_count > 0 and result_lineage_complete,
             "summary": (
-                "Every result retains its activity, exact factor, formula and "
-                "methodology version."
+                "Every result retains its activity, exact factor, formula and methodology version."
             ),
         },
         {
@@ -105,6 +202,14 @@ def _assess_assurance_readiness(
             ),
         },
         {
+            "code": "bioenergy_scope_coverage",
+            "passed": bioenergy_reporting_complete,
+            "summary": (
+                "HVO Scope 1 and Scope 3 Category 3 well-to-tank entries are both "
+                "present and use matching allocated litres."
+            ),
+        },
+        {
             "code": "unresolved_calculation_warnings",
             "passed": unresolved_warning_count == 0,
             "summary": "No unresolved calculation or factor-resolution warnings remain.",
@@ -120,13 +225,9 @@ def _assess_assurance_readiness(
     blockers = [str(item["summary"]) for item in checks if not item["passed"]]
     ready = not blockers
     return {
-        "status": (
-            "assurance_ready" if ready else "draft_calculation_not_fully_validated"
-        ),
+        "status": ("assurance_ready" if ready else "draft_calculation_not_fully_validated"),
         "claim_wording": (
-            "Assurance-ready reporting pack"
-            if ready
-            else "Draft — calculation not fully validated"
+            "Assurance-ready reporting pack" if ready else "Draft — calculation not fully validated"
         ),
         "ready": ready,
         "checks": checks,
@@ -203,8 +304,7 @@ async def create_approval_request(
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail=(
-                "All 15 Scope 3 category dispositions must be prepared "
-                "and independently approved."
+                "All 15 Scope 3 category dispositions must be prepared and independently approved."
             ),
         )
 
@@ -212,9 +312,7 @@ async def create_approval_request(
         select(InventoryApproval).where(
             InventoryApproval.inventory_id == inventory.id,
             InventoryApproval.calculation_run_id == run.id,
-            InventoryApproval.status.in_(
-                [ApprovalStatus.PENDING, ApprovalStatus.IN_REVIEW]
-            ),
+            InventoryApproval.status.in_([ApprovalStatus.PENDING, ApprovalStatus.IN_REVIEW]),
         )
     )
     if existing is not None:
@@ -573,9 +671,7 @@ async def decide_restatement(
         original.status = InventoryStatus.SUPERSEDED
     else:
         original.status = (
-            InventoryStatus.LOCKED
-            if original.locked_at is not None
-            else InventoryStatus.APPROVED
+            InventoryStatus.LOCKED if original.locked_at is not None else InventoryStatus.APPROVED
         )
 
     await record_audit_event(
@@ -703,9 +799,7 @@ async def generate_audit_report(
         scope_2_headline_basis,
     )
     report_hash = canonical_json_sha256(payload)
-    existing = await db.scalar(
-        select(AuditReport).where(AuditReport.report_sha256 == report_hash)
-    )
+    existing = await db.scalar(select(AuditReport).where(AuditReport.report_sha256 == report_hash))
     if existing is not None:
         return existing
 
@@ -778,13 +872,15 @@ async def get_approval(
     tenant_id: UUID,
     approval_id: UUID,
 ) -> InventoryApproval | None:
-    approval: InventoryApproval | None = await db.scalar(
-        select(InventoryApproval).where(
-            InventoryApproval.id == approval_id,
-            InventoryApproval.tenant_id == tenant_id,
-        )
+    return cast(
+        InventoryApproval | None,
+        await db.scalar(
+            select(InventoryApproval).where(
+                InventoryApproval.id == approval_id,
+                InventoryApproval.tenant_id == tenant_id,
+            )
+        ),
     )
-    return approval
 
 
 async def get_restatement(
@@ -792,13 +888,15 @@ async def get_restatement(
     tenant_id: UUID,
     restatement_id: UUID,
 ) -> InventoryRestatement | None:
-    restatement: InventoryRestatement | None = await db.scalar(
-        select(InventoryRestatement).where(
-            InventoryRestatement.id == restatement_id,
-            InventoryRestatement.tenant_id == tenant_id,
-        )
+    return cast(
+        InventoryRestatement | None,
+        await db.scalar(
+            select(InventoryRestatement).where(
+                InventoryRestatement.id == restatement_id,
+                InventoryRestatement.tenant_id == tenant_id,
+            )
+        ),
     )
-    return restatement
 
 
 async def get_audit_report(
@@ -806,13 +904,15 @@ async def get_audit_report(
     tenant_id: UUID,
     report_id: UUID,
 ) -> AuditReport | None:
-    report: AuditReport | None = await db.scalar(
-        select(AuditReport).where(
-            AuditReport.id == report_id,
-            AuditReport.tenant_id == tenant_id,
-        )
+    return cast(
+        AuditReport | None,
+        await db.scalar(
+            select(AuditReport).where(
+                AuditReport.id == report_id,
+                AuditReport.tenant_id == tenant_id,
+            )
+        ),
     )
-    return report
 
 
 async def _approval_checks(
@@ -937,9 +1037,7 @@ async def _lock_snapshot(
             await db.scalar(
                 select(func.count())
                 .select_from(CalculationResult)
-                .where(
-                    CalculationResult.calculation_run_id == approval.calculation_run_id
-                )
+                .where(CalculationResult.calculation_run_id == approval.calculation_run_id)
             )
         )
         or 0
@@ -972,9 +1070,7 @@ async def _build_audit_report_payload(
     results = list(
         (
             await db.scalars(
-                select(CalculationResult).where(
-                    CalculationResult.calculation_run_id == run.id
-                )
+                select(CalculationResult).where(CalculationResult.calculation_run_id == run.id)
             )
         ).all()
     )
@@ -990,6 +1086,7 @@ async def _build_audit_report_payload(
         ).all()
     )
     activity_by_id = {activity.id: activity for activity in activities}
+    hvo_2024_disclosure = _build_hvo_2024_disclosure(results, activity_by_id)
 
     market_evidence: list[dict[str, object]] = []
     market_results = [
@@ -1053,8 +1150,7 @@ async def _build_audit_report_payload(
         (
             r.allocated_kg_co2e
             for r in results
-            if r.scope == EmissionScope.SCOPE_2
-            and r.scope_2_method == Scope2Method.LOCATION_BASED
+            if r.scope == EmissionScope.SCOPE_2 and r.scope_2_method == Scope2Method.LOCATION_BASED
         ),
         zero,
     )
@@ -1062,8 +1158,7 @@ async def _build_audit_report_payload(
         (
             r.allocated_kg_co2e
             for r in results
-            if r.scope == EmissionScope.SCOPE_2
-            and r.scope_2_method == Scope2Method.MARKET_BASED
+            if r.scope == EmissionScope.SCOPE_2 and r.scope_2_method == Scope2Method.MARKET_BASED
         ),
         zero,
     )
@@ -1088,18 +1183,14 @@ async def _build_audit_report_payload(
         grouped[key] = grouped.get(key, Decimal(0)) + result.allocated_kg_co2e
 
     factor_ids = {
-        result.selected_factor_id
-        for result in results
-        if result.selected_factor_id is not None
+        result.selected_factor_id for result in results if result.selected_factor_id is not None
     }
     factor_set_ids: set[UUID] = set()
     if factor_ids:
         factor_set_ids = set(
             (
                 await db.scalars(
-                    select(EmissionFactor.factor_set_id).where(
-                        EmissionFactor.id.in_(factor_ids)
-                    )
+                    select(EmissionFactor.factor_set_id).where(EmissionFactor.id.in_(factor_ids))
                 )
             ).all()
         )
@@ -1108,9 +1199,7 @@ async def _build_audit_report_payload(
         sets = list(
             (
                 await db.scalars(
-                    select(EmissionFactorSet).where(
-                        EmissionFactorSet.id.in_(factor_set_ids)
-                    )
+                    select(EmissionFactorSet).where(EmissionFactorSet.id.in_(factor_set_ids))
                 )
             ).all()
         )
@@ -1130,20 +1219,14 @@ async def _build_audit_report_payload(
         select(OrganisationalBoundary)
         .where(
             OrganisationalBoundary.reporting_period_id == period.id,
-            OrganisationalBoundary.status.in_(
-                [BoundaryStatus.APPROVED, BoundaryStatus.LOCKED]
-            ),
+            OrganisationalBoundary.status.in_([BoundaryStatus.APPROVED, BoundaryStatus.LOCKED]),
         )
         .order_by(OrganisationalBoundary.version.desc())
     )
 
     quality_scores = [activity.data_quality_score for activity in activities]
-    average_quality = (
-        sum(quality_scores) / len(quality_scores) if quality_scores else None
-    )
-    quality_distribution = Counter(
-        activity.data_quality_level.value for activity in activities
-    )
+    average_quality = sum(quality_scores) / len(quality_scores) if quality_scores else None
+    quality_distribution = Counter(activity.data_quality_level.value for activity in activities)
     evidenced_count = sum(1 for activity in activities if activity.evidence_reference)
     evidence_coverage = (
         Decimal(evidenced_count) * Decimal(100) / Decimal(len(activities))
@@ -1162,10 +1245,7 @@ async def _build_audit_report_payload(
             f"{warning_count} factor-resolution or calculation warning(s) "
             "require reviewer consideration."
         ),
-        (
-            f"Evidence is attached to {evidenced_count} of "
-            f"{len(activities)} activity record(s)."
-        ),
+        (f"Evidence is attached to {evidenced_count} of {len(activities)} activity record(s)."),
         (
             "Scenario uncertainty includes the selected organisational boundary, "
             "Scope 2 headline basis and approved Scope 3 category dispositions."
@@ -1201,18 +1281,14 @@ async def _build_audit_report_payload(
         list(
             (
                 await db.scalars(
-                    select(CalculationResult).where(
-                        CalculationResult.id.in_(comparison_result_ids)
-                    )
+                    select(CalculationResult).where(CalculationResult.id.in_(comparison_result_ids))
                 )
             ).all()
         )
         if comparison_result_ids
         else []
     )
-    comparison_result_by_id = {
-        result.id: result for result in [*results, *comparison_results]
-    }
+    comparison_result_by_id = {result.id: result for result in [*results, *comparison_results]}
     calculation_comparisons = []
     for comparison in sorted(
         comparisons,
@@ -1235,9 +1311,7 @@ async def _build_audit_report_payload(
                 "status": comparison.status.value,
                 "reporting_basis": comparison.reporting_basis.value,
                 "basis_reason": comparison.basis_reason,
-                "comparison_unavailable_reason": (
-                    comparison.comparison_unavailable_reason
-                ),
+                "comparison_unavailable_reason": (comparison.comparison_unavailable_reason),
                 "absolute_delta_kg_co2e": (
                     str(comparison.absolute_delta_kg_co2e)
                     if comparison.absolute_delta_kg_co2e is not None
@@ -1308,9 +1382,7 @@ async def _build_audit_report_payload(
             "trigger": item.trigger.value,
             "original_inventory_id": str(item.original_inventory_id),
             "replacement_inventory_id": (
-                str(item.replacement_inventory_id)
-                if item.replacement_inventory_id
-                else None
+                str(item.replacement_inventory_id) if item.replacement_inventory_id else None
             ),
             "reason": item.reason,
             "materiality_assessment": item.materiality_assessment,
@@ -1330,16 +1402,12 @@ async def _build_audit_report_payload(
             "reviewed_by": item.reviewed_by,
             "reviewed_at": (item.reviewed_at.isoformat() if item.reviewed_at else None),
             "decision_reason": item.decision_reason,
-            "completed_at": (
-                item.completed_at.isoformat() if item.completed_at else None
-            ),
+            "completed_at": (item.completed_at.isoformat() if item.completed_at else None),
         }
         for item in restatements
     ]
     included_scope3_categories = {
-        item.category
-        for item in scope3_dispositions
-        if item.disposition.value == "included"
+        item.category for item in scope3_dispositions if item.disposition.value == "included"
     }
     calculated_scope3_categories = {
         result.scope_3_category
@@ -1352,8 +1420,7 @@ async def _build_audit_report_payload(
         for result in results
     )
     scope2_market_present = any(
-        result.scope == EmissionScope.SCOPE_2
-        and result.scope_2_method == Scope2Method.MARKET_BASED
+        result.scope == EmissionScope.SCOPE_2 and result.scope_2_method == Scope2Method.MARKET_BASED
         for result in results
     )
     result_lineage_complete = all(
@@ -1383,8 +1450,7 @@ async def _build_audit_report_payload(
     assurance_readiness = _assess_assurance_readiness(
         boundary_approved=boundary is not None,
         approval_separated=(
-            approval.reviewer_id is not None
-            and approval.requested_by != approval.reviewer_id
+            approval.reviewer_id is not None and approval.requested_by != approval.reviewer_id
         ),
         result_count=len(results),
         result_lineage_complete=result_lineage_complete,
@@ -1392,15 +1458,16 @@ async def _build_audit_report_payload(
         included_scope3_categories=included_scope3_categories,
         calculated_scope3_categories=calculated_scope3_categories,
         scope2_present=scope2_location_present or scope2_market_present,
-        scope2_dual_reporting_complete=(
-            scope2_location_present and scope2_market_present
+        scope2_dual_reporting_complete=(scope2_location_present and scope2_market_present),
+        bioenergy_reporting_complete=(
+            hvo_2024_disclosure is None or bool(hvo_2024_disclosure.get("complete"))
         ),
         unresolved_warning_count=warning_count,
         open_restatement_count=open_restatement_count,
     )
 
     return {
-        "report_schema_version": "1.5",
+        "report_schema_version": "1.6",
         "assurance_readiness": assurance_readiness,
         "defensibility_statement": {
             "preparation_basis": (
@@ -1420,12 +1487,8 @@ async def _build_audit_report_payload(
             "name": inventory.name,
             "version": inventory.version,
             "status": inventory.status.value,
-            "approved_at": (
-                inventory.approved_at.isoformat() if inventory.approved_at else None
-            ),
-            "locked_at": (
-                inventory.locked_at.isoformat() if inventory.locked_at else None
-            ),
+            "approved_at": (inventory.approved_at.isoformat() if inventory.approved_at else None),
+            "locked_at": (inventory.locked_at.isoformat() if inventory.locked_at else None),
         },
         "reporting_period": {
             "id": str(period.id),
@@ -1462,9 +1525,7 @@ async def _build_audit_report_payload(
             "version": approval.version,
             "requested_by": approval.requested_by,
             "reviewer_id": approval.reviewer_id,
-            "decided_at": (
-                approval.decided_at.isoformat() if approval.decided_at else None
-            ),
+            "decided_at": (approval.decided_at.isoformat() if approval.decided_at else None),
             "decision_reason": approval.decision_reason,
         },
         "calculation_run": {
@@ -1475,9 +1536,7 @@ async def _build_audit_report_payload(
             "activity_count": run.activity_count,
             "result_count": run.result_count,
             "failed_count": run.failed_count,
-            "completed_at": (
-                run.completed_at.isoformat() if run.completed_at else None
-            ),
+            "completed_at": (run.completed_at.isoformat() if run.completed_at else None),
         },
         "totals": {
             "scope_2_headline_basis": scope_2_headline_basis.value,
@@ -1487,19 +1546,14 @@ async def _build_audit_report_payload(
             "scope_3_kg_co2e": str(scope_3_kg),
             "total_kg_co2e": str(total_kg),
             "total_t_co2e": str(total_kg / Decimal(1000)),
-            "dual_reporting_complete": (
-                scope_2_location_kg > zero and scope_2_market_kg > zero
-            ),
-            "by_scope_and_category": {
-                key: str(value) for key, value in sorted(grouped.items())
-            },
+            "dual_reporting_complete": (scope_2_location_kg > zero and scope_2_market_kg > zero),
+            "by_scope_and_category": {key: str(value) for key, value in sorted(grouped.items())},
         },
         "calculation_comparisons": calculation_comparisons,
         "scope_2_market_based_evidence": market_evidence,
-        "scope_3_category_dispositions": scope3_disposition_payload(
-            scope3_dispositions
-        ),
+        "scope_3_category_dispositions": scope3_disposition_payload(scope3_dispositions),
         "factor_sets": factor_sets,
+        "bioenergy_disclosures": ([hvo_2024_disclosure] if hvo_2024_disclosure is not None else []),
         "data_quality": {
             "activity_count": len(quality_scores),
             "average_score": average_quality,
@@ -1531,9 +1585,7 @@ async def _build_audit_report_payload(
                 "scope_3_category": result.scope_3_category,
                 "scope_2_method": result.scope_2_method.value,
                 "selected_factor_id": (
-                    str(result.selected_factor_id)
-                    if result.selected_factor_id
-                    else None
+                    str(result.selected_factor_id) if result.selected_factor_id else None
                 ),
                 "activity_date": (
                     activity_by_id[result.activity_id].activity_date.isoformat()
@@ -1550,15 +1602,18 @@ async def _build_audit_report_payload(
                 "factor_activity_value": str(result.factor_activity_value),
                 "factor_activity_unit": result.factor_activity_unit,
                 "factor_value": (
-                    str(result.factor_value)
-                    if result.factor_value is not None
-                    else None
+                    str(result.factor_value) if result.factor_value is not None else None
                 ),
                 "allocation_percentage": str(result.allocation_percentage),
                 "gross_kg_co2e": str(result.gross_kg_co2e),
                 "allocated_kg_co2e": str(result.allocated_kg_co2e),
                 "calculation_formula": result.calculation_formula,
                 "methodology_version": result.methodology_version,
+                "calculation_method_id": (
+                    activity_by_id[result.activity_id].metadata_json.get("calculation_method_id")
+                    if result.activity_id in activity_by_id
+                    else None
+                ),
                 "evidence_reference": (
                     activity_by_id[result.activity_id].evidence_reference
                     if result.activity_id in activity_by_id

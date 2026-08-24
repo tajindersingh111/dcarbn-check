@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.auth.dependencies import CurrentPrincipal
 from app.factors.uk_2026_importer import (
     FactorWorkbookValidationError,
-    parse_uk_2026_flat_workbook,
+    parse_uk_flat_workbook,
     read_binary_stream,
 )
 from app.models.emission_factor import (
@@ -35,21 +35,26 @@ OPEN_GOVERNMENT_LICENCE_REFERENCE = (
 )
 
 
-async def import_uk_2026_factor_workbook(
+async def import_uk_factor_workbook(
     db: AsyncSession,
     principal: CurrentPrincipal,
     upload: UploadFile,
     metadata: FactorSetImportMetadata,
+    *,
+    expected_reporting_year: int,
 ) -> FactorImportJob:
     if not upload.filename or not upload.filename.lower().endswith(".xlsx"):
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail="An .xlsx workbook is required.",
         )
-    if metadata.reporting_year != 2026:
+    if metadata.reporting_year != expected_reporting_year:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="The UK 2026 importer only accepts reporting_year=2026.",
+            detail=(
+                f"The UK {expected_reporting_year} importer only accepts "
+                f"reporting_year={expected_reporting_year}."
+            ),
         )
     if metadata.effective_to < metadata.effective_from:
         raise HTTPException(
@@ -59,7 +64,7 @@ async def import_uk_2026_factor_workbook(
 
     try:
         content = read_binary_stream(upload.file)
-        parsed = parse_uk_2026_flat_workbook(content)
+        parsed = parse_uk_flat_workbook(content, expected_reporting_year)
     except FactorWorkbookValidationError as exc:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
@@ -125,9 +130,7 @@ async def import_uk_2026_factor_workbook(
     if parsed.errors:
         job.status = FactorImportStatus.FAILED
         job.completed_at = datetime.now(UTC)
-        job.failure_message = (
-            "The workbook contained invalid rows. No factor set was committed."
-        )
+        job.failure_message = "The workbook contained invalid rows. No factor set was committed."
         await db.commit()
         await db.refresh(job)
         return job
@@ -209,6 +212,36 @@ async def import_uk_2026_factor_workbook(
     return job
 
 
+async def import_uk_2026_factor_workbook(
+    db: AsyncSession,
+    principal: CurrentPrincipal,
+    upload: UploadFile,
+    metadata: FactorSetImportMetadata,
+) -> FactorImportJob:
+    return await import_uk_factor_workbook(
+        db,
+        principal,
+        upload,
+        metadata,
+        expected_reporting_year=2026,
+    )
+
+
+async def import_uk_2024_factor_workbook(
+    db: AsyncSession,
+    principal: CurrentPrincipal,
+    upload: UploadFile,
+    metadata: FactorSetImportMetadata,
+) -> FactorImportJob:
+    return await import_uk_factor_workbook(
+        db,
+        principal,
+        upload,
+        metadata,
+        expected_reporting_year=2024,
+    )
+
+
 async def list_factor_sets(
     db: AsyncSession,
     *,
@@ -263,6 +296,12 @@ async def approve_factor_set(
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail="Only draft factor sets can be approved.",
+        )
+
+    if factor_set.imported_by == principal.subject:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="A factor set must be approved by someone other than its importer.",
         )
 
     factor_count = int(
@@ -356,9 +395,7 @@ async def search_factors(
     offset: int,
 ) -> tuple[list[EmissionFactor], int]:
     query = select(EmissionFactor).join(EmissionFactorSet)
-    count_query = select(func.count()).select_from(EmissionFactor).join(
-        EmissionFactorSet
-    )
+    count_query = select(func.count()).select_from(EmissionFactor).join(EmissionFactorSet)
 
     conditions = []
     if factor_set_id is not None:
