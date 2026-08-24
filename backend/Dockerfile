@@ -1,4 +1,4 @@
-FROM python:3.14.6-slim AS builder
+FROM python:3.14.7-slim AS builder
 
 ENV PIP_DISABLE_PIP_VERSION_CHECK=1 \
     PIP_NO_CACHE_DIR=1 \
@@ -12,7 +12,7 @@ RUN python -m pip install --upgrade pip "setuptools>=83,<84" wheel && \
     python -m pip install --no-cache-dir --target /opt/site . && \
     PYTHONPATH=/opt/site python -c "from importlib.metadata import version; assert tuple(map(int, version('msgpack').split('.'))) >= (1, 2, 1), version('msgpack')"
 
-FROM python:3.14.6-slim AS runtime
+FROM python:3.14.7-slim AS runtime
 
 ENV PATH="/opt/site/bin:${PATH}" \
     PYTHONPATH="/opt/site" \
