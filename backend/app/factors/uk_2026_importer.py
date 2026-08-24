@@ -24,7 +24,7 @@ BASE_HEADERS = (
     "UOM",
     "GHG/Unit",
 )
-SUPPORTED_REPORTING_YEARS = frozenset({2023, 2024, 2026})
+SUPPORTED_REPORTING_YEARS = frozenset({2023, 2024, 2025, 2026})
 
 
 def expected_headers(reporting_year: int) -> tuple[str, ...]:
@@ -275,6 +275,10 @@ def parse_uk_2024_flat_workbook(content: bytes) -> ParsedWorkbook:
 
 def parse_uk_2023_flat_workbook(content: bytes) -> ParsedWorkbook:
     return parse_uk_flat_workbook(content, 2023)
+
+
+def parse_uk_2025_flat_workbook(content: bytes) -> ParsedWorkbook:
+    return parse_uk_flat_workbook(content, 2025)
 
 
 def read_binary_stream(stream: BinaryIO, maximum_bytes: int = 25_000_000) -> bytes:

@@ -3,7 +3,7 @@
 ## Source workbook contract
 
 The importer targets the official UK Government flat-format workbooks for the
-supported reporting years (currently 2023, 2024 and 2026) and reads:
+supported reporting years (currently 2023, 2024, 2025 and 2026) and reads:
 
 - Worksheet: `Factors by Category`
 - Header row: `6`
@@ -78,6 +78,17 @@ python -m app.scripts.import_uk_2024_factors \
   --effective-to 2024-12-31
 ```
 
+UK 2025 final:
+
+```bash
+python -m app.scripts.import_uk_2025_factors \
+  /data/ghg-conversion-factors-2025-flat-format.xlsx \
+  --dataset-version 2025-v1.0 \
+  --publication-date 2025-06-10 \
+  --effective-from 2025-01-01 \
+  --effective-to 2025-12-31
+```
+
 UK 2026:
 
 ```bash
@@ -95,6 +106,8 @@ python -m app.scripts.import_uk_2026_factors \
 `POST /api/v1/emission-factor-sets/import/uk-2023`
 
 `POST /api/v1/emission-factor-sets/import/uk-2024`
+
+`POST /api/v1/emission-factor-sets/import/uk-2025`
 
 `POST /api/v1/emission-factor-sets/import/uk-2026`
 
@@ -126,6 +139,13 @@ approve the imported draft before the calculation engine can resolve it.
 - Expected SHA-256: `804885cb9d8f02bbb97dcd92b79ca294080ba892ba67e3c95fcfbae52af359a6`
 - Methodology paper: https://assets.publishing.service.gov.uk/media/647f50dd103ca60013039a8a/2023-ghg-cf-methodology-paper.pdf
 
-The 2023 and 2024 HVO factor sets and calculation methods are separate. An
+The 2023, 2024 and 2025 HVO factor sets and calculation methods are separate. An
 activity dated in one calendar year cannot resolve against the other year's
 factor set, including where both dates fall in the same fiscal-year inventory.
+
+## UK 2025 source controls
+
+- Publication page: https://www.gov.uk/government/publications/greenhouse-gas-reporting-conversion-factors-2025
+- Required workbook: final flat format, published 10 June 2025
+- Expected SHA-256: `8bfdb45b81ec4a88e3bdf4584637330f62e6bd09ce1940e654c5d7b7f736de94`
+- Methodology paper: https://assets.publishing.service.gov.uk/media/6846b0870392ed9b784c0187/2025-GHG-CF-methodology-paper.pdf

@@ -42,7 +42,9 @@ const hvoTemplateCsv = `calculation_method_id,activity_date,description,activity
 scope1.mobile_combustion.hvo.litres.uk_2023.v1,2023-12-31,HVO fleet fuel combustion,1000,litres,hvo-fuel-ledger-fy2024.xlsx,hvo-scope1-2023,GB
 scope3.category3.hvo_wtt.litres.uk_2023.v1,2023-12-31,HVO fuel well-to-tank,1000,litres,hvo-fuel-ledger-fy2024.xlsx,hvo-wtt-2023,GB
 scope1.mobile_combustion.hvo.litres.uk_2024.v1,2024-10-31,HVO fleet fuel combustion,976227,litres,hvo-fuel-ledger-fy2024.xlsx,hvo-scope1-fy2024,GB
-scope3.category3.hvo_wtt.litres.uk_2024.v1,2024-10-31,HVO fuel well-to-tank,976227,litres,hvo-fuel-ledger-fy2024.xlsx,hvo-wtt-fy2024,GB`;
+scope3.category3.hvo_wtt.litres.uk_2024.v1,2024-10-31,HVO fuel well-to-tank,976227,litres,hvo-fuel-ledger-fy2024.xlsx,hvo-wtt-fy2024,GB
+scope1.mobile_combustion.hvo.litres.uk_2025.v1,2025-12-31,HVO fleet fuel combustion,1000,litres,hvo-fuel-ledger-2025.xlsx,hvo-scope1-2025,GB
+scope3.category3.hvo_wtt.litres.uk_2025.v1,2025-12-31,HVO fuel well-to-tank,1000,litres,hvo-fuel-ledger-2025.xlsx,hvo-wtt-2025,GB`;
 
 function normaliseHeader(value: string): string {
   const normalised = value.trim().toLowerCase().replace(/[\s-]+/g, "_");
@@ -211,7 +213,7 @@ export function ActivityCsvImport({
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.download = "dcarbn-uk-2023-2024-hvo-activity-template.csv";
+    link.download = "dcarbn-uk-2023-2025-hvo-activity-template.csv";
     link.click();
     URL.revokeObjectURL(url);
   }
@@ -386,7 +388,7 @@ export function ActivityCsvImport({
               Download standard template
             </button>
             <button className="button button-secondary" onClick={downloadHvoTemplate} type="button">
-              Download UK 2023–2024 HVO template
+              Download UK 2023–2025 HVO template
             </button>
           </div>
         </div>

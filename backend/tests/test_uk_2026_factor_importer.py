@@ -13,6 +13,7 @@ from app.factors.uk_2026_importer import (
     expected_headers,
     parse_uk_2023_flat_workbook,
     parse_uk_2024_flat_workbook,
+    parse_uk_2025_flat_workbook,
     parse_uk_2026_flat_workbook,
 )
 
@@ -261,3 +262,11 @@ def test_uk_2023_parser_rejects_2024_headers() -> None:
 def test_uk_2024_parser_rejects_2026_headers() -> None:
     with pytest.raises(FactorWorkbookValidationError):
         parse_uk_2024_flat_workbook(build_workbook())
+
+
+def test_parse_uk_2025_flat_workbook() -> None:
+    parsed = parse_uk_2025_flat_workbook(build_workbook(expected_headers(2025)))
+
+    assert parsed.errors == ()
+    assert parsed.total_data_rows == 1
+    assert str(parsed.factors[0].factor_value) == "3033.38067"
