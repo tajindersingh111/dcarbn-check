@@ -151,6 +151,30 @@ def test_csv_export_contains_full_lineage() -> None:
     assert "2372231.61" in content
 
 
+def test_csv_export_preserves_year_specific_hvo_disclosures() -> None:
+    payload = report_payload()
+    disclosures = payload["bioenergy_disclosures"]
+    assert isinstance(disclosures, list)
+    disclosures.insert(
+        0,
+        {
+            "method": "UK Government 2023 Biodiesel HVO",
+            "reporting_year": 2023,
+            "scope_1_kg_co2e": "35.58",
+            "scope_3_category_3_wtt_kg_co2e": "278.44",
+            "biogenic_co2_outside_scopes_kg": "2430.00",
+            "reconciliation_note": "2023 litres reconcile.",
+            "note": "2023 governed disclosure.",
+        },
+    )
+
+    content = build_audit_report_csv(payload, "abc123").decode("utf-8-sig")
+
+    assert "hvo_reporting_years" in content
+    assert "2023 | 2024" in content
+    assert "2023: 2430.00 | 2024: 2372231.61" in content
+
+
 def test_pdf_export_is_deterministic_and_valid() -> None:
     first = build_audit_report_pdf(report_payload(), "abc123")
     second = build_audit_report_pdf(report_payload(), "abc123")

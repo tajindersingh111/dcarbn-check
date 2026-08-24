@@ -24,7 +24,9 @@ from app.services.emission_factors import (
     approve_factor_set,
     get_factor_set,
     get_import_job,
+    import_uk_2023_factor_workbook,
     import_uk_2024_factor_workbook,
+    import_uk_2025_factor_workbook,
     import_uk_2026_factor_workbook,
     list_factor_sets,
     list_import_errors,
@@ -47,6 +49,27 @@ def _parse_import_metadata(metadata_json: str) -> FactorSetImportMetadata:
 
 
 @router.post(
+    "/emission-factor-sets/import/uk-2023",
+    response_model=FactorImportJobResponse,
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[factor_admin],
+)
+async def import_uk_2023(
+    metadata_json: str = Form(...),
+    workbook: UploadFile = File(...),
+    principal: CurrentPrincipal = Depends(get_current_principal),
+    db: AsyncSession = Depends(get_db),
+) -> FactorImportJobResponse:
+    job = await import_uk_2023_factor_workbook(
+        db,
+        principal,
+        workbook,
+        _parse_import_metadata(metadata_json),
+    )
+    return FactorImportJobResponse.model_validate(job)
+
+
+@router.post(
     "/emission-factor-sets/import/uk-2024",
     response_model=FactorImportJobResponse,
     status_code=status.HTTP_201_CREATED,
@@ -59,6 +82,27 @@ async def import_uk_2024(
     db: AsyncSession = Depends(get_db),
 ) -> FactorImportJobResponse:
     job = await import_uk_2024_factor_workbook(
+        db,
+        principal,
+        workbook,
+        _parse_import_metadata(metadata_json),
+    )
+    return FactorImportJobResponse.model_validate(job)
+
+
+@router.post(
+    "/emission-factor-sets/import/uk-2025",
+    response_model=FactorImportJobResponse,
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[factor_admin],
+)
+async def import_uk_2025(
+    metadata_json: str = Form(...),
+    workbook: UploadFile = File(...),
+    principal: CurrentPrincipal = Depends(get_current_principal),
+    db: AsyncSession = Depends(get_db),
+) -> FactorImportJobResponse:
+    job = await import_uk_2025_factor_workbook(
         db,
         principal,
         workbook,

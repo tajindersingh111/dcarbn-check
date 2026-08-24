@@ -39,8 +39,14 @@ scope2.location_electricity.kwh.uk_2026.v1,2026-03-31,Purchased electricity,5000
 scope3.category6.domestic_air.with_rf.passenger_km.uk_2026.v1,2026-03-31,Domestic business flights,8500,passenger.km,travel-report-001.pdf,travel-001,GB`;
 
 const hvoTemplateCsv = `calculation_method_id,activity_date,description,activity_value,activity_unit,evidence_reference,source_record_id,geography_code
+scope1.mobile_combustion.hvo.litres.uk_2023.v1,2023-12-31,HVO fleet fuel combustion,1000,litres,hvo-fuel-ledger-fy2024.xlsx,hvo-scope1-2023,GB
+scope3.category3.hvo_wtt.litres.uk_2023.v1,2023-12-31,HVO fuel well-to-tank,1000,litres,hvo-fuel-ledger-fy2024.xlsx,hvo-wtt-2023,GB
 scope1.mobile_combustion.hvo.litres.uk_2024.v1,2024-10-31,HVO fleet fuel combustion,976227,litres,hvo-fuel-ledger-fy2024.xlsx,hvo-scope1-fy2024,GB
-scope3.category3.hvo_wtt.litres.uk_2024.v1,2024-10-31,HVO fuel well-to-tank,976227,litres,hvo-fuel-ledger-fy2024.xlsx,hvo-wtt-fy2024,GB`;
+scope3.category3.hvo_wtt.litres.uk_2024.v1,2024-10-31,HVO fuel well-to-tank,976227,litres,hvo-fuel-ledger-fy2024.xlsx,hvo-wtt-fy2024,GB
+scope1.mobile_combustion.hvo.litres.uk_2025.v1,2025-12-31,HVO fleet fuel combustion,1000,litres,hvo-fuel-ledger-2025.xlsx,hvo-scope1-2025,GB
+scope3.category3.hvo_wtt.litres.uk_2025.v1,2025-12-31,HVO fuel well-to-tank,1000,litres,hvo-fuel-ledger-2025.xlsx,hvo-wtt-2025,GB
+scope1.mobile_combustion.hvo.litres.uk_2026.v1,2026-12-31,HVO fleet fuel combustion,1000,litres,hvo-fuel-ledger-2026.xlsx,hvo-scope1-2026,GB
+scope3.category3.hvo_wtt.litres.uk_2026.v1,2026-12-31,HVO fuel well-to-tank,1000,litres,hvo-fuel-ledger-2026.xlsx,hvo-wtt-2026,GB`;
 
 function normaliseHeader(value: string): string {
   const normalised = value.trim().toLowerCase().replace(/[\s-]+/g, "_");
@@ -76,6 +82,13 @@ function rowFromCsv(
   }
   if (method?.specialist && !values.evidence_reference) {
     errors.push("Evidence reference is required for specialist HVO methods");
+  }
+  if (
+    method?.reportingYear &&
+    values.activity_date &&
+    values.activity_date.slice(0, 4) !== method.reportingYear
+  ) {
+    errors.push(`Activity date must be in ${method.reportingYear} for the selected HVO method`);
   }
 
   const amount = Number(values.activity_value);
@@ -202,7 +215,7 @@ export function ActivityCsvImport({
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.download = "dcarbn-uk-2024-hvo-activity-template.csv";
+    link.download = "dcarbn-uk-2023-2026-hvo-activity-template.csv";
     link.click();
     URL.revokeObjectURL(url);
   }
@@ -377,7 +390,7 @@ export function ActivityCsvImport({
               Download standard template
             </button>
             <button className="button button-secondary" onClick={downloadHvoTemplate} type="button">
-              Download UK 2024 HVO template
+              Download UK 2023–2026 HVO template
             </button>
           </div>
         </div>
