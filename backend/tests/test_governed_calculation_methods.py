@@ -13,6 +13,9 @@ from app.calculations.governed_methods import (
     HVO_2025_BIOGENIC_CO2_KG_PER_LITRE,
     HVO_2025_SCOPE1_FACTOR_KG_CO2E_PER_LITRE,
     HVO_2025_WTT_FACTOR_KG_CO2E_PER_LITRE,
+    HVO_2026_BIOGENIC_CO2_KG_PER_LITRE,
+    HVO_2026_SCOPE1_FACTOR_KG_CO2E_PER_LITRE,
+    HVO_2026_WTT_FACTOR_KG_CO2E_PER_LITRE,
     GovernedCalculationMethod,
     validate_governed_method,
 )
@@ -202,6 +205,88 @@ def test_uk_2025_hvo_rejects_activity_outside_calendar_year() -> None:
             lifecycle_boundary="direct",
             evidence_reference="hvo-delivery-notes.pdf",
             activity_date=date(2024, 12, 31),
+        )
+
+
+@pytest.mark.parametrize(
+    ("method_id", "scope", "category", "level_1", "level_2", "boundary", "factor", "expected"),
+    [
+        (
+            "scope1.mobile_combustion.hvo.litres.uk_2026.v1",
+            EmissionScope.SCOPE_1,
+            None,
+            "Bioenergy",
+            "Biofuel",
+            "direct",
+            HVO_2026_SCOPE1_FACTOR_KG_CO2E_PER_LITRE,
+            Decimal("35.58000"),
+        ),
+        (
+            "scope3.category3.hvo_wtt.litres.uk_2026.v1",
+            EmissionScope.SCOPE_3,
+            3,
+            "WTT- bioenergy",
+            "WTT- biofuel",
+            "well_to_tank",
+            HVO_2026_WTT_FACTOR_KG_CO2E_PER_LITRE,
+            Decimal("564.39000"),
+        ),
+    ],
+)
+def test_uk_2026_hvo_contract_and_golden_result(
+    method_id: str,
+    scope: EmissionScope,
+    category: int | None,
+    level_1: str,
+    level_2: str,
+    boundary: str,
+    factor: Decimal,
+    expected: Decimal,
+) -> None:
+    method = validate_governed_method(
+        activity_type=ActivityType.MOBILE_COMBUSTION,
+        scope=scope,
+        scope_3_category=category,
+        activity_unit="litres",
+        factor_level_1=level_1,
+        factor_level_2=level_2,
+        factor_level_3="Biodiesel HVO",
+        factor_level_4=None,
+        factor_column_text=None,
+        metadata_json={"calculation_method_id": method_id},
+        lifecycle_boundary=boundary,
+        evidence_reference="hvo-delivery-notes-2026.pdf",
+        activity_date=date(2026, 12, 31),
+    )
+    result = calculate_activity_factor_emissions(
+        factor_activity_value=Decimal("1000"),
+        factor_value=factor,
+        allocation_percentage=Decimal(100),
+    )
+
+    assert method.value == method_id
+    assert result.allocated_kg_co2e == expected
+    assert Decimal("1000") * HVO_2026_BIOGENIC_CO2_KG_PER_LITRE == Decimal("2430.00")
+
+
+def test_uk_2026_hvo_rejects_activity_outside_calendar_year() -> None:
+    with pytest.raises(ValueError, match="only valid for activity dated in 2026"):
+        validate_governed_method(
+            activity_type=ActivityType.MOBILE_COMBUSTION,
+            scope=EmissionScope.SCOPE_1,
+            scope_3_category=None,
+            activity_unit="litres",
+            factor_level_1="Bioenergy",
+            factor_level_2="Biofuel",
+            factor_level_3="Biodiesel HVO",
+            factor_level_4=None,
+            factor_column_text=None,
+            metadata_json={
+                "calculation_method_id": "scope1.mobile_combustion.hvo.litres.uk_2026.v1"
+            },
+            lifecycle_boundary="direct",
+            evidence_reference="hvo-delivery-notes.pdf",
+            activity_date=date(2025, 12, 31),
         )
 
 

@@ -20,6 +20,7 @@ from app.services.inventory_governance import (
     _build_hvo_2023_disclosure,
     _build_hvo_2024_disclosure,
     _build_hvo_2025_disclosure,
+    _build_hvo_2026_disclosure,
     _build_hvo_disclosures,
     _lock_snapshot,
 )
@@ -211,6 +212,42 @@ def test_uk_2025_hvo_disclosure_uses_year_specific_factors() -> None:
 
     assert disclosure is not None
     assert disclosure["reporting_year"] == 2025
+    assert disclosure["complete"] is True
+    assert disclosure["scope_3_wtt_factor_kg_co2e_per_litre"] == "0.56439"
+
+
+def test_uk_2026_hvo_disclosure_uses_corrected_final_factors() -> None:
+    scope1_id = UUID("77777777-7777-7777-7777-777777777777")
+    wtt_id = UUID("88888888-8888-8888-8888-888888888888")
+    activities = {
+        scope1_id: SimpleNamespace(
+            metadata_json={
+                "calculation_method_id": "scope1.mobile_combustion.hvo.litres.uk_2026.v1"
+            }
+        ),
+        wtt_id: SimpleNamespace(
+            metadata_json={"calculation_method_id": "scope3.category3.hvo_wtt.litres.uk_2026.v1"}
+        ),
+    }
+    results = [
+        SimpleNamespace(
+            activity_id=scope1_id,
+            factor_activity_value=Decimal("1000"),
+            allocation_multiplier=Decimal(1),
+            allocated_kg_co2e=Decimal("35.58"),
+        ),
+        SimpleNamespace(
+            activity_id=wtt_id,
+            factor_activity_value=Decimal("1000"),
+            allocation_multiplier=Decimal(1),
+            allocated_kg_co2e=Decimal("564.39"),
+        ),
+    ]
+
+    disclosure = _build_hvo_2026_disclosure(results, activities)  # type: ignore[arg-type]
+
+    assert disclosure is not None
+    assert disclosure["reporting_year"] == 2026
     assert disclosure["complete"] is True
     assert disclosure["scope_3_wtt_factor_kg_co2e_per_litre"] == "0.56439"
 

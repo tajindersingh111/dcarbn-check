@@ -18,6 +18,9 @@ from app.calculations.governed_methods import (
     HVO_2025_BIOGENIC_CO2_KG_PER_LITRE,
     HVO_2025_SCOPE1_FACTOR_KG_CO2E_PER_LITRE,
     HVO_2025_WTT_FACTOR_KG_CO2E_PER_LITRE,
+    HVO_2026_BIOGENIC_CO2_KG_PER_LITRE,
+    HVO_2026_SCOPE1_FACTOR_KG_CO2E_PER_LITRE,
+    HVO_2026_WTT_FACTOR_KG_CO2E_PER_LITRE,
     GovernedCalculationMethod,
 )
 from app.calculations.scope2_reporting import validate_market_based_evidence
@@ -119,6 +122,22 @@ _HVO_DISCLOSURE_SPECIFICATIONS = (
         methodology_reference=(
             "https://assets.publishing.service.gov.uk/media/"
             "6846b0870392ed9b784c0187/2025-GHG-CF-methodology-paper.pdf"
+        ),
+    ),
+    _HvoDisclosureSpecification(
+        reporting_year=2026,
+        scope1_method=GovernedCalculationMethod.SCOPE1_MOBILE_HVO_LITRES_2026,
+        wtt_method=GovernedCalculationMethod.SCOPE3_CATEGORY3_HVO_WTT_LITRES_2026,
+        scope1_factor=HVO_2026_SCOPE1_FACTOR_KG_CO2E_PER_LITRE,
+        wtt_factor=HVO_2026_WTT_FACTOR_KG_CO2E_PER_LITRE,
+        biogenic_co2_factor=HVO_2026_BIOGENIC_CO2_KG_PER_LITRE,
+        source_reference=(
+            "https://www.gov.uk/government/publications/"
+            "greenhouse-gas-reporting-conversion-factors-2026"
+        ),
+        methodology_reference=(
+            "https://assets.publishing.service.gov.uk/media/"
+            "6a2940543b15d05a7ce3202e/2026-GHG-conversion-factors-methodology-report.pdf"
         ),
     ),
 )
@@ -230,6 +249,13 @@ def _build_hvo_2025_disclosure(
     activity_by_id: dict[UUID, ActivityRecord],
 ) -> dict[str, object] | None:
     return _build_hvo_disclosure(results, activity_by_id, _HVO_DISCLOSURE_SPECIFICATIONS[2])
+
+
+def _build_hvo_2026_disclosure(
+    results: list[CalculationResult],
+    activity_by_id: dict[UUID, ActivityRecord],
+) -> dict[str, object] | None:
+    return _build_hvo_disclosure(results, activity_by_id, _HVO_DISCLOSURE_SPECIFICATIONS[3])
 
 
 def _build_hvo_disclosures(

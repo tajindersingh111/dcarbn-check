@@ -139,9 +139,10 @@ approve the imported draft before the calculation engine can resolve it.
 - Expected SHA-256: `804885cb9d8f02bbb97dcd92b79ca294080ba892ba67e3c95fcfbae52af359a6`
 - Methodology paper: https://assets.publishing.service.gov.uk/media/647f50dd103ca60013039a8a/2023-ghg-cf-methodology-paper.pdf
 
-The 2023, 2024 and 2025 HVO factor sets and calculation methods are separate. An
-activity dated in one calendar year cannot resolve against the other year's
-factor set, including where both dates fall in the same fiscal-year inventory.
+The 2023, 2024, 2025 and 2026 HVO factor sets and calculation methods are
+separate. An activity dated in one calendar year cannot resolve against the
+other year's factor set, including where both dates fall in the same
+fiscal-year inventory.
 
 ## UK 2025 source controls
 
@@ -149,3 +150,15 @@ factor set, including where both dates fall in the same fiscal-year inventory.
 - Required workbook: final flat format, published 10 June 2025
 - Expected SHA-256: `8bfdb45b81ec4a88e3bdf4584637330f62e6bd09ce1940e654c5d7b7f736de94`
 - Methodology paper: https://assets.publishing.service.gov.uk/media/6846b0870392ed9b784c0187/2025-GHG-CF-methodology-paper.pdf
+
+## UK 2026 corrected-final source controls
+
+- Publication page: https://www.gov.uk/government/publications/greenhouse-gas-reporting-conversion-factors-2026
+- Required workbook: corrected final flat format, updated 31 July 2026
+- Expected SHA-256: `a9a455ab396dae226d510c7be6233748416d490c41a5d20f3dc7a0c45feecd5e`
+- Methodology report: https://assets.publishing.service.gov.uk/media/6a2940543b15d05a7ce3202e/2026-GHG-conversion-factors-methodology-report.pdf
+
+The July workbook supersedes the original June flat file. It corrects values
+that had been reported as zero where the factor was unavailable. Operators
+must import and independently verify the corrected July workbook as the
+governed 2026 source baseline.

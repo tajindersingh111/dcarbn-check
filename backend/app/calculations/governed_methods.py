@@ -15,6 +15,8 @@ class GovernedCalculationMethod(StrEnum):
     SCOPE3_CATEGORY3_HVO_WTT_LITRES_2024 = "scope3.category3.hvo_wtt.litres.uk_2024.v1"
     SCOPE1_MOBILE_HVO_LITRES_2025 = "scope1.mobile_combustion.hvo.litres.uk_2025.v1"
     SCOPE3_CATEGORY3_HVO_WTT_LITRES_2025 = "scope3.category3.hvo_wtt.litres.uk_2025.v1"
+    SCOPE1_MOBILE_HVO_LITRES_2026 = "scope1.mobile_combustion.hvo.litres.uk_2026.v1"
+    SCOPE3_CATEGORY3_HVO_WTT_LITRES_2026 = "scope3.category3.hvo_wtt.litres.uk_2026.v1"
     SCOPE1_CLASS1_DIESEL_VAN_KM_2026 = (
         "scope1.mobile_combustion.delivery_van.class1.diesel.km.uk_2026.v1"
     )
@@ -89,10 +91,17 @@ HVO_2025_METHODS = frozenset(
         GovernedCalculationMethod.SCOPE3_CATEGORY3_HVO_WTT_LITRES_2025,
     }
 )
+HVO_2026_METHODS = frozenset(
+    {
+        GovernedCalculationMethod.SCOPE1_MOBILE_HVO_LITRES_2026,
+        GovernedCalculationMethod.SCOPE3_CATEGORY3_HVO_WTT_LITRES_2026,
+    }
+)
 HVO_METHOD_REPORTING_YEARS = {
     **{method: 2023 for method in HVO_2023_METHODS},
     **{method: 2024 for method in HVO_2024_METHODS},
     **{method: 2025 for method in HVO_2025_METHODS},
+    **{method: 2026 for method in HVO_2026_METHODS},
 }
 HVO_2023_SCOPE1_FACTOR_KG_CO2E_PER_LITRE = Decimal("0.03558")
 HVO_2023_WTT_FACTOR_KG_CO2E_PER_LITRE = Decimal("0.27844")
@@ -103,6 +112,9 @@ HVO_2024_BIOGENIC_CO2_KG_PER_LITRE = Decimal("2.43")
 HVO_2025_SCOPE1_FACTOR_KG_CO2E_PER_LITRE = Decimal("0.03558")
 HVO_2025_WTT_FACTOR_KG_CO2E_PER_LITRE = Decimal("0.56439")
 HVO_2025_BIOGENIC_CO2_KG_PER_LITRE = Decimal("2.43")
+HVO_2026_SCOPE1_FACTOR_KG_CO2E_PER_LITRE = Decimal("0.03558")
+HVO_2026_WTT_FACTOR_KG_CO2E_PER_LITRE = Decimal("0.56439")
+HVO_2026_BIOGENIC_CO2_KG_PER_LITRE = Decimal("2.43")
 
 
 @dataclass(frozen=True, slots=True)
@@ -172,6 +184,26 @@ METHODS: dict[GovernedCalculationMethod, GovernedMethodSpecification] = {
         lifecycle_boundary="direct",
     ),
     GovernedCalculationMethod.SCOPE3_CATEGORY3_HVO_WTT_LITRES_2025: GovernedMethodSpecification(
+        activity_type=ActivityType.MOBILE_COMBUSTION,
+        scope=EmissionScope.SCOPE_3,
+        scope_3_category=3,
+        activity_unit="litres",
+        factor_level_1="WTT- bioenergy",
+        factor_level_2="WTT- biofuel",
+        factor_level_3="Biodiesel HVO",
+        lifecycle_boundary="well_to_tank",
+    ),
+    GovernedCalculationMethod.SCOPE1_MOBILE_HVO_LITRES_2026: GovernedMethodSpecification(
+        activity_type=ActivityType.MOBILE_COMBUSTION,
+        scope=EmissionScope.SCOPE_1,
+        scope_3_category=None,
+        activity_unit="litres",
+        factor_level_1="Bioenergy",
+        factor_level_2="Biofuel",
+        factor_level_3="Biodiesel HVO",
+        lifecycle_boundary="direct",
+    ),
+    GovernedCalculationMethod.SCOPE3_CATEGORY3_HVO_WTT_LITRES_2026: GovernedMethodSpecification(
         activity_type=ActivityType.MOBILE_COMBUSTION,
         scope=EmissionScope.SCOPE_3,
         scope_3_category=3,
