@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections import Counter
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from decimal import Decimal
 from typing import cast
@@ -8,6 +9,9 @@ from uuid import UUID
 
 from app.auth.dependencies import CurrentPrincipal
 from app.calculations.governed_methods import (
+    HVO_2023_BIOGENIC_CO2_KG_PER_LITRE,
+    HVO_2023_SCOPE1_FACTOR_KG_CO2E_PER_LITRE,
+    HVO_2023_WTT_FACTOR_KG_CO2E_PER_LITRE,
     HVO_2024_BIOGENIC_CO2_KG_PER_LITRE,
     HVO_2024_SCOPE1_FACTOR_KG_CO2E_PER_LITRE,
     HVO_2024_WTT_FACTOR_KG_CO2E_PER_LITRE,
@@ -52,12 +56,62 @@ from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 
-def _build_hvo_2024_disclosure(
+@dataclass(frozen=True, slots=True)
+class _HvoDisclosureSpecification:
+    reporting_year: int
+    scope1_method: GovernedCalculationMethod
+    wtt_method: GovernedCalculationMethod
+    scope1_factor: Decimal
+    wtt_factor: Decimal
+    biogenic_co2_factor: Decimal
+    source_reference: str
+    methodology_reference: str
+
+
+_HVO_DISCLOSURE_SPECIFICATIONS = (
+    _HvoDisclosureSpecification(
+        reporting_year=2023,
+        scope1_method=GovernedCalculationMethod.SCOPE1_MOBILE_HVO_LITRES_2023,
+        wtt_method=GovernedCalculationMethod.SCOPE3_CATEGORY3_HVO_WTT_LITRES_2023,
+        scope1_factor=HVO_2023_SCOPE1_FACTOR_KG_CO2E_PER_LITRE,
+        wtt_factor=HVO_2023_WTT_FACTOR_KG_CO2E_PER_LITRE,
+        biogenic_co2_factor=HVO_2023_BIOGENIC_CO2_KG_PER_LITRE,
+        source_reference=(
+            "https://www.gov.uk/government/publications/"
+            "greenhouse-gas-reporting-conversion-factors-2023"
+        ),
+        methodology_reference=(
+            "https://assets.publishing.service.gov.uk/media/"
+            "647f50dd103ca60013039a8a/2023-ghg-cf-methodology-paper.pdf"
+        ),
+    ),
+    _HvoDisclosureSpecification(
+        reporting_year=2024,
+        scope1_method=GovernedCalculationMethod.SCOPE1_MOBILE_HVO_LITRES_2024,
+        wtt_method=GovernedCalculationMethod.SCOPE3_CATEGORY3_HVO_WTT_LITRES_2024,
+        scope1_factor=HVO_2024_SCOPE1_FACTOR_KG_CO2E_PER_LITRE,
+        wtt_factor=HVO_2024_WTT_FACTOR_KG_CO2E_PER_LITRE,
+        biogenic_co2_factor=HVO_2024_BIOGENIC_CO2_KG_PER_LITRE,
+        source_reference=(
+            "https://www.gov.uk/government/publications/"
+            "greenhouse-gas-reporting-conversion-factors-2024"
+        ),
+        methodology_reference=(
+            "https://assets.publishing.service.gov.uk/media/"
+            "66a9fe4ca3c2a28abb50da4a/"
+            "2024-greenhouse-gas-conversion-factors-methodology.pdf"
+        ),
+    ),
+)
+
+
+def _build_hvo_disclosure(
     results: list[CalculationResult],
     activity_by_id: dict[UUID, ActivityRecord],
+    specification: _HvoDisclosureSpecification,
 ) -> dict[str, object] | None:
-    scope1_method = GovernedCalculationMethod.SCOPE1_MOBILE_HVO_LITRES_2024.value
-    wtt_method = GovernedCalculationMethod.SCOPE3_CATEGORY3_HVO_WTT_LITRES_2024.value
+    scope1_method = specification.scope1_method.value
+    wtt_method = specification.wtt_method.value
     scope1_results = [
         result
         for result in results
@@ -95,7 +149,7 @@ def _build_hvo_2024_disclosure(
         (result.allocated_kg_co2e for result in wtt_results),
         Decimal(0),
     )
-    biogenic_co2_kg = scope1_litres * HVO_2024_BIOGENIC_CO2_KG_PER_LITRE
+    biogenic_co2_kg = scope1_litres * specification.biogenic_co2_factor
     complete = bool(scope1_results and wtt_results and scope1_litres == wtt_litres)
     reconciliation_note = (
         "Scope 1 and Scope 3 Category 3 HVO litres reconcile."
@@ -106,8 +160,8 @@ def _build_hvo_2024_disclosure(
         )
     )
     return {
-        "method": "UK Government 2024 Biodiesel HVO",
-        "reporting_year": 2024,
+        "method": f"UK Government {specification.reporting_year} Biodiesel HVO",
+        "reporting_year": specification.reporting_year,
         "hvo_litres": str(scope1_litres),
         "scope_3_hvo_litres": str(wtt_litres),
         "complete": complete,
@@ -115,9 +169,9 @@ def _build_hvo_2024_disclosure(
         "scope_1_kg_co2e": str(scope1_kg),
         "scope_3_category_3_wtt_kg_co2e": str(wtt_kg),
         "biogenic_co2_outside_scopes_kg": str(biogenic_co2_kg),
-        "scope_1_factor_kg_co2e_per_litre": str(HVO_2024_SCOPE1_FACTOR_KG_CO2E_PER_LITRE),
-        "scope_3_wtt_factor_kg_co2e_per_litre": str(HVO_2024_WTT_FACTOR_KG_CO2E_PER_LITRE),
-        "biogenic_co2_factor_kg_per_litre": str(HVO_2024_BIOGENIC_CO2_KG_PER_LITRE),
+        "scope_1_factor_kg_co2e_per_litre": str(specification.scope1_factor),
+        "scope_3_wtt_factor_kg_co2e_per_litre": str(specification.wtt_factor),
+        "biogenic_co2_factor_kg_per_litre": str(specification.biogenic_co2_factor),
         "source_factor_ids": {
             "scope_1": "2_103_1036_8_1",
             "scope_3_category_3_wtt": "12_900_1036_8_1",
@@ -125,23 +179,42 @@ def _build_hvo_2024_disclosure(
         },
         "note": (
             "HVO is reported only where the customer supplied evidence confirming "
-            "the fuel type. UK Government 2024 factors report direct CH4 and N2O "
+            f"the fuel type. UK Government {specification.reporting_year} factors "
+            "report direct CH4 and N2O "
             "in Scope 1 and upstream well-to-tank emissions in Scope 3 Category 3. "
             "Combustion CO2 is biogenic and disclosed outside Scopes 1, 2 and 3; "
             "it is excluded from the headline inventory total. The Government "
             "well-to-tank factor is a UK average; supplier- and feedstock-specific "
             "evidence should be used when available."
         ),
-        "source_reference": (
-            "https://www.gov.uk/government/publications/"
-            "greenhouse-gas-reporting-conversion-factors-2024"
-        ),
-        "methodology_reference": (
-            "https://assets.publishing.service.gov.uk/media/"
-            "66a9fe4ca3c2a28abb50da4a/"
-            "2024-greenhouse-gas-conversion-factors-methodology.pdf"
-        ),
+        "source_reference": specification.source_reference,
+        "methodology_reference": specification.methodology_reference,
     }
+
+
+def _build_hvo_2023_disclosure(
+    results: list[CalculationResult],
+    activity_by_id: dict[UUID, ActivityRecord],
+) -> dict[str, object] | None:
+    return _build_hvo_disclosure(results, activity_by_id, _HVO_DISCLOSURE_SPECIFICATIONS[0])
+
+
+def _build_hvo_2024_disclosure(
+    results: list[CalculationResult],
+    activity_by_id: dict[UUID, ActivityRecord],
+) -> dict[str, object] | None:
+    return _build_hvo_disclosure(results, activity_by_id, _HVO_DISCLOSURE_SPECIFICATIONS[1])
+
+
+def _build_hvo_disclosures(
+    results: list[CalculationResult],
+    activity_by_id: dict[UUID, ActivityRecord],
+) -> list[dict[str, object]]:
+    return [
+        disclosure
+        for specification in _HVO_DISCLOSURE_SPECIFICATIONS
+        if (disclosure := _build_hvo_disclosure(results, activity_by_id, specification)) is not None
+    ]
 
 
 def _assess_assurance_readiness(
@@ -1086,7 +1159,7 @@ async def _build_audit_report_payload(
         ).all()
     )
     activity_by_id = {activity.id: activity for activity in activities}
-    hvo_2024_disclosure = _build_hvo_2024_disclosure(results, activity_by_id)
+    hvo_disclosures = _build_hvo_disclosures(results, activity_by_id)
 
     market_evidence: list[dict[str, object]] = []
     market_results = [
@@ -1460,7 +1533,7 @@ async def _build_audit_report_payload(
         scope2_present=scope2_location_present or scope2_market_present,
         scope2_dual_reporting_complete=(scope2_location_present and scope2_market_present),
         bioenergy_reporting_complete=(
-            hvo_2024_disclosure is None or bool(hvo_2024_disclosure.get("complete"))
+            all(bool(disclosure.get("complete")) for disclosure in hvo_disclosures)
         ),
         unresolved_warning_count=warning_count,
         open_restatement_count=open_restatement_count,
@@ -1553,7 +1626,7 @@ async def _build_audit_report_payload(
         "scope_2_market_based_evidence": market_evidence,
         "scope_3_category_dispositions": scope3_disposition_payload(scope3_dispositions),
         "factor_sets": factor_sets,
-        "bioenergy_disclosures": ([hvo_2024_disclosure] if hvo_2024_disclosure is not None else []),
+        "bioenergy_disclosures": hvo_disclosures,
         "data_quality": {
             "activity_count": len(quality_scores),
             "average_score": average_quality,

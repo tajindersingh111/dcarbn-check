@@ -91,6 +91,7 @@ def build_audit_report_csv(payload: dict[str, object], report_sha256: str) -> by
         "percentage_delta",
         "comparison_unavailable_reason",
         "comparison_disclosure",
+        "hvo_reporting_years",
         "hvo_scope_1_kg_co2e",
         "hvo_scope_3_category_3_wtt_kg_co2e",
         "hvo_biogenic_co2_outside_scopes_kg",
@@ -104,7 +105,6 @@ def build_audit_report_csv(payload: dict[str, object], report_sha256: str) -> by
     }
     readiness = _mapping(payload.get("assurance_readiness"))
     hvo_disclosures = _mappings(payload.get("bioenergy_disclosures"))
-    hvo = hvo_disclosures[0] if hvo_disclosures else {}
     for row in sorted(_mappings(payload.get("results")), key=lambda item: str(item.get("id", ""))):
         comparison = _mapping(comparisons.get(str(row.get("id", ""))))
         dcarbn = _mapping(comparison.get("dcarbn_result"))
@@ -143,11 +143,12 @@ def build_audit_report_csv(payload: dict[str, object], report_sha256: str) -> by
                 comparison.get("percentage_delta"),
                 comparison.get("comparison_unavailable_reason"),
                 comparison.get("disclosure"),
-                hvo.get("scope_1_kg_co2e"),
-                hvo.get("scope_3_category_3_wtt_kg_co2e"),
-                hvo.get("biogenic_co2_outside_scopes_kg"),
-                hvo.get("reconciliation_note"),
-                hvo.get("note"),
+                _joined_disclosure_value(hvo_disclosures, "reporting_year"),
+                _joined_disclosure_value(hvo_disclosures, "scope_1_kg_co2e"),
+                _joined_disclosure_value(hvo_disclosures, "scope_3_category_3_wtt_kg_co2e"),
+                _joined_disclosure_value(hvo_disclosures, "biogenic_co2_outside_scopes_kg"),
+                _joined_disclosure_value(hvo_disclosures, "reconciliation_note"),
+                _joined_disclosure_value(hvo_disclosures, "note"),
             ]
         )
     return output.getvalue().encode("utf-8-sig")
@@ -653,3 +654,18 @@ def _sequence(value: object) -> Sequence[object]:
 
 def _mappings(value: object) -> list[Mapping[str, Any]]:
     return [item for item in _sequence(value) if isinstance(item, Mapping)]
+
+
+def _joined_disclosure_value(
+    disclosures: list[Mapping[str, Any]],
+    key: str,
+) -> str:
+    if key == "reporting_year":
+        return " | ".join(
+            str(value) for disclosure in disclosures if (value := disclosure.get(key)) is not None
+        )
+    return " | ".join(
+        f"{disclosure.get('reporting_year')}: {value}"
+        for disclosure in disclosures
+        if (value := disclosure.get(key)) is not None
+    )

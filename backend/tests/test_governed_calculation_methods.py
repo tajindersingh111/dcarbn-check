@@ -4,6 +4,9 @@ from decimal import Decimal
 import pytest
 from app.calculations.engine import calculate_activity_factor_emissions
 from app.calculations.governed_methods import (
+    HVO_2023_BIOGENIC_CO2_KG_PER_LITRE,
+    HVO_2023_SCOPE1_FACTOR_KG_CO2E_PER_LITRE,
+    HVO_2023_WTT_FACTOR_KG_CO2E_PER_LITRE,
     HVO_2024_BIOGENIC_CO2_KG_PER_LITRE,
     HVO_2024_SCOPE1_FACTOR_KG_CO2E_PER_LITRE,
     HVO_2024_WTT_FACTOR_KG_CO2E_PER_LITRE,
@@ -11,6 +14,110 @@ from app.calculations.governed_methods import (
     validate_governed_method,
 )
 from app.models.activity import ActivityType, EmissionScope, Scope2Method
+
+
+@pytest.mark.parametrize(
+    ("method_id", "scope", "category", "level_1", "level_2", "boundary", "factor", "expected"),
+    [
+        (
+            "scope1.mobile_combustion.hvo.litres.uk_2023.v1",
+            EmissionScope.SCOPE_1,
+            None,
+            "Bioenergy",
+            "Biofuel",
+            "direct",
+            HVO_2023_SCOPE1_FACTOR_KG_CO2E_PER_LITRE,
+            Decimal("35.58000"),
+        ),
+        (
+            "scope3.category3.hvo_wtt.litres.uk_2023.v1",
+            EmissionScope.SCOPE_3,
+            3,
+            "WTT- bioenergy",
+            "WTT- biofuel",
+            "well_to_tank",
+            HVO_2023_WTT_FACTOR_KG_CO2E_PER_LITRE,
+            Decimal("278.44000"),
+        ),
+    ],
+)
+def test_uk_2023_hvo_contract_and_golden_result(
+    method_id: str,
+    scope: EmissionScope,
+    category: int | None,
+    level_1: str,
+    level_2: str,
+    boundary: str,
+    factor: Decimal,
+    expected: Decimal,
+) -> None:
+    method = validate_governed_method(
+        activity_type=ActivityType.MOBILE_COMBUSTION,
+        scope=scope,
+        scope_3_category=category,
+        activity_unit="litres",
+        factor_level_1=level_1,
+        factor_level_2=level_2,
+        factor_level_3="Biodiesel HVO",
+        factor_level_4=None,
+        factor_column_text=None,
+        metadata_json={"calculation_method_id": method_id},
+        lifecycle_boundary=boundary,
+        evidence_reference="new-era-hvo-delivery-notes-2023.pdf",
+        activity_date=date(2023, 12, 31),
+    )
+    result = calculate_activity_factor_emissions(
+        factor_activity_value=Decimal("1000"),
+        factor_value=factor,
+        allocation_percentage=Decimal(100),
+    )
+
+    assert method.value == method_id
+    assert result.allocated_kg_co2e == expected
+    assert Decimal("1000") * HVO_2023_BIOGENIC_CO2_KG_PER_LITRE == Decimal("2430.00")
+
+
+@pytest.mark.parametrize("activity_date", [date(2023, 1, 1), date(2023, 12, 31)])
+def test_uk_2023_hvo_accepts_calendar_year_boundaries(activity_date: date) -> None:
+    method = validate_governed_method(
+        activity_type=ActivityType.MOBILE_COMBUSTION,
+        scope=EmissionScope.SCOPE_1,
+        scope_3_category=None,
+        activity_unit="litres",
+        factor_level_1="Bioenergy",
+        factor_level_2="Biofuel",
+        factor_level_3="Biodiesel HVO",
+        factor_level_4=None,
+        factor_column_text=None,
+        metadata_json={"calculation_method_id": "scope1.mobile_combustion.hvo.litres.uk_2023.v1"},
+        lifecycle_boundary="direct",
+        evidence_reference="hvo-delivery-notes.pdf",
+        activity_date=activity_date,
+    )
+
+    assert method == GovernedCalculationMethod.SCOPE1_MOBILE_HVO_LITRES_2023
+
+
+@pytest.mark.parametrize("activity_date", [date(2022, 12, 31), date(2024, 1, 1)])
+def test_uk_2023_hvo_rejects_dates_outside_calendar_year(activity_date: date) -> None:
+    with pytest.raises(ValueError, match="only valid for activity dated in 2023"):
+        validate_governed_method(
+            activity_type=ActivityType.MOBILE_COMBUSTION,
+            scope=EmissionScope.SCOPE_1,
+            scope_3_category=None,
+            activity_unit="litres",
+            factor_level_1="Bioenergy",
+            factor_level_2="Biofuel",
+            factor_level_3="Biodiesel HVO",
+            factor_level_4=None,
+            factor_column_text=None,
+            metadata_json={
+                "calculation_method_id": "scope1.mobile_combustion.hvo.litres.uk_2023.v1"
+            },
+            lifecycle_boundary="direct",
+            evidence_reference="hvo-delivery-notes.pdf",
+            activity_date=activity_date,
+        )
 
 
 def test_scope1_stationary_diesel_contract_and_golden_result() -> None:

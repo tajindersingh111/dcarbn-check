@@ -242,6 +242,21 @@ async def import_uk_2024_factor_workbook(
     )
 
 
+async def import_uk_2023_factor_workbook(
+    db: AsyncSession,
+    principal: CurrentPrincipal,
+    upload: UploadFile,
+    metadata: FactorSetImportMetadata,
+) -> FactorImportJob:
+    return await import_uk_factor_workbook(
+        db,
+        principal,
+        upload,
+        metadata,
+        expected_reporting_year=2023,
+    )
+
+
 async def list_factor_sets(
     db: AsyncSession,
     *,

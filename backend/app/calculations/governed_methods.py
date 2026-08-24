@@ -9,6 +9,8 @@ from app.models.activity import ActivityType, EmissionScope
 
 
 class GovernedCalculationMethod(StrEnum):
+    SCOPE1_MOBILE_HVO_LITRES_2023 = "scope1.mobile_combustion.hvo.litres.uk_2023.v1"
+    SCOPE3_CATEGORY3_HVO_WTT_LITRES_2023 = "scope3.category3.hvo_wtt.litres.uk_2023.v1"
     SCOPE1_MOBILE_HVO_LITRES_2024 = "scope1.mobile_combustion.hvo.litres.uk_2024.v1"
     SCOPE3_CATEGORY3_HVO_WTT_LITRES_2024 = "scope3.category3.hvo_wtt.litres.uk_2024.v1"
     SCOPE1_CLASS1_DIESEL_VAN_KM_2026 = (
@@ -67,12 +69,25 @@ class GovernedCalculationMethod(StrEnum):
     )
 
 
+HVO_2023_METHODS = frozenset(
+    {
+        GovernedCalculationMethod.SCOPE1_MOBILE_HVO_LITRES_2023,
+        GovernedCalculationMethod.SCOPE3_CATEGORY3_HVO_WTT_LITRES_2023,
+    }
+)
 HVO_2024_METHODS = frozenset(
     {
         GovernedCalculationMethod.SCOPE1_MOBILE_HVO_LITRES_2024,
         GovernedCalculationMethod.SCOPE3_CATEGORY3_HVO_WTT_LITRES_2024,
     }
 )
+HVO_METHOD_REPORTING_YEARS = {
+    **{method: 2023 for method in HVO_2023_METHODS},
+    **{method: 2024 for method in HVO_2024_METHODS},
+}
+HVO_2023_SCOPE1_FACTOR_KG_CO2E_PER_LITRE = Decimal("0.03558")
+HVO_2023_WTT_FACTOR_KG_CO2E_PER_LITRE = Decimal("0.27844")
+HVO_2023_BIOGENIC_CO2_KG_PER_LITRE = Decimal("2.43")
 HVO_2024_SCOPE1_FACTOR_KG_CO2E_PER_LITRE = Decimal("0.03558")
 HVO_2024_WTT_FACTOR_KG_CO2E_PER_LITRE = Decimal("0.559")
 HVO_2024_BIOGENIC_CO2_KG_PER_LITRE = Decimal("2.43")
@@ -94,6 +109,26 @@ class GovernedMethodSpecification:
 
 
 METHODS: dict[GovernedCalculationMethod, GovernedMethodSpecification] = {
+    GovernedCalculationMethod.SCOPE1_MOBILE_HVO_LITRES_2023: GovernedMethodSpecification(
+        activity_type=ActivityType.MOBILE_COMBUSTION,
+        scope=EmissionScope.SCOPE_1,
+        scope_3_category=None,
+        activity_unit="litres",
+        factor_level_1="Bioenergy",
+        factor_level_2="Biofuel",
+        factor_level_3="Biodiesel HVO",
+        lifecycle_boundary="direct",
+    ),
+    GovernedCalculationMethod.SCOPE3_CATEGORY3_HVO_WTT_LITRES_2023: GovernedMethodSpecification(
+        activity_type=ActivityType.MOBILE_COMBUSTION,
+        scope=EmissionScope.SCOPE_3,
+        scope_3_category=3,
+        activity_unit="litres",
+        factor_level_1="WTT- bioenergy",
+        factor_level_2="WTT- biofuel",
+        factor_level_3="Biodiesel HVO",
+        lifecycle_boundary="well_to_tank",
+    ),
     GovernedCalculationMethod.SCOPE1_MOBILE_HVO_LITRES_2024: GovernedMethodSpecification(
         activity_type=ActivityType.MOBILE_COMBUSTION,
         scope=EmissionScope.SCOPE_1,
@@ -362,11 +397,17 @@ def validate_governed_method(
             )
         if not evidence_reference or not evidence_reference.strip():
             raise ValueError("Supplier-specific Scope 3 results require an evidence_reference")
-    if method in HVO_2024_METHODS:
-        if activity_date is None or activity_date.year != 2024:
-            raise ValueError("The UK 2024 HVO method is only valid for activity dated in 2024")
+    hvo_reporting_year = HVO_METHOD_REPORTING_YEARS.get(method)
+    if hvo_reporting_year is not None:
+        if activity_date is None or activity_date.year != hvo_reporting_year:
+            raise ValueError(
+                f"The UK {hvo_reporting_year} HVO method is only valid for activity "
+                f"dated in {hvo_reporting_year}"
+            )
         if not evidence_reference or not evidence_reference.strip():
-            raise ValueError("UK 2024 HVO activity requires evidence confirming the fuel is HVO")
+            raise ValueError(
+                f"UK {hvo_reporting_year} HVO activity requires evidence confirming the fuel is HVO"
+            )
     if method == GovernedCalculationMethod.SCOPE2_LOCATION_ELECTRICITY_KWH_2026:
         method_value = getattr(scope_2_method, "value", scope_2_method)
         if method_value != "location_based":

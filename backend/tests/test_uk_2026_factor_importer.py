@@ -11,6 +11,7 @@ from app.factors.uk_2026_importer import (
     GreenhouseGasComponent,
     classify_greenhouse_gas_component,
     expected_headers,
+    parse_uk_2023_flat_workbook,
     parse_uk_2024_flat_workbook,
     parse_uk_2026_flat_workbook,
 )
@@ -186,6 +187,75 @@ def test_parse_uk_2024_hvo_factors() -> None:
     assert factors["12_900_1036_8_1"].lifecycle_boundary == "well_to_tank"
     assert str(factors["99_103_1036_8_2"].factor_value) == "2.43"
     assert factors["99_103_1036_8_2"].greenhouse_gas_component == GreenhouseGasComponent.CO2
+
+
+def test_parse_uk_2023_hvo_factors() -> None:
+    workbook = Workbook()
+    worksheet = workbook.active
+    worksheet.title = "Factors by Category"
+
+    for column, header in enumerate(expected_headers(2023), start=1):
+        worksheet.cell(row=6, column=column, value=header)
+
+    rows = (
+        (
+            "2_103_1036_8_1",
+            "Scope 1",
+            "Bioenergy",
+            "Biofuel",
+            "Biodiesel HVO",
+            None,
+            None,
+            "litres",
+            "kg CO2e",
+            "0.03558",
+        ),
+        (
+            "12_900_1036_8_1",
+            "Scope 3",
+            "WTT- bioenergy",
+            "WTT- biofuel",
+            "Biodiesel HVO",
+            None,
+            None,
+            "litres",
+            "kg CO2e",
+            "0.27844",
+        ),
+        (
+            "99_103_1036_8_2",
+            "Outside of Scopes",
+            "Outside of scopes",
+            "Biofuel",
+            "Biodiesel HVO",
+            None,
+            None,
+            "litres",
+            "kg CO2e of CO2 per unit",
+            "2.43",
+        ),
+    )
+    for row_number, values in enumerate(rows, start=7):
+        for column, value in enumerate(values, start=1):
+            worksheet.cell(row=row_number, column=column, value=value)
+
+    output = BytesIO()
+    workbook.save(output)
+    workbook.close()
+
+    parsed = parse_uk_2023_flat_workbook(output.getvalue())
+    factors = {item.source_factor_id: item for item in parsed.factors}
+
+    assert parsed.errors == ()
+    assert str(factors["2_103_1036_8_1"].factor_value) == "0.03558"
+    assert str(factors["12_900_1036_8_1"].factor_value) == "0.27844"
+    assert str(factors["99_103_1036_8_2"].factor_value) == "2.43"
+    assert factors["99_103_1036_8_2"].greenhouse_gas_component == GreenhouseGasComponent.CO2
+
+
+def test_uk_2023_parser_rejects_2024_headers() -> None:
+    with pytest.raises(FactorWorkbookValidationError):
+        parse_uk_2023_flat_workbook(build_workbook(expected_headers(2024)))
 
 
 def test_uk_2024_parser_rejects_2026_headers() -> None:
