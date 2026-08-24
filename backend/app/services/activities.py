@@ -7,7 +7,9 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.dependencies import CurrentPrincipal
-from app.models.activity import ActivityRecord, ActivityStatus
+from app.calculations.governed_methods import validate_governed_method
+from app.calculations.scope2_reporting import validate_market_based_evidence
+from app.models.activity import ActivityRecord, ActivityStatus, Scope2Method
 from app.models.inventory import Inventory, InventoryStatus, ReportingPeriod
 from app.models.organisation import LegalEntity, Organisation, Site
 from app.schemas.activity import ActivityCreate, ActivityUpdate
@@ -56,6 +58,12 @@ async def _validate_links(
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail="Activity date must fall within the reporting period.",
+        )
+
+    if period.organisation_id != payload.organisation_id:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Activity organisation must match the inventory reporting period.",
         )
 
     organisation = await db.scalar(
@@ -126,6 +134,16 @@ async def create_activity(
         ActivityRecord.is_current.is_(True),
     )
     existing = await db.scalar(existing_query)
+    if existing is not None and (
+        existing.inventory_id != inventory_id or existing.organisation_id != payload.organisation_id
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=(
+                "source_record_id already belongs to another inventory or organisation "
+                "for this source system."
+            ),
+        )
 
     activity = ActivityRecord(
         tenant_id=principal.tenant_id,
@@ -223,6 +241,37 @@ async def update_activity(
     original = {key: str(getattr(activity, key)) for key in changes}
     for field, value in changes.items():
         setattr(activity, field, value)
+
+    try:
+        validate_governed_method(
+            activity_type=activity.activity_type,
+            scope=activity.scope,
+            scope_3_category=activity.scope_3_category,
+            activity_unit=activity.activity_unit,
+            factor_level_1=activity.factor_level_1,
+            factor_level_2=activity.factor_level_2,
+            factor_level_3=activity.factor_level_3,
+            factor_level_4=activity.factor_level_4,
+            factor_column_text=activity.factor_column_text,
+            metadata_json=activity.metadata_json,
+            activity_value=activity.activity_value,
+            scope_2_method=activity.scope_2_method,
+            lifecycle_boundary=activity.lifecycle_boundary,
+            evidence_reference=activity.evidence_reference,
+            activity_date=activity.activity_date,
+        )
+        if activity.scope_2_method == Scope2Method.MARKET_BASED:
+            validate_market_based_evidence(
+                activity.metadata_json,
+                evidence_reference=activity.evidence_reference,
+                activity_date=activity.activity_date,
+                geography_code=activity.geography_code,
+            )
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=str(exc),
+        ) from exc
 
     if "activity_value" in changes or "activity_unit" in changes:
         registry = get_unit_registry()

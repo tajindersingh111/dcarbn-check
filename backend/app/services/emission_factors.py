@@ -298,6 +298,12 @@ async def approve_factor_set(
             detail="Only draft factor sets can be approved.",
         )
 
+    if factor_set.imported_by == principal.subject:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="A factor set must be approved by someone other than its importer.",
+        )
+
     factor_count = int(
         (
             await db.scalar(
