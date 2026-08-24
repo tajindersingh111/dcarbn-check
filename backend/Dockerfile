@@ -20,7 +20,10 @@ ENV PATH="/opt/site/bin:${PATH}" \
     PYTHONUNBUFFERED=1 \
     HOME=/home/appuser
 
-RUN python -m pip uninstall -y setuptools msgpack || true
+RUN python -m pip uninstall -y setuptools msgpack && \
+    rm -rf /usr/local/lib/python3.14/ensurepip \
+        /usr/local/lib/python3.14/site-packages/pip \
+        /usr/local/lib/python3.14/site-packages/pip-*.dist-info
 RUN groupadd --gid 10001 appuser && \
     useradd --uid 10001 --gid 10001 --create-home appuser
 
