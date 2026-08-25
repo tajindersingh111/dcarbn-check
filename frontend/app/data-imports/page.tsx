@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 
+import { ActivityCsvImport } from "@/components/activity-csv-import";
 import { ErrorState, LoadingState, MutationMessage } from "@/components/api-state";
 import { PageHeader } from "@/components/page-header";
 import { StatusBadge } from "@/components/status-badge";
@@ -65,6 +66,9 @@ function fieldLabel(column: string): string {
 }
 
 export default function DataImportsPage() {
+  const [importMode, setImportMode] = useState<"activity" | "supplier-results">(
+    "activity"
+  );
   const template = useApiQuery<AccountingTemplate>(
     "/integrations/data/accounting/scope-3/template"
   );
@@ -90,6 +94,14 @@ export default function DataImportsPage() {
   const validCount = rows.filter((row) => row.valid).length;
   const invalidCount = rows.length - validCount;
   const selected = rows.find((row) => row.index === selectedRow) ?? null;
+
+  if (importMode === "activity") {
+    return (
+      <ActivityCsvImport
+        onShowSupplierResults={() => setImportMode("supplier-results")}
+      />
+    );
+  }
 
   function loadCsv(content: string, name: string) {
     try {
@@ -209,8 +221,17 @@ export default function DataImportsPage() {
     <>
       <PageHeader
         eyebrow="Customer data collection"
-        title="Accounting and CSV import"
+        title="Supplier-calculated Scope 3 import"
         description="Map, validate and reconcile supplier-specific Scope 3 results before they enter your emissions review queue."
+        actions={
+          <button
+            className="button button-secondary"
+            onClick={() => setImportMode("activity")}
+            type="button"
+          >
+            Upload Scope 1, 2 and 3 activity
+          </button>
+        }
       />
 
       <ol className="import-steps" aria-label="Import progress">

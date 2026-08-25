@@ -477,10 +477,47 @@ test("Scope 1 DcarbN comparator method preserves delivery-van selectors", async 
 });
 
 
-test("customer maps validates and reconciles an accounting import", async ({ page }) => {
+test("customer uploads governed activity data without column mapping", async ({ page }) => {
   await page.goto("/data-imports");
   await expect(
-    page.getByRole("heading", { name: "Accounting and CSV import" })
+    page.getByRole("heading", { name: "Upload Scope 1, 2 and 3 activity data" })
+  ).toBeVisible();
+
+  await page.getByLabel("Choose CSV file").setInputFiles({
+    name: "activity-upload.csv",
+    mimeType: "text/csv",
+    buffer: Buffer.from(
+      "calculation_method_id,activity_date,description,activity_value,activity_unit,evidence_reference,source_record_id,geography_code\n" +
+        "scope2.location_electricity.kwh.uk_2026.v1,2026-03-31,Purchased electricity,50000,kWh,electricity-bill.pdf,electricity-2026-001,GB"
+    )
+  });
+
+  await expect(page.getByText("1 ready", { exact: true })).toBeVisible();
+  await expect(page.getByText("0 need attention", { exact: true })).toBeVisible();
+  const requestPromise = page.waitForRequest((request) =>
+    request.url().includes("/activities") && request.method() === "POST"
+  );
+  await page.getByRole("button", { name: "Import 1 validated rows" }).click();
+  const payload = (await requestPromise).postDataJSON() as Record<string, unknown>;
+  expect(payload).toMatchObject({
+    activity_type: "purchased_electricity",
+    scope: "scope_2",
+    scope_2_method: "location_based",
+    activity_value: "50000",
+    activity_unit: "kWh",
+    source_record_id: "electricity-2026-001",
+    metadata_json: {
+      calculation_method_id: "scope2.location_electricity.kwh.uk_2026.v1"
+    }
+  });
+});
+
+
+test("customer maps validates and reconciles an accounting import", async ({ page }) => {
+  await page.goto("/data-imports");
+  await page.getByRole("button", { name: "Supplier-calculated Scope 3" }).click();
+  await expect(
+    page.getByRole("heading", { name: "Supplier-calculated Scope 3 import" })
   ).toBeVisible();
 
   await page.getByRole("button", { name: "Load example" }).click();

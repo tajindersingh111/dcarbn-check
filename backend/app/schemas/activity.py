@@ -83,6 +83,7 @@ class ActivityCreate(BaseModel):
             scope_2_method=self.scope_2_method,
             lifecycle_boundary=self.lifecycle_boundary,
             evidence_reference=self.evidence_reference,
+            activity_date=self.activity_date,
         )
         return self
 
