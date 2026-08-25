@@ -16,3 +16,6 @@ test-results/
 postgres_data/
 redis_data/
 deploy/evidence/*.json
+
+.venv/
+*.egg-info/
