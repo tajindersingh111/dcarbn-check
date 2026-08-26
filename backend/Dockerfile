@@ -20,7 +20,16 @@ ENV PATH="/opt/site/bin:${PATH}" \
     PYTHONUNBUFFERED=1 \
     HOME=/home/appuser
 
-RUN python -m pip uninstall -y setuptools msgpack && \
+RUN apt-get update && \
+    apt-get install --only-upgrade -y --no-install-recommends \
+        libssl3t64 \
+        openssl \
+        openssl-provider-legacy && \
+    dpkg --compare-versions \
+        "$(dpkg-query -W -f='${Version}' openssl)" \
+        ge "3.5.7-1~deb13u2" && \
+    rm -rf /var/lib/apt/lists/* && \
+    python -m pip uninstall -y setuptools msgpack && \
     rm -rf /usr/local/lib/python3.14/ensurepip \
         /usr/local/lib/python3.14/site-packages/pip \
         /usr/local/lib/python3.14/site-packages/pip-*.dist-info
