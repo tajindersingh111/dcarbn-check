@@ -519,6 +519,38 @@ test("customer uploads governed activity data without column mapping", async ({ 
       calculation_method_id: "scope2.location_electricity.kwh.uk_2026.v1"
     }
   });
+
+  const calculationPromise = page.waitForRequest((request) =>
+    request.url().includes("/calculation-runs") && request.method() === "POST"
+  );
+  await page.getByRole("button", { name: "Calculate inventory" }).click();
+  await calculationPromise;
+  await expect(page.getByText("Calculation version 2 completed")).toBeVisible();
+  await expect(page.getByLabel("Calculation summary")).toContainText("Scope 1");
+  await expect(page.getByLabel("Calculation summary")).toContainText("Scope 2 location");
+  await expect(page.getByLabel("Calculation summary")).toContainText("Scope 2 market");
+  await expect(page.getByLabel("Calculation summary")).toContainText("Scope 3");
+  await expect(page.getByText(/Headline total \(location-based\):/)).toContainText("12,846.28 tCO₂e");
+  await expect(page.getByRole("link", { name: "Complete Scope 3 screening" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Continue to approval" })).toBeVisible();
+});
+
+test("an existing inventory can be calculated without re-uploading activity", async ({ page }) => {
+  await page.goto("/inventories");
+  await page.getByRole("button", { name: "Calculate" }).click();
+  await expect(page.getByRole("dialog", { name: "Calculate inventory" })).toBeVisible();
+
+  const calculationPromise = page.waitForRequest((request) =>
+    request.url().includes("/calculation-runs") && request.method() === "POST"
+  );
+  await page.getByRole("button", { name: "Calculate inventory" }).click();
+  await calculationPromise;
+
+  await expect(page.getByText("Calculation version 2 completed")).toBeVisible();
+  await expect(page.getByText(/Headline total \(location-based\):/)).toContainText("12,846.28 tCO₂e");
+
+  await page.getByLabel("Calculation headline Scope 2 basis").selectOption("market_based");
+  await expect(page.getByText(/Headline total \(market-based\):/)).toContainText("12,660.26 tCO₂e");
 });
 
 

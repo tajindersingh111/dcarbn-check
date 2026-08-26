@@ -57,6 +57,31 @@ export interface Inventory {
   updated_at: string;
 }
 
+export type Scope2HeadlineBasis = "location_based" | "market_based";
+
+export interface CalculationRun {
+  id: string;
+  inventory_id: string;
+  version: number;
+  status: string;
+  activity_count: number;
+  result_count: number;
+  failed_count: number;
+  failure_message: string | null;
+}
+
+export interface InventoryCalculationSummary {
+  calculation_run_id: string;
+  inventory_id: string;
+  scope_2_headline_basis: Scope2HeadlineBasis;
+  scope_1_kg_co2e: string;
+  scope_2_location_based_kg_co2e: string;
+  scope_2_market_based_kg_co2e: string;
+  scope_3_kg_co2e: string;
+  total_kg_co2e: string;
+  total_t_co2e: string;
+}
+
 export interface DashboardSummary {
   scope_2_headline_basis: "location_based" | "market_based";
   scope_2_location_based_kg_co2e: string;

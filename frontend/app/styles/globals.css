@@ -419,6 +419,30 @@ textarea:focus-visible,
   margin-bottom: 0;
 }
 
+.calculation-runner {
+  display: grid;
+  gap: 1rem;
+}
+
+.calculation-runner .panel-heading,
+.calculation-runner .metric-grid {
+  margin-bottom: 0;
+}
+
+.calculation-runner .field-help {
+  color: var(--colour-text-muted);
+  font-size: 0.8rem;
+  margin: -0.65rem 0 0;
+}
+
+.calculation-summary {
+  margin-top: 0.4rem;
+}
+
+.calculation-total {
+  margin: 0;
+}
+
 .dashboard-grid {
   display: grid;
   gap: 1.2rem;

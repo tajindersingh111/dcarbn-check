@@ -5,6 +5,7 @@ import { useMemo, useState } from "react";
 import { ErrorState, LoadingState, MutationMessage } from "@/components/api-state";
 import { DataTable } from "@/components/data-table";
 import { PlusIcon } from "@/components/icons";
+import { InventoryCalculationRunner } from "@/components/inventory-calculation-runner";
 import { Modal } from "@/components/modal";
 import { PageHeader } from "@/components/page-header";
 import { StatusBadge } from "@/components/status-badge";
@@ -40,6 +41,7 @@ export default function InventoriesPage() {
   const [error, setError] = useState<string | null>(null);
   const [periodOrganisationId, setPeriodOrganisationId] = useState("");
   const [baseYear, setBaseYear] = useState(false);
+  const [calculationInventory, setCalculationInventory] = useState<Inventory | null>(null);
 
   const organisationById = useMemo(
     () => new Map((organisations.data?.items ?? []).map((item) => [item.id, item.name])),
@@ -148,7 +150,7 @@ export default function InventoriesPage() {
           <div><p className="eyebrow">Inventory register</p><h2>Reporting inventories</h2></div>
           <span className="record-count">{inventories.data?.total ?? 0} records</span>
         </div>
-        <DataTable caption="Reporting inventories with separate Scope 2 methods" headers={["Inventory", "Organisation", "Version", "Scope 1", "Scope 2 location-based", "Scope 2 market-based", "Scope 3", `Headline total (${scope2HeadlineBasis === "location_based" ? "location-based" : "market-based"})`, "Status"]}>
+        <DataTable caption="Reporting inventories with separate Scope 2 methods" headers={["Inventory", "Organisation", "Version", "Scope 1", "Scope 2 location-based", "Scope 2 market-based", "Scope 3", `Headline total (${scope2HeadlineBasis === "location_based" ? "location-based" : "market-based"})`, "Status", ""]}>
           {(inventories.data?.items ?? []).map((inventory) => (
             <tr key={inventory.id}>
               <td><div className="stacked-cell"><strong>{inventory.name}</strong><span>{inventory.reporting_period_name}</span></div></td>
@@ -160,10 +162,34 @@ export default function InventoriesPage() {
               <td>{tonnes(inventory.scope_3_kg_co2e)}</td>
               <td><strong>{tonnes(inventory.total_kg_co2e)}</strong></td>
               <td><StatusBadge status={inventory.status} /></td>
+              <td>
+                <button
+                  className="text-button"
+                  onClick={() => setCalculationInventory(inventory)}
+                  type="button"
+                >
+                  Calculate
+                </button>
+              </td>
             </tr>
           ))}
         </DataTable>
       </section>
+
+      <Modal
+        open={Boolean(calculationInventory)}
+        onClose={() => setCalculationInventory(null)}
+        title="Calculate inventory"
+        description="Run governed calculations and review the non-double-counted Scope 1, 2 and 3 headline."
+      >
+        {calculationInventory ? (
+          <InventoryCalculationRunner
+            inventoryId={calculationInventory.id}
+            inventoryName={calculationInventory.name}
+            onCompleted={inventories.refresh}
+          />
+        ) : null}
+      </Modal>
 
       <Modal open={inventoryModal} onClose={() => setInventoryModal(false)} title="Create inventory" description="Create a versioned inventory for an existing reporting period.">
         <form className="modal-form" onSubmit={createInventory}>

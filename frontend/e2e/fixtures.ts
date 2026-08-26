@@ -442,6 +442,33 @@ export async function installApiFixtures(page: Page): Promise<void> {
     if (path.endsWith("/scope-3-category-dispositions/approve") && method === "POST") {
       return route.fulfill({ json: { items: [], total: 15, complete: true, approved: true } });
     }
+    if (path.endsWith(`/inventories/${inventory.id}/calculation-runs`) && method === "POST") {
+      return route.fulfill({ status: 201, json: {
+        id: inventory.latest_calculation_run_id,
+        inventory_id: inventory.id,
+        version: 2,
+        status: "completed",
+        activity_count: 1,
+        result_count: 1,
+        failed_count: 0,
+        failure_message: null
+      }});
+    }
+    if (path === `/calculation-runs/${inventory.latest_calculation_run_id}/summary` && method === "GET") {
+      const headlineBasis = url.searchParams.get("scope_2_headline_basis") ?? "location_based";
+      return route.fulfill({ json: {
+        calculation_run_id: inventory.latest_calculation_run_id,
+        inventory_id: inventory.id,
+        scope_2_headline_basis: headlineBasis,
+        scope_1_kg_co2e: "3540440",
+        scope_2_location_based_kg_co2e: "1286020",
+        scope_2_market_based_kg_co2e: "1100000",
+        scope_3_kg_co2e: "8019820",
+        total_kg_co2e: headlineBasis === "location_based" ? "12846280" : "12660260",
+        total_t_co2e: headlineBasis === "location_based" ? "12846.28" : "12660.26",
+        items: []
+      }});
+    }
     if (path.includes("/calculation-runs") && method === "GET") {
       return route.fulfill({ json: { items: [{
         id: inventory.latest_calculation_run_id,

@@ -7,6 +7,7 @@ import {
   type GovernedMethodOption
 } from "@/components/activity-form";
 import { ErrorState, LoadingState, MutationMessage } from "@/components/api-state";
+import { InventoryCalculationRunner } from "@/components/inventory-calculation-runner";
 import { PageHeader } from "@/components/page-header";
 import { StatusBadge } from "@/components/status-badge";
 import { apiRequest } from "@/lib/api";
@@ -471,6 +472,16 @@ export function ActivityCsvImport({
               {importing ? "Importing…" : `Import ${validCount} validated rows`}
             </button>
           </div>
+        </section>
+      ) : null}
+
+      {inventory && rows.length > 0 && importedCount === rows.length ? (
+        <section className="panel import-calculation-panel">
+          <InventoryCalculationRunner
+            inventoryId={inventory.id}
+            inventoryName={inventory.name}
+            onCompleted={inventories.refresh}
+          />
         </section>
       ) : null}
     </>
