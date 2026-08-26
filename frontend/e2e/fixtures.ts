@@ -12,7 +12,7 @@ const organisation = {
   updated_at: "2026-01-01T00:00:00Z"
 };
 
-const inventory = {
+export const inventory = {
   id: "22222222-2222-2222-2222-222222222222",
   tenant_id: organisation.tenant_id,
   reporting_period_id: "33333333-3333-3333-3333-333333333333",

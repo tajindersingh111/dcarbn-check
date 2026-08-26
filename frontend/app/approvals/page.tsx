@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import Link from "next/link";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { ErrorState, LoadingState, MutationMessage } from "@/components/api-state";
 import { DataTable } from "@/components/data-table";
@@ -23,11 +24,39 @@ export default function ApprovalsPage() {
   const [working, setWorking] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  const inventoryQueryApplied = useRef(false);
 
   const selected = useMemo(
     () => approvals.data?.items.find((item) => item.id === selectedId) ?? approvals.data?.items[0] ?? null,
     [approvals.data, selectedId]
   );
+
+  useEffect(() => {
+    if (inventoryQueryApplied.current || !approvals.data || !inventories.data) return;
+    inventoryQueryApplied.current = true;
+    const search = new URLSearchParams(window.location.search);
+    const requestedInventoryId = search.get("inventory_id");
+    if (
+      !requestedInventoryId ||
+      !inventories.data.items.some((item) => item.id === requestedInventoryId)
+    ) {
+      return;
+    }
+
+    const activeApproval = approvals.data.items.find(
+      (item) =>
+        item.inventory_id === requestedInventoryId &&
+        ["pending", "in_review", "approved"].includes(item.status)
+    );
+    if (activeApproval) {
+      setSelectedId(activeApproval.id);
+      return;
+    }
+    if (search.get("action") === "request-approval") {
+      setRequestInventoryId(requestedInventoryId);
+      setRequestModal(true);
+    }
+  }, [approvals.data, inventories.data]);
 
   async function requestApproval(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -110,6 +139,14 @@ export default function ApprovalsPage() {
               {selected.status === "pending" ? <button className="button button-primary" disabled={working} onClick={() => void action("start")} type="button">Start review</button> : null}
               {selected.status === "in_review" ? <><button className="button button-danger" disabled={working} onClick={() => void action("reject")} type="button">Reject</button><button className="button button-primary" disabled={working} onClick={() => void action("approve")} type="button">Approve inventory</button></> : null}
               {selected.status === "approved" ? <button className="button button-primary" disabled={working} onClick={() => void action("lock")} type="button">Lock inventory</button> : null}
+              {selected.status === "approved" ? (
+                <Link
+                  className="button button-secondary"
+                  href={`/audit-reports?inventory_id=${encodeURIComponent(selected.inventory_id)}&action=generate-report`}
+                >
+                  Generate customer report
+                </Link>
+              ) : null}
             </div>
           </> : <p>No approval requests exist.</p>}
         </aside>

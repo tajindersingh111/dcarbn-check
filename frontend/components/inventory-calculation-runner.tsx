@@ -160,10 +160,16 @@ export function InventoryCalculationRunner({
             <p>Calculation complete. Scope 3 screening and independent approval are required before report generation.</p>
           </section>
           <div className="button-row">
-            <Link className="button button-secondary" href="/scope-3-screening">
+            <Link
+              className="button button-secondary"
+              href={`/scope-3-screening?inventory_id=${encodeURIComponent(inventoryId)}`}
+            >
               Complete Scope 3 screening
             </Link>
-            <Link className="button button-primary" href="/approvals">
+            <Link
+              className="button button-primary"
+              href={`/approvals?inventory_id=${encodeURIComponent(inventoryId)}&action=request-approval`}
+            >
               Continue to approval
             </Link>
           </div>

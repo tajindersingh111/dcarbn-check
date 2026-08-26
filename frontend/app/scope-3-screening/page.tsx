@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { ErrorState, LoadingState, MutationMessage } from "@/components/api-state";
 import { PageHeader } from "@/components/page-header";
@@ -67,11 +68,26 @@ export default function Scope3ScreeningPage() {
   const [approving, setApproving] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const inventoryQueryApplied = useRef(false);
 
   const selectedInventory = useMemo(
     () => inventories.data?.items.find((item) => item.id === inventoryId),
     [inventories.data, inventoryId]
   );
+
+  useEffect(() => {
+    if (inventoryQueryApplied.current || !inventories.data) return;
+    inventoryQueryApplied.current = true;
+    const requestedInventoryId = new URLSearchParams(window.location.search).get(
+      "inventory_id"
+    );
+    if (
+      requestedInventoryId &&
+      inventories.data.items.some((item) => item.id === requestedInventoryId)
+    ) {
+      setInventoryId(requestedInventoryId);
+    }
+  }, [inventories.data]);
 
   useEffect(() => {
     if (!inventoryId) {
@@ -271,6 +287,14 @@ export default function Scope3ScreeningPage() {
               <button className="button button-primary" disabled={approving || !status?.complete || Boolean(status?.approved)} onClick={() => void approve()} type="button">
                 {approving ? "Approving…" : status?.approved ? "Approved" : "Approve screening"}
               </button>
+              {status?.approved ? (
+                <Link
+                  className="button button-primary"
+                  href={`/approvals?inventory_id=${encodeURIComponent(inventoryId)}&action=request-approval`}
+                >
+                  Continue to inventory approval
+                </Link>
+              ) : null}
             </div>
           </section>
         </>

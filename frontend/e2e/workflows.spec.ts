@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 
-import { installApiFixtures } from "./fixtures";
+import { installApiFixtures, inventory } from "./fixtures";
 
 test.beforeEach(async ({ page }) => {
   await installApiFixtures(page);
@@ -100,6 +100,31 @@ test("inventory approval calls the decision API", async ({ page }) => {
   await requestPromise;
 });
 
+test("approval deep link preselects the inventory without duplicating an active request", async ({ page }) => {
+  const inventoryId = "22222222-2222-2222-2222-222222222222";
+  await page.goto(
+    `/approvals?inventory_id=${inventoryId}&action=request-approval`
+  );
+
+  await expect(page.getByText("Northstar Corporate Inventory 2026").first()).toBeVisible();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Approve inventory" })).toBeVisible();
+});
+
+test("approval deep link opens a preselected request when no active request exists", async ({ page }) => {
+  const inventoryId = "22222222-2222-2222-2222-222222222222";
+  await page.route("**/api/v1/inventory-approvals?*", async (route) => {
+    await route.fulfill({ json: { items: [], total: 0, limit: 200, offset: 0 } });
+  });
+
+  await page.goto(
+    `/approvals?inventory_id=${inventoryId}&action=request-approval`
+  );
+
+  await expect(page.getByRole("dialog")).toBeVisible();
+  await expect(page.getByLabel("Inventory")).toHaveValue(inventoryId);
+});
+
 test("audit report register opens the immutable payload", async ({ page }) => {
   await page.goto("/audit-reports");
   await page.getByRole("button", { name: "Open" }).click();
@@ -131,6 +156,13 @@ test("Scope 3 screening saves all category decisions and shows validation bounda
   expect(payload.items).toHaveLength(15);
   expect(payload.items.map((item) => item.category)).toEqual(Array.from({ length: 15 }, (_, index) => index + 1));
   await expect(page.getByText("Independent approval is still required.")).toBeVisible();
+});
+
+test("Scope 3 screening deep link preselects the calculated inventory", async ({ page }) => {
+  const inventoryId = "22222222-2222-2222-2222-222222222222";
+  await page.goto(`/scope-3-screening?inventory_id=${inventoryId}`);
+
+  await expect(page.getByLabel("Reporting inventory")).toHaveValue(inventoryId);
 });
 
 
@@ -534,8 +566,130 @@ test("customer uploads governed activity data without column mapping", async ({ 
   await expect(page.getByLabel("Calculation summary")).toContainText("Scope 2 market");
   await expect(page.getByLabel("Calculation summary")).toContainText("Scope 3");
   await expect(page.getByText(/Headline total \(location-based\):/)).toContainText("12,846.28 tCO₂e");
-  await expect(page.getByRole("link", { name: "Complete Scope 3 screening" })).toBeVisible();
-  await expect(page.getByRole("link", { name: "Continue to approval" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Complete Scope 3 screening" })).toHaveAttribute(
+    "href",
+    "/scope-3-screening?inventory_id=22222222-2222-2222-2222-222222222222"
+  );
+  await expect(page.getByRole("link", { name: "Continue to approval" })).toHaveAttribute(
+    "href",
+    "/approvals?inventory_id=22222222-2222-2222-2222-222222222222&action=request-approval"
+  );
+});
+
+test("report deep link opens generation for an approved inventory", async ({ page }) => {
+  const inventoryId = "22222222-2222-2222-2222-222222222222";
+  await page.route("**/api/v1/inventories?*", async (route) => {
+    await route.fulfill({
+      json: {
+        items: [{
+          id: inventoryId,
+          name: "Northstar Corporate Inventory 2026",
+          status: "approved"
+        }],
+        total: 1,
+        limit: 200,
+        offset: 0
+      }
+    });
+  });
+
+  await page.goto(
+    `/audit-reports?inventory_id=${inventoryId}&action=generate-report`
+  );
+
+  await expect(page.getByRole("dialog")).toBeVisible();
+  await expect(page.getByLabel("Inventory")).toHaveValue(inventoryId);
+});
+
+test("customer journey preserves one inventory from upload through report generation", async ({ page }) => {
+  let approvalStatus = "in_review";
+
+  await page.route("**/api/v1/inventory-approvals?*", async (route) => {
+    await route.fulfill({
+      json: {
+        items: [{
+          id: "approval-1",
+          inventory_id: inventory.id,
+          inventory_name: inventory.name,
+          calculation_run_id: inventory.latest_calculation_run_id,
+          version: 1,
+          status: approvalStatus,
+          requested_by: "Sam Green",
+          requested_at: "2026-08-01T09:42:00Z",
+          reviewer_id: "Alex Morgan",
+          evidence_complete: true,
+          boundary_complete: true,
+          factor_lineage_complete: true,
+          calculation_complete: true
+        }],
+        total: 1,
+        limit: 200,
+        offset: 0
+      }
+    });
+  });
+  await page.route("**/api/v1/inventory-approvals/approval-1/decision", async (route) => {
+    approvalStatus = "approved";
+    await route.fulfill({ json: { status: approvalStatus } });
+  });
+  await page.route(
+    "**/api/v1/inventories/*/scope-3-category-dispositions",
+    async (route) => {
+      await route.fulfill({
+        json: {
+          items: Array.from({ length: 15 }, (_, index) => ({
+            id: `disposition-${index + 1}`,
+            category: index + 1,
+            disposition: "included",
+            rationale: "Included after documented materiality screening.",
+            evidence_reference: `screening/category-${index + 1}`,
+            prepared_by: "Sam Green",
+            approved_by: "Alex Morgan"
+          })),
+          total: 15,
+          complete: true,
+          approved: true
+        }
+      });
+    }
+  );
+
+  await page.goto("/data-imports");
+  await page.getByLabel("Choose CSV or Excel file").setInputFiles({
+    name: "customer-activity.csv",
+    mimeType: "text/csv",
+    buffer: Buffer.from(
+      "calculation_method_id,activity_date,description,activity_value,activity_unit,evidence_reference,source_record_id,geography_code\n" +
+        "scope2.location_electricity.kwh.uk_2026.v1,2026-03-31,Purchased electricity,50000,kWh,electricity-bill.pdf,golden-path-001,GB"
+    )
+  });
+  await page.getByRole("button", { name: "Import 1 validated rows" }).click();
+  await page.getByRole("button", { name: "Calculate inventory" }).click();
+
+  await page.getByRole("link", { name: "Complete Scope 3 screening" }).click();
+  await expect(page.getByLabel("Reporting inventory")).toHaveValue(inventory.id);
+  await page.getByRole("link", { name: "Continue to inventory approval" }).click();
+
+  await expect(page.getByRole("button", { name: "Approve inventory" })).toBeVisible();
+  await page.route("**/api/v1/inventories?*", async (route) => {
+    await route.fulfill({
+      json: {
+        items: [{ ...inventory, status: "approved" }],
+        total: 1,
+        limit: 200,
+        offset: 0
+      }
+    });
+  });
+  await page.getByRole("button", { name: "Approve inventory" }).click();
+  await page.getByRole("link", { name: "Generate customer report" }).click();
+
+  await expect(page.getByRole("dialog")).toBeVisible();
+  await expect(page.getByLabel("Inventory")).toHaveValue(inventory.id);
+  await page.getByRole("button", { name: "Generate report" }).click();
+  await expect(page.getByText("Report contents")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Download PDF" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Download CSV" })).toBeVisible();
 });
 
 test("a failed activity batch leaves the whole upload unimported", async ({ page }) => {

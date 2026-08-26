@@ -17,7 +17,6 @@ import {
 import type {
   AccountingSourceSystem,
   AccountingTemplate,
-  ImportRow,
   ValidatedImportRow
 } from "@/lib/scope3-import";
 import { useApiQuery } from "@/lib/use-api";
