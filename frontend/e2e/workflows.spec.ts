@@ -688,7 +688,10 @@ test("customer journey preserves one inventory from upload through report genera
 
   await expect(page.getByRole("dialog")).toBeVisible();
   await expect(page.getByLabel("Inventory")).toHaveValue(inventory.id);
-  await page.getByRole("button", { name: "Generate report" }).click();
+  await page
+    .getByLabel("Generate audit report")
+    .getByRole("button", { name: "Generate report" })
+    .click();
   await expect(page.getByText("Report contents")).toBeVisible();
   await expect(page.getByRole("button", { name: "Download PDF" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Download CSV" })).toBeVisible();
