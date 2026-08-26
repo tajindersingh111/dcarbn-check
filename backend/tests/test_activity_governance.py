@@ -5,14 +5,17 @@ from decimal import Decimal
 
 import pytest
 from fastapi import HTTPException
+from httpx import AsyncClient
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.auth.dependencies import CurrentPrincipal
-from app.models.activity import ActivityType, EmissionScope
+from app.auth.dependencies import CurrentPrincipal, get_current_principal
+from app.main import app
+from app.models.activity import ActivityRecord, ActivityType, EmissionScope
 from app.models.inventory import Inventory, ReportingPeriod
 from app.models.organisation import Organisation
 from app.schemas.activity import ActivityCreate, ActivityUpdate
-from app.services.activities import create_activity, update_activity
+from app.services.activities import create_activity, create_activity_batch, update_activity
 from tests.conftest import TEST_TENANT_ID
 
 
@@ -163,3 +166,150 @@ async def test_hvo_evidence_cannot_be_removed_by_update(
         )
 
     assert exc_info.value.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_activity_batch_commits_every_record_together(
+    db_session: AsyncSession,
+) -> None:
+    organisation, inventory = await _inventory(
+        db_session,
+        organisation_name="Batch organisation",
+        inventory_name="Batch inventory",
+    )
+
+    activities = await create_activity_batch(
+        db_session,
+        _principal(),
+        inventory.id,
+        [
+            _hvo_payload(organisation, source_record_id="batch-source-001"),
+            _hvo_payload(organisation, source_record_id="batch-source-002"),
+        ],
+    )
+
+    assert len(activities) == 2
+    count = await db_session.scalar(
+        select(func.count())
+        .select_from(ActivityRecord)
+        .where(ActivityRecord.inventory_id == inventory.id)
+    )
+    assert count == 2
+
+
+@pytest.mark.asyncio
+async def test_activity_batch_rejects_duplicate_source_identity_without_writes(
+    db_session: AsyncSession,
+) -> None:
+    organisation, inventory = await _inventory(
+        db_session,
+        organisation_name="Duplicate batch organisation",
+        inventory_name="Duplicate batch inventory",
+    )
+
+    with pytest.raises(HTTPException, match="must be unique") as exc_info:
+        await create_activity_batch(
+            db_session,
+            _principal(),
+            inventory.id,
+            [
+                _hvo_payload(organisation, source_record_id="duplicate-source"),
+                _hvo_payload(organisation, source_record_id="duplicate-source"),
+            ],
+        )
+
+    assert exc_info.value.status_code == 422
+    count = await db_session.scalar(
+        select(func.count())
+        .select_from(ActivityRecord)
+        .where(ActivityRecord.inventory_id == inventory.id)
+    )
+    assert count == 0
+
+
+@pytest.mark.asyncio
+async def test_activity_batch_rolls_back_all_records_when_one_conflicts(
+    db_session: AsyncSession,
+) -> None:
+    first_organisation, first_inventory = await _inventory(
+        db_session,
+        organisation_name="Existing source organisation",
+        inventory_name="Existing source inventory",
+    )
+    second_organisation, second_inventory = await _inventory(
+        db_session,
+        organisation_name="Import target organisation",
+        inventory_name="Import target inventory",
+    )
+    await create_activity(
+        db_session,
+        _principal(),
+        first_inventory.id,
+        _hvo_payload(first_organisation, source_record_id="conflicting-source"),
+    )
+    first_inventory_id = first_inventory.id
+    second_inventory_id = second_inventory.id
+
+    with pytest.raises(HTTPException, match="another inventory or organisation"):
+        await create_activity_batch(
+            db_session,
+            _principal(),
+            second_inventory_id,
+            [
+                _hvo_payload(second_organisation, source_record_id="would-be-partial"),
+                _hvo_payload(second_organisation, source_record_id="conflicting-source"),
+            ],
+        )
+
+    rolled_back_count = await db_session.scalar(
+        select(func.count())
+        .select_from(ActivityRecord)
+        .where(
+            ActivityRecord.inventory_id == second_inventory_id,
+            ActivityRecord.source_record_id == "would-be-partial",
+        )
+    )
+    existing_count = await db_session.scalar(
+        select(func.count())
+        .select_from(ActivityRecord)
+        .where(
+            ActivityRecord.inventory_id == first_inventory_id,
+            ActivityRecord.source_record_id == "conflicting-source",
+            ActivityRecord.is_current.is_(True),
+        )
+    )
+    assert rolled_back_count == 0
+    assert existing_count == 1
+
+
+@pytest.mark.asyncio
+async def test_activity_batch_api_returns_one_atomic_result(
+    db_session: AsyncSession,
+    client: AsyncClient,
+) -> None:
+    organisation, inventory = await _inventory(
+        db_session,
+        organisation_name="API batch organisation",
+        inventory_name="API batch inventory",
+    )
+    app.dependency_overrides[get_current_principal] = _principal
+
+    response = await client.post(
+        f"/api/v1/inventories/{inventory.id}/activities/batch",
+        json={
+            "items": [
+                _hvo_payload(
+                    organisation,
+                    source_record_id="api-batch-source-001",
+                ).model_dump(mode="json"),
+                _hvo_payload(
+                    organisation,
+                    source_record_id="api-batch-source-002",
+                ).model_dump(mode="json"),
+            ]
+        },
+    )
+
+    assert response.status_code == 201, response.text
+    assert response.json()["total"] == 2
+    assert len(response.json()["items"]) == 2

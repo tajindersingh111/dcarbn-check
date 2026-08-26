@@ -260,41 +260,31 @@ export function ActivityCsvImport({
     setImporting(true);
     setError(null);
     setMessage(null);
-    let failures = 0;
-    for (const row of rows) {
+    setRows((current) =>
+      current.map((item) => ({ ...item, status: "importing" }))
+    );
+    try {
+      await apiRequest(`/inventories/${inventoryId}/activities/batch`, {
+        method: "POST",
+        body: JSON.stringify({
+          items: rows.map((row) => activityPayload(row, organisationId))
+        })
+      });
       setRows((current) =>
-        current.map((item) =>
-          item.index === row.index ? { ...item, status: "importing" } : item
-        )
+        current.map((item) => ({ ...item, status: "imported" }))
       );
-      try {
-        await apiRequest(`/inventories/${inventoryId}/activities`, {
-          method: "POST",
-          body: JSON.stringify(activityPayload(row, organisationId))
-        });
-        setRows((current) =>
-          current.map((item) =>
-            item.index === row.index ? { ...item, status: "imported" } : item
-          )
-        );
-      } catch (caught) {
-        failures += 1;
-        const detail = caught instanceof Error ? caught.message : "Import failed";
-        setRows((current) =>
-          current.map((item) =>
-            item.index === row.index
-              ? { ...item, status: "failed", errors: [...item.errors, detail] }
-              : item
-          )
-        );
-      }
+      setMessage(`All ${rows.length} activity records were imported and audited.`);
+    } catch (caught) {
+      const detail = caught instanceof Error ? caught.message : "Import failed";
+      setRows((current) =>
+        current.map((item) => ({
+          ...item,
+          status: "failed"
+        }))
+      );
+      setError(`No records were imported. ${detail}`);
     }
     setImporting(false);
-    setMessage(
-      failures === 0
-        ? `All ${rows.length} activity records were imported and audited.`
-        : `${rows.length - failures} records imported; ${failures} need attention.`
-    );
   }
 
   if (organisations.loading || inventories.loading) {
@@ -451,7 +441,15 @@ export function ActivityCsvImport({
                     <td>{row.values.activity_value} {row.values.activity_unit}</td>
                     <td>{row.method?.label ?? row.values.calculation_method_id}</td>
                     <td>
-                      <StatusBadge status={row.status === "imported" ? "complete" : row.errors.length ? "failed" : "draft"} />
+                      <StatusBadge
+                        status={
+                          row.status === "imported"
+                            ? "complete"
+                            : row.status === "failed" || row.errors.length
+                              ? "failed"
+                              : "draft"
+                        }
+                      />
                       {row.errors.map((item) => <small className="field-error" key={item}>{item}</small>)}
                     </td>
                   </tr>

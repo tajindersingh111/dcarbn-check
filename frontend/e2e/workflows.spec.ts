@@ -504,11 +504,14 @@ test("customer uploads governed activity data without column mapping", async ({ 
   await expect(page.getByText("1 ready", { exact: true })).toBeVisible();
   await expect(page.getByText("0 need attention", { exact: true })).toBeVisible();
   const requestPromise = page.waitForRequest((request) =>
-    request.url().includes("/activities") && request.method() === "POST"
+    request.url().includes("/activities/batch") && request.method() === "POST"
   );
   await page.getByRole("button", { name: "Import 1 validated rows" }).click();
-  const payload = (await requestPromise).postDataJSON() as Record<string, unknown>;
-  expect(payload).toMatchObject({
+  const payload = (await requestPromise).postDataJSON() as {
+    items: Array<Record<string, unknown>>;
+  };
+  expect(payload.items).toHaveLength(1);
+  expect(payload.items[0]).toMatchObject({
     activity_type: "purchased_electricity",
     scope: "scope_2",
     scope_2_method: "location_based",
@@ -533,6 +536,34 @@ test("customer uploads governed activity data without column mapping", async ({ 
   await expect(page.getByText(/Headline total \(location-based\):/)).toContainText("12,846.28 tCO₂e");
   await expect(page.getByRole("link", { name: "Complete Scope 3 screening" })).toBeVisible();
   await expect(page.getByRole("link", { name: "Continue to approval" })).toBeVisible();
+});
+
+test("a failed activity batch leaves the whole upload unimported", async ({ page }) => {
+  await page.route("**/api/v1/inventories/*/activities/batch", async (route) => {
+    await route.fulfill({
+      status: 409,
+      json: { detail: "Batch validation failed." }
+    });
+  });
+  await page.goto("/data-imports");
+  await page.getByLabel("Choose CSV file").setInputFiles({
+    name: "activity-upload.csv",
+    mimeType: "text/csv",
+    buffer: Buffer.from(
+      "calculation_method_id,activity_date,description,activity_value,activity_unit,evidence_reference,source_record_id,geography_code\n" +
+        "scope2.location_electricity.kwh.uk_2026.v1,2026-03-31,Purchased electricity,50000,kWh,electricity-bill.pdf,electricity-2026-rollback,GB"
+    )
+  });
+
+  await page.getByRole("button", { name: "Import 1 validated rows" }).click();
+
+  await expect(
+    page.getByText("No records were imported. Batch validation failed.")
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Import 1 validated rows" })
+  ).toBeEnabled();
+  await expect(page.getByRole("button", { name: "Calculate inventory" })).toHaveCount(0);
 });
 
 test("an existing inventory can be calculated without re-uploading activity", async ({ page }) => {

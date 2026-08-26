@@ -139,6 +139,13 @@ export async function installApiFixtures(page: Page): Promise<void> {
     if (path === "/reporting-periods" && method === "POST") {
       return route.fulfill({ status: 201, json: {} });
     }
+    if (path.endsWith("/activities/batch") && method === "POST") {
+      const payload = request.postDataJSON() as { items?: unknown[] };
+      return route.fulfill({
+        status: 201,
+        json: { items: payload.items ?? [], total: payload.items?.length ?? 0 }
+      });
+    }
     if (path.endsWith("/activities") && method === "POST") {
       return route.fulfill({ status: 201, json: { id: "activity-1" } });
     }

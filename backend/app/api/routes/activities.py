@@ -8,6 +8,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.auth.dependencies import CurrentPrincipal, get_current_principal, require_roles
 from app.db.session import get_db
 from app.schemas.activity import (
+    ActivityBatchCreate,
+    ActivityBatchResponse,
     ActivityCreate,
     ActivityListResponse,
     ActivityResponse,
@@ -15,6 +17,7 @@ from app.schemas.activity import (
 )
 from app.services.activities import (
     create_activity,
+    create_activity_batch,
     get_activity,
     list_activities,
     update_activity,
@@ -38,6 +41,30 @@ async def create(
 ) -> ActivityResponse:
     activity = await create_activity(db, principal, inventory_id, payload)
     return ActivityResponse.model_validate(activity)
+
+
+@router.post(
+    "/inventories/{inventory_id}/activities/batch",
+    response_model=ActivityBatchResponse,
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[editor],
+)
+async def create_batch(
+    inventory_id: UUID,
+    payload: ActivityBatchCreate,
+    principal: CurrentPrincipal = Depends(get_current_principal),
+    db: AsyncSession = Depends(get_db),
+) -> ActivityBatchResponse:
+    activities = await create_activity_batch(
+        db,
+        principal,
+        inventory_id,
+        payload.items,
+    )
+    return ActivityBatchResponse(
+        items=[ActivityResponse.model_validate(activity) for activity in activities],
+        total=len(activities),
+    )
 
 
 @router.get(
