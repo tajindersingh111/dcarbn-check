@@ -27,9 +27,12 @@ const inventory = {
   locked_at: null,
   approved_at: null,
   latest_calculation_run_id: "44444444-4444-4444-4444-444444444444",
+  scope_2_headline_basis: "location_based",
   total_kg_co2e: "12846280",
   scope_1_kg_co2e: "3540440",
   scope_2_kg_co2e: "1286020",
+  scope_2_location_based_kg_co2e: "1286020",
+  scope_2_market_based_kg_co2e: "1100000",
   scope_3_kg_co2e: "8019820",
   created_at: "2026-01-01T00:00:00Z",
   updated_at: "2026-01-01T00:00:00Z"
@@ -87,9 +90,13 @@ export async function installApiFixtures(page: Page): Promise<void> {
       return route.fulfill({ json: { status: "in_review" } });
     }
     if (path === "/dashboard") {
+      const headlineBasis = url.searchParams.get("scope_2_headline_basis") ?? "location_based";
       return route.fulfill({ json: {
-        total_kg_co2e: "12846280",
-        total_t_co2e: "12846.28",
+        scope_2_headline_basis: headlineBasis,
+        scope_2_location_based_kg_co2e: "1286020",
+        scope_2_market_based_kg_co2e: "1100000",
+        total_kg_co2e: headlineBasis === "location_based" ? "12846280" : "12660260",
+        total_t_co2e: headlineBasis === "location_based" ? "12846.28" : "12660.26",
         inventory_count: 1,
         locked_inventory_count: 0,
         open_data_review_count: 1,
@@ -104,7 +111,14 @@ export async function installApiFixtures(page: Page): Promise<void> {
       return route.fulfill({ status: 201, json: organisation });
     }
     if (path.startsWith("/inventories") && method === "GET" && !path.includes("calculation-runs") && !path.includes("scope-3-category-dispositions")) {
-      return route.fulfill({ json: { items: [inventory], total: 1, limit: 200, offset: 0 }});
+      const headlineBasis = url.searchParams.get("scope_2_headline_basis") ?? "location_based";
+      const selectedInventory = {
+        ...inventory,
+        scope_2_headline_basis: headlineBasis,
+        scope_2_kg_co2e: headlineBasis === "location_based" ? "1286020" : "1100000",
+        total_kg_co2e: headlineBasis === "location_based" ? "12846280" : "12660260"
+      };
+      return route.fulfill({ json: { items: [selectedInventory], total: 1, limit: 200, offset: 0 }});
     }
     if (path === "/inventories" && method === "POST") {
       return route.fulfill({ status: 201, json: inventory });

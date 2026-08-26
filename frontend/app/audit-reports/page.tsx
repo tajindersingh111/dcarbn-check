@@ -43,7 +43,9 @@ function assuranceReadiness(report: AuditReport | null): AssuranceReadiness | nu
 
 export default function AuditReportsPage() {
   const reports = useApiQuery<ListResponse<AuditReportListItem>>("/audit-reports?limit=200");
-  const inventories = useApiQuery<ListResponse<Inventory>>("/inventories?limit=200");
+  const inventories = useApiQuery<ListResponse<Inventory>>(
+    "/inventories?limit=200&scope_2_headline_basis=location_based"
+  );
   const [generateModal, setGenerateModal] = useState(false);
   const [selectedReportId, setSelectedReportId] = useState<string | null>(null);
   const [working, setWorking] = useState(false);

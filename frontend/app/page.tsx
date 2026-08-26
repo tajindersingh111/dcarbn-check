@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useState } from "react";
 
 import { ErrorState, LoadingState } from "@/components/api-state";
 import {
@@ -32,9 +33,12 @@ function tonnes(value: string | null): string {
 }
 
 export default function DashboardPage() {
-  const summary = useApiQuery<DashboardSummary>("/dashboard");
+  const [scope2HeadlineBasis, setScope2HeadlineBasis] = useState<"location_based" | "market_based">("location_based");
+  const summary = useApiQuery<DashboardSummary>(
+    `/dashboard?scope_2_headline_basis=${scope2HeadlineBasis}`
+  );
   const inventories = useApiQuery<ListResponse<Inventory>>(
-    "/inventories?limit=5"
+    `/inventories?limit=5&scope_2_headline_basis=${scope2HeadlineBasis}`
   );
 
   if (summary.loading || inventories.loading) {
@@ -59,15 +63,18 @@ export default function DashboardPage() {
         title="Dashboard"
         description="Monitor reporting inventories, review DATa operational results and complete governed approvals."
         actions={
-          <Link className="button button-primary" href="/activities/new">
-            Add activity
-          </Link>
+          <>
+            <label>Headline Scope 2 basis<select aria-label="Headline Scope 2 basis" onChange={(event) => setScope2HeadlineBasis(event.target.value as "location_based" | "market_based")} value={scope2HeadlineBasis}><option value="location_based">Location-based</option><option value="market_based">Market-based</option></select></label>
+            <Link className="button button-primary" href="/activities/new">
+              Add activity
+            </Link>
+          </>
         }
       />
 
       <section className="metric-grid" aria-label="Carbon inventory summary">
         <MetricCard
-          helper="Across current inventory calculations"
+          helper={`Across current inventory calculations · ${scope2HeadlineBasis === "location_based" ? "location-based" : "market-based"} Scope 2 headline`}
           icon={<InventoryIcon />}
           label="Reported emissions"
           value={`${Number(summary.data?.total_t_co2e ?? 0).toLocaleString("en-GB", { maximumFractionDigits: 2 })} tCO₂e`}

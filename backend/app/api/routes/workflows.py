@@ -24,6 +24,7 @@ from app.schemas.workflows import (
     ReportingPeriodListResponse,
     ReportingPeriodResponse,
 )
+from app.schemas.calculation import Scope2HeadlineBasis
 from app.services.workflows import (
     create_inventory,
     create_reporting_period,
@@ -44,10 +45,11 @@ editor = Depends(
 
 @router.get("/dashboard", response_model=DashboardSummaryResponse)
 async def get_dashboard(
+    scope_2_headline_basis: Scope2HeadlineBasis,
     principal: CurrentPrincipal = Depends(get_current_principal),
     db: AsyncSession = Depends(get_db),
 ) -> DashboardSummaryResponse:
-    return await dashboard_summary(db, principal.tenant_id)
+    return await dashboard_summary(db, principal.tenant_id, scope_2_headline_basis)
 
 
 @router.post(
@@ -96,6 +98,7 @@ async def create_inventory_record(
         db,
         principal.tenant_id,
         inventory.id,
+        Scope2HeadlineBasis.LOCATION_BASED,
     )
     if response is None:
         raise HTTPException(status_code=500, detail="Inventory could not be loaded.")
@@ -104,6 +107,7 @@ async def create_inventory_record(
 
 @router.get("/inventories", response_model=InventoryListResponse)
 async def get_inventories(
+    scope_2_headline_basis: Scope2HeadlineBasis,
     limit: int = Query(default=50, ge=1, le=200),
     offset: int = Query(default=0, ge=0),
     principal: CurrentPrincipal = Depends(get_current_principal),
@@ -114,6 +118,7 @@ async def get_inventories(
         principal.tenant_id,
         limit,
         offset,
+        scope_2_headline_basis,
     )
     return InventoryListResponse(
         items=items,
@@ -129,6 +134,7 @@ async def get_inventories(
 )
 async def get_inventory(
     inventory_id: UUID,
+    scope_2_headline_basis: Scope2HeadlineBasis,
     principal: CurrentPrincipal = Depends(get_current_principal),
     db: AsyncSession = Depends(get_db),
 ) -> InventoryResponse:
@@ -136,6 +142,7 @@ async def get_inventory(
         db,
         principal.tenant_id,
         inventory_id,
+        scope_2_headline_basis,
     )
     if item is None:
         raise HTTPException(status_code=404, detail="Inventory not found.")

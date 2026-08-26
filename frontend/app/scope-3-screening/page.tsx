@@ -56,7 +56,9 @@ function emptyDecisions(): Disposition[] {
 }
 
 export default function Scope3ScreeningPage() {
-  const inventories = useApiQuery<ListResponse<Inventory>>("/inventories?limit=200");
+  const inventories = useApiQuery<ListResponse<Inventory>>(
+    "/inventories?limit=200&scope_2_headline_basis=location_based"
+  );
   const [inventoryId, setInventoryId] = useState("");
   const [decisions, setDecisions] = useState<Disposition[]>(emptyDecisions);
   const [status, setStatus] = useState<DispositionResponse | null>(null);

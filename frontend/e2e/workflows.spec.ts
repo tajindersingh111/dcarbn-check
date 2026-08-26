@@ -13,6 +13,15 @@ test("dashboard loads live workflow data", async ({ page }) => {
   await expect(page.getByText("Northstar Corporate Inventory 2026")).toBeVisible();
 });
 
+test("inventory register separates Scope 2 methods and identifies the headline", async ({ page }) => {
+  await page.goto("/inventories");
+  await expect(page.getByRole("columnheader", { name: "Scope 2 location-based" })).toBeVisible();
+  await expect(page.getByRole("columnheader", { name: "Scope 2 market-based" })).toBeVisible();
+  await expect(page.getByRole("columnheader", { name: "Headline total (location-based)" })).toBeVisible();
+  await page.getByLabel("Headline Scope 2 basis").selectOption("market_based");
+  await expect(page.getByRole("columnheader", { name: "Headline total (market-based)" })).toBeVisible();
+});
+
 test("organisation creation posts to the API", async ({ page }) => {
   await page.goto("/organisations");
   await page.getByRole("button", { name: "Add organisation" }).click();

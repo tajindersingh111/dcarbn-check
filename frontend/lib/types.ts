@@ -46,8 +46,11 @@ export interface Inventory {
   locked_at: string | null;
   approved_at: string | null;
   latest_calculation_run_id: string | null;
+  scope_2_headline_basis: "location_based" | "market_based";
   total_kg_co2e: string | null;
   scope_1_kg_co2e: string | null;
+  scope_2_location_based_kg_co2e: string | null;
+  scope_2_market_based_kg_co2e: string | null;
   scope_2_kg_co2e: string | null;
   scope_3_kg_co2e: string | null;
   created_at: string;
@@ -55,6 +58,9 @@ export interface Inventory {
 }
 
 export interface DashboardSummary {
+  scope_2_headline_basis: "location_based" | "market_based";
+  scope_2_location_based_kg_co2e: string;
+  scope_2_market_based_kg_co2e: string;
   total_kg_co2e: string;
   total_t_co2e: string;
   inventory_count: number;

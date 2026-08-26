@@ -13,7 +13,9 @@ import type { ApprovalQueueItem, Inventory, ListResponse } from "@/lib/types";
 
 export default function ApprovalsPage() {
   const approvals = useApiQuery<ListResponse<ApprovalQueueItem>>("/inventory-approvals?limit=200");
-  const inventories = useApiQuery<ListResponse<Inventory>>("/inventories?limit=200");
+  const inventories = useApiQuery<ListResponse<Inventory>>(
+    "/inventories?limit=200&scope_2_headline_basis=location_based"
+  );
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [requestModal, setRequestModal] = useState(false);
   const [requestInventoryId, setRequestInventoryId] = useState("");

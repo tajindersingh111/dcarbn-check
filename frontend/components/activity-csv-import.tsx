@@ -156,7 +156,9 @@ export function ActivityCsvImport({
   const organisations = useApiQuery<ListResponse<Organisation>>(
     "/organisations?limit=200"
   );
-  const inventories = useApiQuery<ListResponse<Inventory>>("/inventories?limit=200");
+  const inventories = useApiQuery<ListResponse<Inventory>>(
+    "/inventories?limit=200&scope_2_headline_basis=location_based"
+  );
   const [organisationId, setOrganisationId] = useState("");
   const [inventoryId, setInventoryId] = useState("");
   const [fileName, setFileName] = useState("");
