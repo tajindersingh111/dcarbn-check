@@ -4,20 +4,26 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import { ApiError, apiRequest } from "@/lib/api";
 
+type RefreshOptions = {
+  silent?: boolean;
+};
+
 export function useApiQuery<T>(path: string | null) {
   const [data, setData] = useState<T | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(Boolean(path));
   const requestId = useRef(0);
 
-  const refresh = useCallback(async () => {
+  const refresh = useCallback(async (options: RefreshOptions = {}) => {
     if (!path) {
       setData(null);
       setLoading(false);
       return;
     }
     const currentId = ++requestId.current;
-    setLoading(true);
+    if (!options.silent) {
+      setLoading(true);
+    }
     setError(null);
     try {
       const response = await apiRequest<T>(path);

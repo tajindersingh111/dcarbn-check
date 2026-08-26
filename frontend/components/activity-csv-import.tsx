@@ -7,6 +7,7 @@ import {
   type GovernedMethodOption
 } from "@/components/activity-form";
 import { ErrorState, LoadingState, MutationMessage } from "@/components/api-state";
+import { InventoryCalculationRunner } from "@/components/inventory-calculation-runner";
 import { PageHeader } from "@/components/page-header";
 import { StatusBadge } from "@/components/status-badge";
 import { apiRequest } from "@/lib/api";
@@ -23,6 +24,16 @@ interface ActivityImportRow {
   errors: string[];
   status: ImportStatus;
 }
+
+interface ParsedActivityFile {
+  headers: string[];
+  rows: string[][];
+}
+
+type InventoryDateBoundary = Pick<
+  Inventory,
+  "reporting_period_start" | "reporting_period_end"
+>;
 
 const requiredColumns = [
   "calculation_method_id",
@@ -57,7 +68,7 @@ function rowFromCsv(
   headers: string[],
   cells: string[],
   index: number,
-  inventory: Inventory | undefined
+  inventory: InventoryDateBoundary | undefined
 ): ActivityImportRow {
   const values = Object.fromEntries(
     headers.map((header, columnIndex) => [
@@ -178,6 +189,8 @@ export function ActivityCsvImport({
     [inventories.data, organisationId]
   );
   const inventory = filteredInventories.find((item) => item.id === inventoryId);
+  const inventoryStart = inventory?.reporting_period_start;
+  const inventoryEnd = inventory?.reporting_period_end;
   const validCount = rows.filter((row) => row.errors.length === 0).length;
   const importedCount = rows.filter((row) => row.status === "imported").length;
 
@@ -195,12 +208,19 @@ export function ActivityCsvImport({
 
   useEffect(() => {
     if (!sourceRows) return;
+    const inventoryBoundary =
+      inventoryStart && inventoryEnd
+        ? {
+            reporting_period_start: inventoryStart,
+            reporting_period_end: inventoryEnd
+          }
+        : undefined;
     setRows(
       sourceRows.rows.map((cells, index) =>
-        rowFromCsv(sourceRows.headers, cells, index + 2, inventory)
+        rowFromCsv(sourceRows.headers, cells, index + 2, inventoryBoundary)
       )
     );
-  }, [inventory, sourceRows]);
+  }, [inventoryEnd, inventoryStart, sourceRows]);
 
   function downloadTemplate() {
     const blob = new Blob([templateCsv], { type: "text/csv;charset=utf-8" });
@@ -227,10 +247,22 @@ export function ActivityCsvImport({
     setError(null);
     setMessage(null);
     try {
-      const parsed = parseCsv(await file.text());
+      let parsed: ParsedActivityFile;
+      if (file.name.toLowerCase().endsWith(".xlsx")) {
+        const formData = new FormData();
+        formData.append("workbook", file);
+        parsed = await apiRequest<ParsedActivityFile>(
+          "/activity-imports/parse-workbook",
+          { method: "POST", body: formData }
+        );
+      } else if (file.name.toLowerCase().endsWith(".csv")) {
+        parsed = parseCsv(await file.text());
+      } else {
+        throw new Error("Choose a CSV file or an Excel .xlsx workbook.");
+      }
       const normalised = parsed.headers.map(normaliseHeader);
       if (new Set(normalised).size !== normalised.length) {
-        throw new Error("The CSV contains duplicate column headings after normalisation.");
+        throw new Error("The file contains duplicate column headings after normalisation.");
       }
       const missing = requiredColumns.filter((column) => !normalised.includes(column));
       if (missing.length > 0) {
@@ -250,7 +282,7 @@ export function ActivityCsvImport({
       setFileName("");
       setSourceRows(null);
       setRows([]);
-      setError(caught instanceof Error ? caught.message : "The CSV could not be read.");
+      setError(caught instanceof Error ? caught.message : "The file could not be read.");
     }
   }
 
@@ -259,41 +291,31 @@ export function ActivityCsvImport({
     setImporting(true);
     setError(null);
     setMessage(null);
-    let failures = 0;
-    for (const row of rows) {
+    setRows((current) =>
+      current.map((item) => ({ ...item, status: "importing" }))
+    );
+    try {
+      await apiRequest(`/inventories/${inventoryId}/activities/batch`, {
+        method: "POST",
+        body: JSON.stringify({
+          items: rows.map((row) => activityPayload(row, organisationId))
+        })
+      });
       setRows((current) =>
-        current.map((item) =>
-          item.index === row.index ? { ...item, status: "importing" } : item
-        )
+        current.map((item) => ({ ...item, status: "imported" }))
       );
-      try {
-        await apiRequest(`/inventories/${inventoryId}/activities`, {
-          method: "POST",
-          body: JSON.stringify(activityPayload(row, organisationId))
-        });
-        setRows((current) =>
-          current.map((item) =>
-            item.index === row.index ? { ...item, status: "imported" } : item
-          )
-        );
-      } catch (caught) {
-        failures += 1;
-        const detail = caught instanceof Error ? caught.message : "Import failed";
-        setRows((current) =>
-          current.map((item) =>
-            item.index === row.index
-              ? { ...item, status: "failed", errors: [...item.errors, detail] }
-              : item
-          )
-        );
-      }
+      setMessage(`All ${rows.length} activity records were imported and audited.`);
+    } catch (caught) {
+      const detail = caught instanceof Error ? caught.message : "Import failed";
+      setRows((current) =>
+        current.map((item) => ({
+          ...item,
+          status: "failed"
+        }))
+      );
+      setError(`No records were imported. ${detail}`);
     }
     setImporting(false);
-    setMessage(
-      failures === 0
-        ? `All ${rows.length} activity records were imported and audited.`
-        : `${rows.length - failures} records imported; ${failures} need attention.`
-    );
   }
 
   if (organisations.loading || inventories.loading) {
@@ -316,7 +338,7 @@ export function ActivityCsvImport({
       <PageHeader
         eyebrow="Customer data upload"
         title="Upload Scope 1, 2 and 3 activity data"
-        description="Choose the customer and reporting inventory once, upload one simple CSV, and let D-carbN validate every row before it is saved."
+        description="Choose the customer and reporting inventory once, upload one CSV or Excel file, and let D-carbN validate every row before it is saved."
         actions={
           <button className="button button-secondary" onClick={onShowSupplierResults} type="button">
             Supplier-calculated Scope 3
@@ -325,7 +347,7 @@ export function ActivityCsvImport({
       />
 
       <ol className="import-steps" aria-label="Activity import progress">
-        {["Choose destination", "Upload CSV", "Check rows", "Import"].map((label, index) => {
+        {["Choose destination", "Upload file", "Check rows", "Import"].map((label, index) => {
           const active =
             index === 0
               ? !inventoryId
@@ -385,7 +407,7 @@ export function ActivityCsvImport({
         <div className="panel-heading">
           <div>
             <p className="eyebrow">Step 2</p>
-            <h2>Choose one activity CSV</h2>
+            <h2>Choose one activity file</h2>
           </div>
           <div className="button-row">
             <button className="button button-secondary" onClick={downloadTemplate} type="button">
@@ -397,10 +419,12 @@ export function ActivityCsvImport({
           </div>
         </div>
         <div className="upload-zone">
-          <label className="button button-primary" htmlFor="activity-csv-file">Choose CSV file</label>
+          <label className="button button-primary" htmlFor="activity-data-file">
+            Choose CSV or Excel file
+          </label>
           <input
-            accept=".csv,text/csv"
-            id="activity-csv-file"
+            accept=".csv,text/csv,.xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            id="activity-data-file"
             onChange={(event) => void readFile(event.target.files?.[0])}
             type="file"
           />
@@ -410,7 +434,7 @@ export function ActivityCsvImport({
               {sourceRows ? `${sourceRows.rows.length} activity rows detected` : "Eight clear columns; no manual column mapping."}
             </span>
           </div>
-          <span>CSV only</span>
+          <span>CSV or Excel (.xlsx)</span>
         </div>
       </section>
 
@@ -430,7 +454,7 @@ export function ActivityCsvImport({
           </div>
           <div className="table-shell">
             <table>
-              <caption>Activity CSV validation preview</caption>
+              <caption>Activity file validation preview</caption>
               <thead>
                 <tr>
                   <th>Row</th>
@@ -450,7 +474,15 @@ export function ActivityCsvImport({
                     <td>{row.values.activity_value} {row.values.activity_unit}</td>
                     <td>{row.method?.label ?? row.values.calculation_method_id}</td>
                     <td>
-                      <StatusBadge status={row.status === "imported" ? "complete" : row.errors.length ? "failed" : "draft"} />
+                      <StatusBadge
+                        status={
+                          row.status === "imported"
+                            ? "complete"
+                            : row.status === "failed" || row.errors.length
+                              ? "failed"
+                              : "draft"
+                        }
+                      />
                       {row.errors.map((item) => <small className="field-error" key={item}>{item}</small>)}
                     </td>
                   </tr>
@@ -471,6 +503,16 @@ export function ActivityCsvImport({
               {importing ? "Importing…" : `Import ${validCount} validated rows`}
             </button>
           </div>
+        </section>
+      ) : null}
+
+      {inventory && rows.length > 0 && importedCount === rows.length ? (
+        <section className="panel import-calculation-panel">
+          <InventoryCalculationRunner
+            inventoryId={inventory.id}
+            inventoryName={inventory.name}
+            onCompleted={() => inventories.refresh({ silent: true })}
+          />
         </section>
       ) : null}
     </>

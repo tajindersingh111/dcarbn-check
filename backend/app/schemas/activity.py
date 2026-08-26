@@ -88,6 +88,22 @@ class ActivityCreate(BaseModel):
         return self
 
 
+class ActivityBatchCreate(BaseModel):
+    items: list[ActivityCreate] = Field(min_length=1, max_length=500)
+
+    @model_validator(mode="after")
+    def validate_unique_source_records(self) -> ActivityBatchCreate:
+        identities = [
+            (item.source_system, item.source_record_id)
+            for item in self.items
+        ]
+        if len(identities) != len(set(identities)):
+            raise ValueError(
+                "Each source_system and source_record_id pair must be unique within an import"
+            )
+        return self
+
+
 class ActivityUpdate(BaseModel):
     description: str | None = Field(default=None, min_length=1, max_length=500)
     activity_value: Decimal | None = Field(default=None, ge=0)
@@ -154,3 +170,13 @@ class ActivityListResponse(BaseModel):
     total: int
     limit: int
     offset: int
+
+
+class ActivityBatchResponse(BaseModel):
+    items: list[ActivityResponse]
+    total: int
+
+
+class ActivityImportPreview(BaseModel):
+    headers: list[str]
+    rows: list[list[str]]

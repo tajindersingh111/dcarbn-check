@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { ErrorState, LoadingState, MutationMessage } from "@/components/api-state";
 import { DataTable } from "@/components/data-table";
@@ -47,9 +47,11 @@ export default function AuditReportsPage() {
     "/inventories?limit=200&scope_2_headline_basis=location_based"
   );
   const [generateModal, setGenerateModal] = useState(false);
+  const [generateInventoryId, setGenerateInventoryId] = useState("");
   const [selectedReportId, setSelectedReportId] = useState<string | null>(null);
   const [working, setWorking] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const inventoryQueryApplied = useRef(false);
 
   const selectedPath = selectedReportId ? `/audit-reports/${selectedReportId}` : null;
   const selectedReport = useApiQuery<AuditReport>(selectedPath);
@@ -59,6 +61,27 @@ export default function AuditReportsPage() {
   );
   const changeHistory = restatementHistory(selectedReport.data ?? null);
   const readiness = assuranceReadiness(selectedReport.data ?? null);
+
+  useEffect(() => {
+    if (inventoryQueryApplied.current || !inventories.data) return;
+    inventoryQueryApplied.current = true;
+    const search = new URLSearchParams(window.location.search);
+    const requestedInventoryId = search.get("inventory_id");
+    if (
+      !requestedInventoryId ||
+      !inventories.data.items.some(
+        (item) =>
+          item.id === requestedInventoryId &&
+          ["approved", "locked", "superseded"].includes(item.status)
+      )
+    ) {
+      return;
+    }
+    setGenerateInventoryId(requestedInventoryId);
+    if (search.get("action") === "generate-report") {
+      setGenerateModal(true);
+    }
+  }, [inventories.data]);
 
   async function download(format: "pdf" | "csv") {
     if (!selectedReportId) return;
@@ -155,7 +178,7 @@ export default function AuditReportsPage() {
 
       <Modal open={generateModal} onClose={() => setGenerateModal(false)} title="Generate audit report" description="Create a deterministic snapshot from an approved inventory.">
         <form className="modal-form" onSubmit={generate}>
-          <label>Inventory<select name="inventory_id" required><option value="">Select approved inventory</option>{(inventories.data?.items ?? []).filter((item) => ["approved", "locked", "superseded"].includes(item.status)).map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
+          <label>Inventory<select name="inventory_id" required value={generateInventoryId} onChange={(event) => setGenerateInventoryId(event.target.value)}><option value="">Select approved inventory</option>{(inventories.data?.items ?? []).filter((item) => ["approved", "locked", "superseded"].includes(item.status)).map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
           <label>
             Scope 2 headline basis
             <select name="scope_2_headline_basis" required>

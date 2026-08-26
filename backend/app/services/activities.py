@@ -106,6 +106,18 @@ async def create_activity(
 ) -> ActivityRecord:
     inventory = await get_inventory(db, principal.tenant_id, inventory_id)
     ensure_inventory_editable(inventory)
+    activity = await _stage_activity(db, principal, inventory, payload)
+    await db.commit()
+    await db.refresh(activity)
+    return activity
+
+
+async def _stage_activity(
+    db: AsyncSession,
+    principal: CurrentPrincipal,
+    inventory: Inventory,
+    payload: ActivityCreate,
+) -> ActivityRecord:
     await _validate_links(db, principal, inventory, payload)
 
     registry = get_unit_registry()
@@ -135,7 +147,7 @@ async def create_activity(
     )
     existing = await db.scalar(existing_query)
     if existing is not None and (
-        existing.inventory_id != inventory_id or existing.organisation_id != payload.organisation_id
+        existing.inventory_id != inventory.id or existing.organisation_id != payload.organisation_id
     ):
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
@@ -147,7 +159,7 @@ async def create_activity(
 
     activity = ActivityRecord(
         tenant_id=principal.tenant_id,
-        inventory_id=inventory_id,
+        inventory_id=inventory.id,
         normalized_value=normalized.normalized_value,
         normalized_unit=normalized.normalized_unit,
         version=next_version,
@@ -169,15 +181,56 @@ async def create_activity(
         entity_type="activity_record",
         entity_id=activity.id,
         event_data={
-            "inventory_id": str(inventory_id),
+            "inventory_id": str(inventory.id),
             "activity_type": activity.activity_type.value,
             "scope": activity.scope.value,
             "version": next_version,
         },
     )
-    await db.commit()
-    await db.refresh(activity)
     return activity
+
+
+async def create_activity_batch(
+    db: AsyncSession,
+    principal: CurrentPrincipal,
+    inventory_id: UUID,
+    payloads: list[ActivityCreate],
+) -> list[ActivityRecord]:
+    if not payloads or len(payloads) > 500:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="An activity import must contain between 1 and 500 records.",
+        )
+    identities = [
+        (payload.source_system, payload.source_record_id)
+        for payload in payloads
+    ]
+    if len(identities) != len(set(identities)):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=(
+                "Each source_system and source_record_id pair must be unique "
+                "within an import."
+            ),
+        )
+
+    inventory = await get_inventory(db, principal.tenant_id, inventory_id)
+    ensure_inventory_editable(inventory)
+
+    activities: list[ActivityRecord] = []
+    try:
+        for payload in payloads:
+            activities.append(
+                await _stage_activity(db, principal, inventory, payload)
+            )
+        await db.commit()
+    except Exception:
+        await db.rollback()
+        raise
+
+    for activity in activities:
+        await db.refresh(activity)
+    return activities
 
 
 async def get_activity(
