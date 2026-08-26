@@ -139,6 +139,33 @@ export async function installApiFixtures(page: Page): Promise<void> {
     if (path === "/reporting-periods" && method === "POST") {
       return route.fulfill({ status: 201, json: {} });
     }
+    if (path === "/activity-imports/parse-workbook" && method === "POST") {
+      return route.fulfill({
+        status: 200,
+        json: {
+          headers: [
+            "calculation_method_id",
+            "activity_date",
+            "description",
+            "activity_value",
+            "activity_unit",
+            "evidence_reference",
+            "source_record_id",
+            "geography_code"
+          ],
+          rows: [[
+            "scope2.location_electricity.kwh.uk_2026.v1",
+            "2026-03-31",
+            "Purchased electricity from Excel",
+            "50000",
+            "kWh",
+            "electricity-bill.xlsx",
+            "electricity-excel-001",
+            "GB"
+          ]]
+        }
+      });
+    }
     if (path.endsWith("/activities/batch") && method === "POST") {
       const payload = request.postDataJSON() as { items?: unknown[] };
       return route.fulfill({

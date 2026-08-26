@@ -492,7 +492,7 @@ test("customer uploads governed activity data without column mapping", async ({ 
     page.getByRole("heading", { name: "Upload Scope 1, 2 and 3 activity data" })
   ).toBeVisible();
 
-  await page.getByLabel("Choose CSV file").setInputFiles({
+  await page.getByLabel("Choose CSV or Excel file").setInputFiles({
     name: "activity-upload.csv",
     mimeType: "text/csv",
     buffer: Buffer.from(
@@ -546,7 +546,7 @@ test("a failed activity batch leaves the whole upload unimported", async ({ page
     });
   });
   await page.goto("/data-imports");
-  await page.getByLabel("Choose CSV file").setInputFiles({
+  await page.getByLabel("Choose CSV or Excel file").setInputFiles({
     name: "activity-upload.csv",
     mimeType: "text/csv",
     buffer: Buffer.from(
@@ -564,6 +564,37 @@ test("a failed activity batch leaves the whole upload unimported", async ({ page
     page.getByRole("button", { name: "Import 1 validated rows" })
   ).toBeEnabled();
   await expect(page.getByRole("button", { name: "Calculate inventory" })).toHaveCount(0);
+});
+
+test("customer previews and atomically imports an Excel workbook", async ({ page }) => {
+  await page.goto("/data-imports");
+  const parseRequest = page.waitForRequest((request) =>
+    request.url().includes("/activity-imports/parse-workbook") &&
+    request.method() === "POST"
+  );
+  await page.getByLabel("Choose CSV or Excel file").setInputFiles({
+    name: "activity-upload.xlsx",
+    mimeType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    buffer: Buffer.from("safe workbook fixture")
+  });
+
+  const request = await parseRequest;
+  expect(request.headers()["content-type"]).toContain("multipart/form-data");
+  await expect(page.getByText("1 ready", { exact: true })).toBeVisible();
+  await expect(page.getByText("Purchased electricity from Excel")).toBeVisible();
+
+  const batchRequest = page.waitForRequest((activityRequest) =>
+    activityRequest.url().includes("/activities/batch") &&
+    activityRequest.method() === "POST"
+  );
+  await page.getByRole("button", { name: "Import 1 validated rows" }).click();
+  const payload = (await batchRequest).postDataJSON() as {
+    items: Array<Record<string, unknown>>;
+  };
+  expect(payload.items[0]).toMatchObject({
+    scope: "scope_2",
+    source_record_id: "electricity-excel-001"
+  });
 });
 
 test("an existing inventory can be calculated without re-uploading activity", async ({ page }) => {

@@ -175,3 +175,8 @@ class ActivityListResponse(BaseModel):
 class ActivityBatchResponse(BaseModel):
     items: list[ActivityResponse]
     total: int
+
+
+class ActivityImportPreview(BaseModel):
+    headers: list[str]
+    rows: list[list[str]]

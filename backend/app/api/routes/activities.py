@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.dependencies import CurrentPrincipal, get_current_principal, require_roles
@@ -11,6 +11,7 @@ from app.schemas.activity import (
     ActivityBatchCreate,
     ActivityBatchResponse,
     ActivityCreate,
+    ActivityImportPreview,
     ActivityListResponse,
     ActivityResponse,
     ActivityUpdate,
@@ -22,9 +23,22 @@ from app.services.activities import (
     list_activities,
     update_activity,
 )
+from app.services.activity_imports import parse_activity_workbook
 
 router = APIRouter()
 editor = Depends(require_roles("tenant_admin", "sustainability_manager", "data_contributor"))
+
+
+@router.post(
+    "/activity-imports/parse-workbook",
+    response_model=ActivityImportPreview,
+    dependencies=[editor],
+)
+async def parse_workbook(
+    workbook: UploadFile = File(...),
+) -> ActivityImportPreview:
+    headers, rows = await parse_activity_workbook(workbook)
+    return ActivityImportPreview(headers=headers, rows=rows)
 
 
 @router.post(

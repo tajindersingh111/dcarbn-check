@@ -25,6 +25,11 @@ interface ActivityImportRow {
   status: ImportStatus;
 }
 
+interface ParsedActivityFile {
+  headers: string[];
+  rows: string[][];
+}
+
 const requiredColumns = [
   "calculation_method_id",
   "activity_date",
@@ -228,10 +233,22 @@ export function ActivityCsvImport({
     setError(null);
     setMessage(null);
     try {
-      const parsed = parseCsv(await file.text());
+      let parsed: ParsedActivityFile;
+      if (file.name.toLowerCase().endsWith(".xlsx")) {
+        const formData = new FormData();
+        formData.append("workbook", file);
+        parsed = await apiRequest<ParsedActivityFile>(
+          "/activity-imports/parse-workbook",
+          { method: "POST", body: formData }
+        );
+      } else if (file.name.toLowerCase().endsWith(".csv")) {
+        parsed = parseCsv(await file.text());
+      } else {
+        throw new Error("Choose a CSV file or an Excel .xlsx workbook.");
+      }
       const normalised = parsed.headers.map(normaliseHeader);
       if (new Set(normalised).size !== normalised.length) {
-        throw new Error("The CSV contains duplicate column headings after normalisation.");
+        throw new Error("The file contains duplicate column headings after normalisation.");
       }
       const missing = requiredColumns.filter((column) => !normalised.includes(column));
       if (missing.length > 0) {
@@ -251,7 +268,7 @@ export function ActivityCsvImport({
       setFileName("");
       setSourceRows(null);
       setRows([]);
-      setError(caught instanceof Error ? caught.message : "The CSV could not be read.");
+      setError(caught instanceof Error ? caught.message : "The file could not be read.");
     }
   }
 
@@ -307,7 +324,7 @@ export function ActivityCsvImport({
       <PageHeader
         eyebrow="Customer data upload"
         title="Upload Scope 1, 2 and 3 activity data"
-        description="Choose the customer and reporting inventory once, upload one simple CSV, and let D-carbN validate every row before it is saved."
+        description="Choose the customer and reporting inventory once, upload one CSV or Excel file, and let D-carbN validate every row before it is saved."
         actions={
           <button className="button button-secondary" onClick={onShowSupplierResults} type="button">
             Supplier-calculated Scope 3
@@ -316,7 +333,7 @@ export function ActivityCsvImport({
       />
 
       <ol className="import-steps" aria-label="Activity import progress">
-        {["Choose destination", "Upload CSV", "Check rows", "Import"].map((label, index) => {
+        {["Choose destination", "Upload file", "Check rows", "Import"].map((label, index) => {
           const active =
             index === 0
               ? !inventoryId
@@ -376,7 +393,7 @@ export function ActivityCsvImport({
         <div className="panel-heading">
           <div>
             <p className="eyebrow">Step 2</p>
-            <h2>Choose one activity CSV</h2>
+            <h2>Choose one activity file</h2>
           </div>
           <div className="button-row">
             <button className="button button-secondary" onClick={downloadTemplate} type="button">
@@ -388,10 +405,12 @@ export function ActivityCsvImport({
           </div>
         </div>
         <div className="upload-zone">
-          <label className="button button-primary" htmlFor="activity-csv-file">Choose CSV file</label>
+          <label className="button button-primary" htmlFor="activity-data-file">
+            Choose CSV or Excel file
+          </label>
           <input
-            accept=".csv,text/csv"
-            id="activity-csv-file"
+            accept=".csv,text/csv,.xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            id="activity-data-file"
             onChange={(event) => void readFile(event.target.files?.[0])}
             type="file"
           />
@@ -401,7 +420,7 @@ export function ActivityCsvImport({
               {sourceRows ? `${sourceRows.rows.length} activity rows detected` : "Eight clear columns; no manual column mapping."}
             </span>
           </div>
-          <span>CSV only</span>
+          <span>CSV or Excel (.xlsx)</span>
         </div>
       </section>
 
@@ -421,7 +440,7 @@ export function ActivityCsvImport({
           </div>
           <div className="table-shell">
             <table>
-              <caption>Activity CSV validation preview</caption>
+              <caption>Activity file validation preview</caption>
               <thead>
                 <tr>
                   <th>Row</th>
