@@ -9,6 +9,7 @@ from app.schemas.calculation import (
     Scope2HeadlineBasis,
 )
 from app.services.calculations import calculate_inventory_totals
+from app.services.workflows import aggregate_inventory_totals
 
 
 def _item(
@@ -105,3 +106,47 @@ def test_report_summary_discloses_both_methods_but_one_headline_total() -> None:
     assert Decimal(payload["scope_2_location_based_kg_co2e"]) == Decimal("40")
     assert Decimal(payload["scope_2_market_based_kg_co2e"]) == Decimal("25")
     assert Decimal(payload["total_kg_co2e"]) == Decimal("425")
+
+
+REGISTER_ROWS = [
+    (EmissionScope.SCOPE_1, Scope2Method.NOT_APPLICABLE, Decimal("100")),
+    (EmissionScope.SCOPE_2, Scope2Method.LOCATION_BASED, Decimal("40")),
+    (EmissionScope.SCOPE_2, Scope2Method.MARKET_BASED, Decimal("25")),
+    (EmissionScope.SCOPE_3, Scope2Method.NOT_APPLICABLE, Decimal("300")),
+]
+
+
+def test_inventory_register_location_headline_never_double_counts_scope_2() -> None:
+    totals = aggregate_inventory_totals(
+        REGISTER_ROWS,
+        Scope2HeadlineBasis.LOCATION_BASED,
+    )
+
+    assert totals["scope_2_location_based"] == Decimal("40")
+    assert totals["scope_2_market_based"] == Decimal("25")
+    assert totals["scope_2"] == Decimal("40")
+    assert totals["total"] == Decimal("440")
+
+
+def test_inventory_register_market_headline_never_double_counts_scope_2() -> None:
+    totals = aggregate_inventory_totals(
+        REGISTER_ROWS,
+        Scope2HeadlineBasis.MARKET_BASED,
+    )
+
+    assert totals["scope_2_location_based"] == Decimal("40")
+    assert totals["scope_2_market_based"] == Decimal("25")
+    assert totals["scope_2"] == Decimal("25")
+    assert totals["total"] == Decimal("425")
+
+
+def test_register_and_dashboard_apis_require_explicit_scope_2_headline_basis() -> None:
+    openapi = app.openapi()
+
+    for path in ("/api/v1/inventories", "/api/v1/dashboard"):
+        parameter = next(
+            item
+            for item in openapi["paths"][path]["get"]["parameters"]
+            if item["name"] == "scope_2_headline_basis"
+        )
+        assert parameter["required"] is True

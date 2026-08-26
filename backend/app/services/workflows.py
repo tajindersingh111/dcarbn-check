@@ -8,6 +8,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.dependencies import CurrentPrincipal
+from app.models.activity import EmissionScope, Scope2Method
 from app.models.calculation import CalculationResult, CalculationRun
 from app.models.data_review import DataOperationalEmissionReview, DataReviewStatus
 from app.models.inventory import Inventory, InventoryStatus, ReportingPeriod
@@ -17,6 +18,7 @@ from app.models.inventory_governance import (
     InventoryApproval,
 )
 from app.models.organisation import Organisation
+from app.schemas.calculation import Scope2HeadlineBasis
 from app.schemas.workflows import (
     ApprovalQueueItem,
     AuditReportListItem,
@@ -167,6 +169,7 @@ async def list_inventories(
     tenant_id: UUID,
     limit: int,
     offset: int,
+    scope_2_headline_basis: Scope2HeadlineBasis,
 ) -> tuple[list[InventoryResponse], int]:
     query = (
         select(Inventory, ReportingPeriod, Organisation)
@@ -195,6 +198,7 @@ async def list_inventories(
         totals = await _calculation_totals(
             db,
             latest_run.id if latest_run else None,
+            scope_2_headline_basis,
         )
         items.append(
             InventoryResponse(
@@ -212,8 +216,11 @@ async def list_inventories(
                 locked_at=inventory.locked_at,
                 approved_at=inventory.approved_at,
                 latest_calculation_run_id=latest_run.id if latest_run else None,
+                scope_2_headline_basis=scope_2_headline_basis,
                 total_kg_co2e=totals["total"],
                 scope_1_kg_co2e=totals["scope_1"],
+                scope_2_location_based_kg_co2e=totals["scope_2_location_based"],
+                scope_2_market_based_kg_co2e=totals["scope_2_market_based"],
                 scope_2_kg_co2e=totals["scope_2"],
                 scope_3_kg_co2e=totals["scope_3"],
                 created_at=inventory.created_at,
@@ -227,8 +234,15 @@ async def get_inventory_response(
     db: AsyncSession,
     tenant_id: UUID,
     inventory_id: UUID,
+    scope_2_headline_basis: Scope2HeadlineBasis,
 ) -> InventoryResponse | None:
-    items, _ = await list_inventories(db, tenant_id, 200, 0)
+    items, _ = await list_inventories(
+        db,
+        tenant_id,
+        200,
+        0,
+        scope_2_headline_basis,
+    )
     return next((item for item in items if item.id == inventory_id), None)
 
 
@@ -344,8 +358,15 @@ async def list_audit_reports(
 async def dashboard_summary(
     db: AsyncSession,
     tenant_id: UUID,
+    scope_2_headline_basis: Scope2HeadlineBasis,
 ) -> DashboardSummaryResponse:
-    inventories, inventory_count = await list_inventories(db, tenant_id, 200, 0)
+    inventories, inventory_count = await list_inventories(
+        db,
+        tenant_id,
+        200,
+        0,
+        scope_2_headline_basis,
+    )
     total_kg = sum(
         (
             item.total_kg_co2e
@@ -398,6 +419,23 @@ async def dashboard_summary(
         or 0
     )
     return DashboardSummaryResponse(
+        scope_2_headline_basis=scope_2_headline_basis,
+        scope_2_location_based_kg_co2e=sum(
+            (
+                item.scope_2_location_based_kg_co2e
+                for item in inventories
+                if item.scope_2_location_based_kg_co2e is not None
+            ),
+            Decimal("0"),
+        ),
+        scope_2_market_based_kg_co2e=sum(
+            (
+                item.scope_2_market_based_kg_co2e
+                for item in inventories
+                if item.scope_2_market_based_kg_co2e is not None
+            ),
+            Decimal("0"),
+        ),
         total_kg_co2e=total_kg,
         total_t_co2e=total_kg / Decimal("1000"),
         inventory_count=inventory_count,
@@ -411,34 +449,78 @@ async def dashboard_summary(
 async def _calculation_totals(
     db: AsyncSession,
     run_id: UUID | None,
+    scope_2_headline_basis: Scope2HeadlineBasis,
 ) -> dict[str, Decimal | None]:
     if run_id is None:
         return {
             "total": None,
             "scope_1": None,
             "scope_2": None,
+            "scope_2_location_based": None,
+            "scope_2_market_based": None,
             "scope_3": None,
         }
-    rows = list(
-        (
-            await db.execute(
-                select(
-                    CalculationResult.scope,
-                    func.sum(CalculationResult.allocated_kg_co2e),
-                )
-                .where(CalculationResult.calculation_run_id == run_id)
-                .group_by(CalculationResult.scope)
+    result_rows = (
+        await db.execute(
+            select(
+                CalculationResult.scope,
+                CalculationResult.scope_2_method,
+                func.sum(CalculationResult.allocated_kg_co2e),
             )
-        ).all()
+            .where(CalculationResult.calculation_run_id == run_id)
+            .group_by(
+                CalculationResult.scope,
+                CalculationResult.scope_2_method,
+            )
+        )
+    ).all()
+    rows = [
+        (scope, method, Decimal(str(value)))
+        for scope, method, value in result_rows
+    ]
+    return aggregate_inventory_totals(rows, scope_2_headline_basis)
+
+
+def aggregate_inventory_totals(
+    rows: list[tuple[EmissionScope, Scope2Method, Decimal]],
+    scope_2_headline_basis: Scope2HeadlineBasis,
+) -> dict[str, Decimal | None]:
+    """Keep Scope 2 methods separate and select exactly one for the headline."""
+    zero = Decimal("0")
+    scope_1 = sum(
+        (Decimal(str(value)) for scope, _, value in rows if scope == EmissionScope.SCOPE_1),
+        zero,
     )
-    by_scope = {
-        scope.value: Decimal(str(value))
-        for scope, value in rows
-    }
-    total = sum(by_scope.values(), Decimal("0"))
+    scope_2_location_based = sum(
+        (
+            Decimal(str(value))
+            for scope, method, value in rows
+            if scope == EmissionScope.SCOPE_2 and method == Scope2Method.LOCATION_BASED
+        ),
+        zero,
+    )
+    scope_2_market_based = sum(
+        (
+            Decimal(str(value))
+            for scope, method, value in rows
+            if scope == EmissionScope.SCOPE_2 and method == Scope2Method.MARKET_BASED
+        ),
+        zero,
+    )
+    scope_3 = sum(
+        (Decimal(str(value)) for scope, _, value in rows if scope == EmissionScope.SCOPE_3),
+        zero,
+    )
+    selected_scope_2 = (
+        scope_2_location_based
+        if scope_2_headline_basis == Scope2HeadlineBasis.LOCATION_BASED
+        else scope_2_market_based
+    )
     return {
-        "total": total,
-        "scope_1": by_scope.get("scope_1", Decimal("0")),
-        "scope_2": by_scope.get("scope_2", Decimal("0")),
-        "scope_3": by_scope.get("scope_3", Decimal("0")),
+        "total": scope_1 + selected_scope_2 + scope_3,
+        "scope_1": scope_1,
+        "scope_2": selected_scope_2,
+        "scope_2_location_based": scope_2_location_based,
+        "scope_2_market_based": scope_2_market_based,
+        "scope_3": scope_3,
     }

@@ -57,6 +57,11 @@ t_co2e =
 Location-based and market-based activities are stored separately through the
 `scope_2_method` field and remain separate in summaries.
 
+The inventory register and dashboard require an explicit Scope 2 headline
+basis. Both location-based and market-based totals are disclosed, while the
+headline corporate total includes exactly one selected Scope 2 total. The two
+methods must never be added together.
+
 ## APIs
 
 ```text

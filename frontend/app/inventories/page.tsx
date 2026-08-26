@@ -28,7 +28,10 @@ function tonnes(value: string | null): string {
 }
 
 export default function InventoriesPage() {
-  const inventories = useApiQuery<ListResponse<Inventory>>("/inventories?limit=200");
+  const [scope2HeadlineBasis, setScope2HeadlineBasis] = useState<"location_based" | "market_based">("location_based");
+  const inventories = useApiQuery<ListResponse<Inventory>>(
+    `/inventories?limit=200&scope_2_headline_basis=${scope2HeadlineBasis}`
+  );
   const periods = useApiQuery<ListResponse<GovernedReportingPeriod>>("/reporting-periods");
   const organisations = useApiQuery<ListResponse<Organisation>>("/organisations?limit=200");
   const [inventoryModal, setInventoryModal] = useState(false);
@@ -113,6 +116,7 @@ export default function InventoriesPage() {
         description="Track reporting periods, calculations, approvals, locks and restatements."
         actions={
           <>
+            <label>Headline Scope 2 basis<select aria-label="Headline Scope 2 basis" onChange={(event) => setScope2HeadlineBasis(event.target.value as "location_based" | "market_based")} value={scope2HeadlineBasis}><option value="location_based">Location-based</option><option value="market_based">Market-based</option></select></label>
             <button className="button button-secondary" onClick={() => setPeriodModal(true)} type="button">Add reporting period</button>
             <button className="button button-primary" onClick={() => setInventoryModal(true)} type="button"><PlusIcon /> Create inventory</button>
           </>
@@ -144,14 +148,15 @@ export default function InventoriesPage() {
           <div><p className="eyebrow">Inventory register</p><h2>Reporting inventories</h2></div>
           <span className="record-count">{inventories.data?.total ?? 0} records</span>
         </div>
-        <DataTable caption="Reporting inventories" headers={["Inventory", "Organisation", "Version", "Scope 1", "Scope 2", "Scope 3", "Total", "Status"]}>
+        <DataTable caption="Reporting inventories with separate Scope 2 methods" headers={["Inventory", "Organisation", "Version", "Scope 1", "Scope 2 location-based", "Scope 2 market-based", "Scope 3", `Headline total (${scope2HeadlineBasis === "location_based" ? "location-based" : "market-based"})`, "Status"]}>
           {(inventories.data?.items ?? []).map((inventory) => (
             <tr key={inventory.id}>
               <td><div className="stacked-cell"><strong>{inventory.name}</strong><span>{inventory.reporting_period_name}</span></div></td>
               <td>{inventory.organisation_name}</td>
               <td>v{inventory.version}</td>
               <td>{tonnes(inventory.scope_1_kg_co2e)}</td>
-              <td>{tonnes(inventory.scope_2_kg_co2e)}</td>
+              <td>{tonnes(inventory.scope_2_location_based_kg_co2e)}</td>
+              <td>{tonnes(inventory.scope_2_market_based_kg_co2e)}</td>
               <td>{tonnes(inventory.scope_3_kg_co2e)}</td>
               <td><strong>{tonnes(inventory.total_kg_co2e)}</strong></td>
               <td><StatusBadge status={inventory.status} /></td>

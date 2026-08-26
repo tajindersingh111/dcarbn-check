@@ -8,6 +8,7 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from app.models.inventory import InventoryStatus
 from app.models.inventory_governance import ApprovalStatus, ReportStatus
+from app.schemas.calculation import Scope2HeadlineBasis
 
 
 class ReportingPeriodCreate(BaseModel):
@@ -82,8 +83,11 @@ class InventoryResponse(BaseModel):
     locked_at: datetime | None
     approved_at: datetime | None
     latest_calculation_run_id: UUID | None
+    scope_2_headline_basis: Scope2HeadlineBasis
     total_kg_co2e: Decimal | None
     scope_1_kg_co2e: Decimal | None
+    scope_2_location_based_kg_co2e: Decimal | None
+    scope_2_market_based_kg_co2e: Decimal | None
     scope_2_kg_co2e: Decimal | None
     scope_3_kg_co2e: Decimal | None
     created_at: datetime
@@ -157,6 +161,9 @@ class AuditReportListResponse(BaseModel):
 
 
 class DashboardSummaryResponse(BaseModel):
+    scope_2_headline_basis: Scope2HeadlineBasis
+    scope_2_location_based_kg_co2e: Decimal
+    scope_2_market_based_kg_co2e: Decimal
     total_kg_co2e: Decimal
     total_t_co2e: Decimal
     inventory_count: int

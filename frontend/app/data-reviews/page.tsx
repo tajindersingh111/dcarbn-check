@@ -23,7 +23,9 @@ function classification(scope: string | null, category: number | null): string {
 
 export default function DataReviewsPage() {
   const reviews = useApiQuery<ListResponse<DataReviewQueueItem>>("/integrations/data/reviews?limit=200");
-  const inventories = useApiQuery<ListResponse<Inventory>>("/inventories?limit=200");
+  const inventories = useApiQuery<ListResponse<Inventory>>(
+    "/inventories?limit=200&scope_2_headline_basis=location_based"
+  );
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [inventoryId, setInventoryId] = useState("");
   const [comment, setComment] = useState("");

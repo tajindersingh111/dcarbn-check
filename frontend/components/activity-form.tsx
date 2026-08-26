@@ -400,7 +400,7 @@ export function ActivityForm() {
     "/organisations?limit=200"
   );
   const inventories = useApiQuery<ListResponse<Inventory>>(
-    "/inventories?limit=200"
+    "/inventories?limit=200&scope_2_headline_basis=location_based"
   );
   const [values, setValues] = useState(blankValues);
   const [message, setMessage] = useState<string | null>(null);
