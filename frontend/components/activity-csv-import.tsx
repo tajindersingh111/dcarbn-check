@@ -30,6 +30,11 @@ interface ParsedActivityFile {
   rows: string[][];
 }
 
+type InventoryDateBoundary = Pick<
+  Inventory,
+  "reporting_period_start" | "reporting_period_end"
+>;
+
 const requiredColumns = [
   "calculation_method_id",
   "activity_date",
@@ -63,7 +68,7 @@ function rowFromCsv(
   headers: string[],
   cells: string[],
   index: number,
-  inventory: Inventory | undefined
+  inventory: InventoryDateBoundary | undefined
 ): ActivityImportRow {
   const values = Object.fromEntries(
     headers.map((header, columnIndex) => [
@@ -184,6 +189,8 @@ export function ActivityCsvImport({
     [inventories.data, organisationId]
   );
   const inventory = filteredInventories.find((item) => item.id === inventoryId);
+  const inventoryStart = inventory?.reporting_period_start;
+  const inventoryEnd = inventory?.reporting_period_end;
   const validCount = rows.filter((row) => row.errors.length === 0).length;
   const importedCount = rows.filter((row) => row.status === "imported").length;
 
@@ -201,12 +208,19 @@ export function ActivityCsvImport({
 
   useEffect(() => {
     if (!sourceRows) return;
+    const inventoryBoundary =
+      inventoryStart && inventoryEnd
+        ? {
+            reporting_period_start: inventoryStart,
+            reporting_period_end: inventoryEnd
+          }
+        : undefined;
     setRows(
       sourceRows.rows.map((cells, index) =>
-        rowFromCsv(sourceRows.headers, cells, index + 2, inventory)
+        rowFromCsv(sourceRows.headers, cells, index + 2, inventoryBoundary)
       )
     );
-  }, [inventory, sourceRows]);
+  }, [inventoryEnd, inventoryStart, sourceRows]);
 
   function downloadTemplate() {
     const blob = new Blob([templateCsv], { type: "text/csv;charset=utf-8" });
