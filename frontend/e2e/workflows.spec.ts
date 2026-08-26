@@ -122,7 +122,9 @@ test("approval deep link opens a preselected request when no active request exis
   );
 
   await expect(page.getByRole("dialog")).toBeVisible();
-  await expect(page.getByLabel("Inventory")).toHaveValue(inventoryId);
+  await expect(
+    page.getByRole("dialog").locator('select[name="inventory_id"]')
+  ).toHaveValue(inventoryId);
 });
 
 test("audit report register opens the immutable payload", async ({ page }) => {

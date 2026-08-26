@@ -497,7 +497,7 @@ export function ActivityCsvImport({
           <InventoryCalculationRunner
             inventoryId={inventory.id}
             inventoryName={inventory.name}
-            onCompleted={inventories.refresh}
+            onCompleted={() => inventories.refresh({ silent: true })}
           />
         </section>
       ) : null}

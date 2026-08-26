@@ -186,7 +186,7 @@ export default function InventoriesPage() {
           <InventoryCalculationRunner
             inventoryId={calculationInventory.id}
             inventoryName={calculationInventory.name}
-            onCompleted={inventories.refresh}
+            onCompleted={() => inventories.refresh({ silent: true })}
           />
         ) : null}
       </Modal>
