@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import date
 from io import BytesIO
+from unittest.mock import AsyncMock, patch
 
 import pytest
 from fastapi import HTTPException, UploadFile
@@ -158,16 +159,18 @@ async def test_excel_activity_parse_api_accepts_governed_workbook(
         ]
     )
 
-    response = await client.post(
-        "/api/v1/activity-imports/parse-workbook",
-        files={
-            "workbook": (
-                "activity-upload.xlsx",
-                content,
-                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            )
-        },
-    )
+    with patch("app.middleware.rate_limit.get_redis") as get_redis:
+        get_redis.return_value.eval = AsyncMock(return_value=[1, 60])
+        response = await client.post(
+            "/api/v1/activity-imports/parse-workbook",
+            files={
+                "workbook": (
+                    "activity-upload.xlsx",
+                    content,
+                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                )
+            },
+        )
 
     assert response.status_code == 200, response.text
     assert response.json()["headers"] == HEADERS
